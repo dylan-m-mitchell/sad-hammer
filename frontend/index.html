@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sad Hammer — Frontend</title>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/axios/dist/axios.min.js"
+    ></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+      }
+      .pane {
+        display: inline-block;
+        vertical-align: top;
+      }
+      #units {
+        width: 320px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      #log {
+        width: 560px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
+        margin-left: 12px;
+      }
+      button {
+        margin: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sad Hammer — Frontend</h1>
+    <div>
+      <input id="file" type="file" />
+      <button id="create-session">Upload & Start Session</button>
+      <span style="margin-left:12px">Session ID: <span id="session-id">(none)</span></span>
+    </div>
+    <div style="margin-top:8px">
+      <button id="fetch-state">Get Session State</button>
+      <button id="ai-turn">Run AI Turn</button>
+    </div>
+    <div style="margin-top:8px">
+      <strong>Session Log Viewer:</strong>
+      <div id="log-controls" style="margin-top:6px">
+        Page: <span id="log-page">1</span>
+        <button id="log-prev">Prev</button>
+        <button id="log-next">Next</button>
+        Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
+        <button id="fetch-log">View Log</button>
+      </div>
+      <label style="margin-left:12px"><input id="compact-toggle" type="checkbox" checked /> Compact view</label>
+      <div id="log-items" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#fff"></div>
+    </div>
+    <div style="margin-top: 12px">
+      <div id="units" class="pane"></div>
+      <div id="log" class="pane"></div>
+    </div>
+    <div style="margin-top:8px">
+      <textarea id="notes" placeholder="Player notes (free-form)" style="width:920px;height:80px"></textarea>
+      <br/>
+      <button id="submit-note">Save Note</button>
+      <button id="fetch-notes">Get Notes</button>
+      <div id="notes-list" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:140px;overflow:auto"></div>
+    </div>
+    <script>
+      const api = {
+        createSessionFromFile: (file) => {
+          const fd = new FormData();
+          fd.append("file", file);
+          return axios.post("/api/session", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+        },
+        createSessionFromUnits: (units) => {
+          return axios.post("/api/session", { units }).then((r) => r.data);
+        },
+  getSession: (id) => axios.get(`/api/session/${id}`).then((r) => r.data),
+  postAiTurn: (id) => axios.post(`/api/session/${id}/ai_turn`).then((r) => r.data),
+      };
+
+      const unitsEl = document.getElementById("units");
+      const logEl = document.getElementById("log");
+      const fileInput = document.getElementById("file");
+      const sessionIdEl = document.getElementById("session-id");
+
+      let currentSession = null;
+
+      document.getElementById("create-session").addEventListener("click", () => {
+        const f = fileInput.files[0];
+        if (!f) {
+          alert("Choose an HTML roster first");
+          return;
+        }
+        api
+          .createSessionFromFile(f)
+          .then((data) => {
+            currentSession = data.session_id;
+            sessionIdEl.textContent = currentSession;
+            logEl.innerHTML += `Created session ${currentSession}\n`;
+          })
+          .catch((e) => alert("Failed to create session: " + (e.response?.data?.error || e.message)));
+      });
+
+      document.getElementById("fetch-state").addEventListener("click", () => {
+        if (!currentSession) return alert('No session. Create one first.');
+        api.getSession(currentSession).then((data) => {
+          unitsEl.innerHTML = '';
+          // show AI profiles (full parsed roster) when available
+          const profiles = data.ai_profiles || [];
+          if (profiles.length === 0) {
+            // fallback to ai_units summary
+            (data.ai_units || []).forEach(u => {
+              const d = document.createElement('div');
+              d.textContent = `${u.name} — ${u.aggression || ''}`;
+              unitsEl.appendChild(d);
+            });
+          } else {
+              profiles.forEach(u => {
+                const d = document.createElement('div');
+                let kw = '';
+                if (u.keywords && u.keywords.length) kw = ' - ' + u.keywords.join(', ');
+                let html = `<strong>${u.name}</strong> ${kw}<br/>Wounds: ${u.wounds_per_model || '?'} Attacks: ${u.attacks || '?'} `;
+                if (u.weapons && u.weapons.length) {
+                  html += '<br/><em>Weapons:</em><ul>' + u.weapons.map(w => `<li>${w.name || w.title || 'weapon'} — dmg:${(w.damage && (w.damage.type==='D')?('D'+w.damage.sides):w.damage) || ''} to_hit:${w.to_hit||''} to_wound:${w.to_wound||''}</li>`).join('') + '</ul>';
+                }
+                d.innerHTML = html;
+                unitsEl.appendChild(d);
+              });
+          }
+          logEl.innerHTML += `Fetched session state (turn ${data.turn})\n`;
+          (data.log || []).forEach(e => logEl.innerHTML += (e.text || JSON.stringify(e)) + '\n');
+        }).catch(e => alert('Failed to fetch session: ' + (e.response?.data?.error || e.message)));
+      });
+
+      document.getElementById('ai-turn').addEventListener('click', () => {
+        if (!currentSession) return alert('No session. Create one first.');
+        api.postAiTurn(currentSession).then(resp => {
+            // server returns plain text summary; render it as a separate pre block
+            const text = resp.data || resp;
+            const pre = document.createElement('pre');
+            pre.style.background = '#fafafa';
+            pre.style.border = '1px solid #eee';
+            pre.style.padding = '8px';
+            pre.style.marginTop = '8px';
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.textContent = (typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+            logEl.appendChild(pre);
+            // keep scroll at bottom
+            logEl.scrollTop = logEl.scrollHeight;
+          }).catch(e => {
+            const msg = e.response?.data || e.message;
+            alert('AI turn failed: ' + (typeof msg === 'string' ? msg : (msg?.error || JSON.stringify(msg))));
+          });
+      });
+
+        document.getElementById('submit-note').addEventListener('click', () => {
+          if (!currentSession) return alert('No session');
+          const txt = document.getElementById('notes').value || '';
+          if (!txt) return alert('Note empty');
+          axios.post(`/api/session/${currentSession}/notes`, { text: txt }).then(r => {
+            logEl.innerHTML += `Saved note\n`;
+            document.getElementById('notes').value = '';
+          }).catch(e => alert('Failed to save note: ' + (e.response?.data?.error || e.message)));
+        });
+
+        document.getElementById('fetch-notes').addEventListener('click', () => {
+          if (!currentSession) return alert('No session');
+          axios.get(`/api/session/${currentSession}/notes`).then(r => {
+            const list = document.getElementById('notes-list');
+            list.innerHTML = '';
+            (r.data.notes || []).forEach(n => { const d = document.createElement('div'); d.textContent = n.text; list.appendChild(d); });
+          }).catch(e => alert('Failed to fetch notes: ' + (e.response?.data?.error || e.message)));
+        });
+
+        // Session log viewer state
+        let logPage = 1;
+
+        document.getElementById('fetch-log').addEventListener('click', () => {
+          if (!currentSession) return alert('No session');
+          const size = parseInt(document.getElementById('log-size').value) || 20;
+          axios.get(`/api/session/${currentSession}/log?page=${logPage}&size=${size}`).then(r => {
+            const items = r.data.items || [];
+            const container = document.getElementById('log-items');
+            container.innerHTML = '';
+              const compact = document.getElementById('compact-toggle')?.checked;
+              items.forEach(it => {
+                if (compact) {
+                  // compact, human readable rendering
+                  if (it.event === 'no_tactic_available') {
+                    const d = document.createElement('div'); d.textContent = 'No tactic available'; d.style.opacity = '0.8'; d.style.margin='6px 0'; container.appendChild(d); return;
+                  }
+                  if (it.aggression_check !== undefined) {
+                    const act = it.aggression_check ? 'ACT' : 'HOLD';
+                    const line = `${it.unit}: ${act} (d6=${it.roll} + mod=${it.modifier} => ${it.total} vs ${it.target})`;
+                    const d = document.createElement('div'); d.textContent = line; d.style.margin='4px 0'; container.appendChild(d); return;
+                  }
+                  if (it.action_resolved) {
+                    const a = it.action_resolved;
+                    const line = `ACTION: ${a.unit} -> ${a.card_title} (init=${a.initiative}) ${a.behavior || ''}`;
+                    const d = document.createElement('div'); d.textContent = line; d.style.fontWeight='600'; d.style.margin='4px 0'; container.appendChild(d); return;
+                  }
+                  // fallback JSON
+                  const pre = document.createElement('pre');
+                  pre.style.margin = '4px 0';
+                  pre.style.background = '#fafafa';
+                  pre.style.border = '1px solid #eee';
+                  pre.style.padding = '6px';
+                  pre.textContent = JSON.stringify(it, null, 2);
+                  container.appendChild(pre);
+                } else {
+                  const pre = document.createElement('pre');
+                  pre.style.margin = '4px 0';
+                  pre.style.background = '#fafafa';
+                  pre.style.border = '1px solid #eee';
+                  pre.style.padding = '6px';
+                  pre.textContent = JSON.stringify(it, null, 2);
+                  container.appendChild(pre);
+                }
+              });
+            document.getElementById('log-page').textContent = r.data.page || logPage;
+          }).catch(e => alert('Failed to fetch log: ' + (e.response?.data?.error || e.message)));
+        });
+
+        document.getElementById('log-prev').addEventListener('click', () => {
+          if (logPage > 1) { logPage -= 1; document.getElementById('fetch-log').click(); }
+        });
+        document.getElementById('log-next').addEventListener('click', () => {
+          logPage += 1; document.getElementById('fetch-log').click();
+        });
+
+      // Composer removed — UI focuses on AI units and AI-turn stepping only.
+    </script>
+    </script>
+  </body>
+</html>

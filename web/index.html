@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sad Hammer — Web Frontend</title>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/axios/dist/axios.min.js"
+    ></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+      }
+      .pane {
+        display: inline-block;
+        vertical-align: top;
+      }
+      #units {
+        width: 320px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      #log {
+        width: 560px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
+        margin-left: 12px;
+      }
+      button {
+        margin: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sad Hammer — Web Frontend</h1>
+    <div>
+      <input id="file" type="file" />
+      <button id="load">Upload & Parse</button>
+      <button id="run">Run Simulation</button>
+    </div>
+    <div style="margin-top: 12px">
+      <div id="units" class="pane"></div>
+      <div id="log" class="pane"></div>
+    </div>
+    <script>
+      const api = {
+        loadRoster: (file) => {
+          const fd = new FormData();
+          fd.append("file", file);
+          return axios
+            .post("/api/load_roster", fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            })
+            .then((r) => r.data);
+        },
+        runSimulation: (units, turns = 5, seed = 1) => {
+          return axios
+            .post("/api/run_simulation", { units, turns, seed })
+            .then((r) => r.data);
+        },
+      };
+
+      const unitsEl = document.getElementById("units");
+      const logEl = document.getElementById("log");
+      const fileInput = document.getElementById("file");
+
+      document.getElementById("load").addEventListener("click", () => {
+        const f = fileInput.files[0];
+        if (!f) {
+          alert("Choose an HTML roster first");
+          return;
+        }
+        api
+          .loadRoster(f)
+          .then((data) => {
+            unitsEl.innerHTML = "";
+            (data.units || []).forEach((u) => {
+              const div = document.createElement("div");
+              div.textContent = `${u.name} — ${u.models} models, ${u.wounds_per_model} wpmodel`;
+              unitsEl.appendChild(div);
+            });
+            logEl.innerHTML += `Loaded ${(data.units || []).length} units\n`;
+          })
+          .catch((e) => {
+            alert(
+              "Failed to load roster: " + (e.response?.data?.error || e.message)
+            );
+          });
+      });
+
+      document.getElementById("run").addEventListener("click", () => {
+        const units = [];
+        unitsEl.querySelectorAll("div").forEach((d) => {
+          const parts = d.textContent.split(" — ");
+          units.push({ name: parts[0], models: 1 });
+        });
+        api
+          .runSimulation(units, 3, 2)
+          .then((data) => {
+            logEl.innerHTML += "Simulation events:\n";
+            (data.events || []).forEach((ev) => {
+              logEl.innerHTML += (ev.text || JSON.stringify(ev)) + "\n";
+            });
+          })
+          .catch((e) => {
+            alert("Sim failed: " + (e.response?.data?.error || e.message));
+          });
+      });
+    </script>
+  </body>
+</html>
