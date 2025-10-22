@@ -49,6 +49,12 @@
     <h1>Sad Hammer — Frontend</h1>
     <div>
       <input id="file" type="file" />
+      <label style="margin-left:8px">AI roll handling:
+        <select id="roll-mode">
+          <option value="ai">AI handles rolls</option>
+          <option value="player">Player handles AI rolls</option>
+        </select>
+      </label>
       <button id="create-session">Upload & Start Session</button>
       <span style="margin-left:12px">Session ID: <span id="session-id">(none)</span></span>
     </div>
@@ -72,6 +78,14 @@
       <div id="units" class="pane"></div>
       <div id="log" class="pane"></div>
     </div>
+    <div style="margin-top:12px">
+      <div id="pending-rolls" style="width:920px;border:1px dashed #ccc;padding:8px;margin-top:6px;display:none">
+        <strong>Pending roll requests</strong>
+        <div id="pending-list"></div>
+        <button id="submit-rolls">Submit Rolls</button>
+        <div id="roll-errors" style="color:#900;margin-top:6px"></div>
+      </div>
+    </div>
     <div style="margin-top:8px">
       <textarea id="notes" placeholder="Player notes (free-form)" style="width:920px;height:80px"></textarea>
       <br/>
@@ -81,16 +95,18 @@
     </div>
     <script>
       const api = {
-        createSessionFromFile: (file) => {
+        createSessionFromFile: (file, rollMode = 'ai') => {
           const fd = new FormData();
           fd.append("file", file);
+          fd.append("roll_mode", rollMode);
           return axios.post("/api/session", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
         },
-        createSessionFromUnits: (units) => {
-          return axios.post("/api/session", { units }).then((r) => r.data);
+        createSessionFromUnits: (units, rollMode = 'ai') => {
+          return axios.post("/api/session", { units, roll_mode: rollMode }).then((r) => r.data);
         },
   getSession: (id) => axios.get(`/api/session/${id}`).then((r) => r.data),
   postAiTurn: (id) => axios.post(`/api/session/${id}/ai_turn`).then((r) => r.data),
+  postResolveRolls: (id, payload) => axios.post(`/api/session/${id}/resolve_rolls`, payload).then((r) => r.data),
       };
 
       const unitsEl = document.getElementById("units");
@@ -106,12 +122,16 @@
           alert("Choose an HTML roster first");
           return;
         }
+        const rollMode = document.getElementById('roll-mode')?.value || 'ai';
         api
-          .createSessionFromFile(f)
+          .createSessionFromFile(f, rollMode)
           .then((data) => {
             currentSession = data.session_id;
             sessionIdEl.textContent = currentSession;
             logEl.innerHTML += `Created session ${currentSession}\n`;
+            // show selected roll mode in UI
+            const mode = data.state?.roll_mode || rollMode || 'ai';
+            logEl.innerHTML += `Roll handling: ${mode}\n`;
           })
           .catch((e) => alert("Failed to create session: " + (e.response?.data?.error || e.message)));
       });
@@ -143,6 +163,9 @@
               });
           }
           logEl.innerHTML += `Fetched session state (turn ${data.turn})\n`;
+          if (data.roll_mode) {
+            logEl.innerHTML += `Roll handling: ${data.roll_mode}\n`;
+          }
           (data.log || []).forEach(e => logEl.innerHTML += (e.text || JSON.stringify(e)) + '\n');
         }).catch(e => alert('Failed to fetch session: ' + (e.response?.data?.error || e.message)));
       });
@@ -162,10 +185,57 @@
             logEl.appendChild(pre);
             // keep scroll at bottom
             logEl.scrollTop = logEl.scrollHeight;
+            // Try to fetch last_turn structured events to detect roll_request
+            axios.get(`/api/session/${currentSession}/last_turn`).then(r => {
+              const events = r.data.events || [];
+              const rr = events.find(e => e.event === 'roll_request');
+              if (rr) {
+                const list = document.getElementById('pending-list');
+                list.innerHTML = '';
+                rr.pending_actions.forEach(a => {
+                  const row = document.createElement('div');
+                  row.style.margin = '6px 0';
+                  row.innerHTML = `<strong>${a.unit}</strong> — ${a.card_title} (req=${a.request_id}) init=${a.initiative} behavior=${a.behavior} <br/>Rolls (comma-separated): <input data-req="${a.request_id}" class="roll-input" style="width:120px;margin-left:6px" />`;
+                  list.appendChild(row);
+                });
+                document.getElementById('pending-rolls').style.display = 'block';
+              }
+            }).catch(() => {});
           }).catch(e => {
             const msg = e.response?.data || e.message;
             alert('AI turn failed: ' + (typeof msg === 'string' ? msg : (msg?.error || JSON.stringify(msg))));
           });
+      });
+
+      document.getElementById('submit-rolls').addEventListener('click', () => {
+        document.getElementById('roll-errors').textContent = '';
+        const inputs = Array.from(document.querySelectorAll('.roll-input'));
+        const payload = { action_results: [] };
+        inputs.forEach(inp => {
+          const rid = inp.getAttribute('data-req');
+          const raw = inp.value || '';
+          const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+          const nums = parts.map(p => parseInt(p, 10)).filter(n => !Number.isNaN(n));
+          // For simplicity send under `result.roll` as single int or array
+          const resultObj = {};
+          if (nums.length === 1) resultObj.roll = nums[0];
+          else if (nums.length > 1) resultObj.roll = nums;
+          payload.action_results.push({ request_id: rid, result: resultObj });
+        });
+
+        api.postResolveRolls(currentSession, payload).then(resp => {
+          // hide pending UI and show returned events
+          document.getElementById('pending-rolls').style.display = 'none';
+          const evpre = document.createElement('pre');
+          evpre.style.background = '#f6fff6';
+          evpre.style.border = '1px solid #cfc';
+          evpre.style.padding = '8px';
+          evpre.textContent = JSON.stringify(resp.events || [], null, 2);
+          logEl.appendChild(evpre);
+        }).catch(err => {
+          const data = err.response?.data || err.message;
+          document.getElementById('roll-errors').textContent = (data?.error || JSON.stringify(data));
+        });
       });
 
         document.getElementById('submit-note').addEventListener('click', () => {

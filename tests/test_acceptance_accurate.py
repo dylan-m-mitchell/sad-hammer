@@ -1,4 +1,11 @@
 import pytest
+import sys
+import os
+# make project root importable for test discovery
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
 from full_simulator import SoloSimulator, Unit
 from interactive_simulator import Unit as CombatUnit, resolve_attack
 
@@ -22,9 +29,9 @@ def test_tactic_pool_evolution_and_no_duplicates():
     sim = SoloSimulator(units, seed=1)
     # initial pool length
     initial = list(sim.tactic_pool)
-    # run three turns and observe pool/discard
+    # run three turns (simulate_turn increments sim.turn) and observe pool/discard
     for _ in range(3):
-        sim.choose_battle_tactic()
+        _ = sim.simulate_turn()
     # Broken Ranks should be in either pool or discard after turn 2
     assert 'Broken Ranks' in sim.tactic_pool or 'Broken Ranks' in sim.tactic_discard
     # No tactic should appear twice across pool+discard
