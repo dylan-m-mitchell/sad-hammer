@@ -241,6 +241,36 @@
             } else {
               pre.textContent = JSON.stringify(text, null, 2);
             }
+            // Wrap the pre block in a collapsible container with a toggle
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mb-3';
+            const header = document.createElement('div');
+            header.className = 'flex items-center justify-between gap-3';
+            const title = document.createElement('div');
+            title.className = 'text-sm font-medium';
+            title.textContent = `AI Turn Summary`;
+            const toggle = document.createElement('button');
+            toggle.className = 'text-xs text-blue-600 hover:underline';
+            toggle.type = 'button';
+            toggle.textContent = 'Collapse';
+            const content = document.createElement('div');
+            content.appendChild(pre);
+            let collapsed = false;
+            toggle.addEventListener('click', () => {
+              collapsed = !collapsed;
+              if (collapsed) {
+                content.style.display = 'none';
+                toggle.textContent = 'Expand';
+              } else {
+                content.style.display = '';
+                toggle.textContent = 'Collapse';
+              }
+            });
+            header.appendChild(title);
+            header.appendChild(toggle);
+            wrapper.appendChild(header);
+            wrapper.appendChild(content);
+            logEl.appendChild(wrapper);
             logEl.appendChild(pre);
             // keep scroll at bottom
             logEl.scrollTop = logEl.scrollHeight;
@@ -383,34 +413,61 @@
               items.forEach(it => {
                 // Create a card container for each log item for spacing and readability
                 const card = document.createElement('div');
-                card.className = 'mb-3 p-3 rounded border bg-white shadow-sm';
+                card.className = 'mb-3 p-0 rounded border bg-white shadow-sm overflow-hidden';
+                // header and collapse toggle
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'flex items-center justify-between p-3';
+                const cardTitle = document.createElement('div');
+                const cardToggle = document.createElement('button');
+                cardToggle.className = 'text-xs text-blue-600 hover:underline';
+                cardToggle.type = 'button';
+                cardToggle.textContent = 'Collapse';
+                cardHeader.appendChild(cardTitle);
+                cardHeader.appendChild(cardToggle);
+                const cardContent = document.createElement('div');
+                cardContent.className = 'p-3';
+
                 // Compact human-readable rendering
                 if (compact) {
                   if (it.event === 'no_tactic_available') {
-                    const t = document.createElement('div'); t.textContent = 'No tactic available'; t.className = 'text-gray-600'; card.appendChild(t); container.appendChild(card); return;
+                    cardTitle.textContent = 'No tactic available';
+                    cardContent.innerHTML = `<div class="text-gray-600">No tactic available</div>`;
+                    card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card); return;
                   }
                   if (it.aggression_check !== undefined) {
                     const badge = document.createElement('span'); badge.textContent = it.aggression_check ? 'ACT' : 'HOLD'; badge.className = it.aggression_check ? 'text-green-800 bg-green-100 px-2 py-0.5 rounded text-xs font-semibold' : 'text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs font-semibold';
-                    const header = document.createElement('div'); header.className = 'flex items-center justify-between';
-                    const left = document.createElement('div'); left.innerHTML = `<strong>${it.unit}</strong> <div class="text-sm text-gray-600">Aggression check</div>`;
-                    header.appendChild(left); header.appendChild(badge); card.appendChild(header);
-                    const detail = document.createElement('div'); detail.className = 'text-sm text-gray-700 mt-2'; detail.textContent = `d6=${it.roll} + mod=${it.modifier} => total=${it.total} vs target=${it.target}`;
-                    card.appendChild(detail); container.appendChild(card); return;
+                    cardTitle.innerHTML = `<strong>${it.unit}</strong> <div class="text-sm text-gray-600">Aggression check</div>`;
+                    cardContent.innerHTML = `<div class="text-sm text-gray-700">d6=${it.roll} + mod=${it.modifier} => total=${it.total} vs target=${it.target}</div>`;
+                    card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                    // toggle behavior
+                    cardToggle.addEventListener('click', () => {
+                      if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                    });
+                    return;
                   }
                   if (it.action_resolved) {
                     const a = it.action_resolved;
-                    const title = document.createElement('div'); title.className = 'font-semibold'; title.textContent = `${a.unit} → ${a.card_title || 'Action'}`;
-                    const meta = document.createElement('div'); meta.className = 'text-xs text-gray-600 mt-1'; meta.textContent = `init=${a.initiative} ${a.behavior || ''}`;
-                    card.appendChild(title); card.appendChild(meta);
-                    if (a.results) {
-                      const res = document.createElement('pre'); res.className = 'mt-2 p-2 bg-gray-50 border text-sm'; res.textContent = JSON.stringify(a.results, null, 2); card.appendChild(res);
-                    }
-                    container.appendChild(card); return;
+                    cardTitle.textContent = `${a.unit} → ${a.card_title || 'Action'}`;
+                    let metaHtml = `<div class="text-xs text-gray-600 mt-1">init=${a.initiative} ${a.behavior || ''}</div>`;
+                    if (a.results) metaHtml += `<pre class="mt-2 p-2 bg-gray-50 border text-sm">${JSON.stringify(a.results, null, 2)}</pre>`;
+                    cardContent.innerHTML = metaHtml;
+                    card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                    cardToggle.addEventListener('click', () => {
+                      if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                    });
+                    return;
                   }
                   // fallback JSON
-                  const pre = document.createElement('pre'); pre.className = 'bg-gray-50 border p-2 text-sm'; pre.textContent = JSON.stringify(it, null, 2); card.appendChild(pre); container.appendChild(card);
+                  cardTitle.textContent = 'Event';
+                  cardContent.innerHTML = `<pre class="bg-gray-50 border p-2 text-sm">${JSON.stringify(it, null, 2)}</pre>`;
+                  card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
                 } else {
-                  const pre = document.createElement('pre'); pre.className = 'bg-gray-50 border p-2 text-sm'; pre.textContent = JSON.stringify(it, null, 2); card.appendChild(pre); container.appendChild(card);
+                  cardTitle.textContent = 'Event';
+                  cardContent.innerHTML = `<pre class="bg-gray-50 border p-2 text-sm">${JSON.stringify(it, null, 2)}</pre>`;
+                  card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                  cardToggle.addEventListener('click', () => {
+                    if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                  });
                 }
               });
             document.getElementById('log-page').textContent = r.data.page || logPage;
