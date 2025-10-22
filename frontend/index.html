@@ -53,10 +53,10 @@
       <strong>Session Log Viewer:</strong>
       <div id="log-controls" style="margin-top:6px">
         Page: <span id="log-page">1</span>
-        <button id="log-prev">Prev</button>
-        <button id="log-next">Next</button>
-        Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
-        <button id="fetch-log">View Log</button>
+  <button id="log-prev" class="bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Previous log page">Prev</button>
+  <button id="log-next" class="bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Next log page">Next</button>
+  Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
+  <button id="fetch-log" class="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="View session log">View Log</button>
       </div>
       <label style="margin-left:12px"><input id="compact-toggle" type="checkbox" checked /> Compact view</label>
       <div id="log-items" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#fff"></div>
@@ -85,9 +85,9 @@
     </div>
     <div style="margin-top:8px">
       <textarea id="notes" placeholder="Player notes (free-form)" style="width:920px;height:80px"></textarea>
-      <br/>
-      <button id="submit-note">Save Note</button>
-      <button id="fetch-notes">Get Notes</button>
+  <br/>
+  <button id="submit-note" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400" aria-label="Save player note">Save Note</button>
+  <button id="fetch-notes" class="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Get saved notes">Get Notes</button>
       <div id="notes-list" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:140px;overflow:auto"></div>
     </div>
     <script>
