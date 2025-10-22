@@ -1,0 +1,4 @@
+pytest
+beautifulsoup4
+flask
+flask-cors
