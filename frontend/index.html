@@ -365,37 +365,36 @@
             container.innerHTML = '';
               const compact = document.getElementById('compact-toggle')?.checked;
               items.forEach(it => {
+                // Create a card container for each log item for spacing and readability
+                const card = document.createElement('div');
+                card.className = 'mb-3 p-3 rounded border bg-white shadow-sm';
+                // Compact human-readable rendering
                 if (compact) {
-                  // compact, human readable rendering
                   if (it.event === 'no_tactic_available') {
-                    const d = document.createElement('div'); d.textContent = 'No tactic available'; d.style.opacity = '0.8'; d.style.margin='6px 0'; container.appendChild(d); return;
+                    const t = document.createElement('div'); t.textContent = 'No tactic available'; t.className = 'text-gray-600'; card.appendChild(t); container.appendChild(card); return;
                   }
                   if (it.aggression_check !== undefined) {
-                    const act = it.aggression_check ? 'ACT' : 'HOLD';
-                    const line = `${it.unit}: ${act} (d6=${it.roll} + mod=${it.modifier} => ${it.total} vs ${it.target})`;
-                    const d = document.createElement('div'); d.textContent = line; d.style.margin='4px 0'; container.appendChild(d); return;
+                    const badge = document.createElement('span'); badge.textContent = it.aggression_check ? 'ACT' : 'HOLD'; badge.className = it.aggression_check ? 'text-green-800 bg-green-100 px-2 py-0.5 rounded text-xs font-semibold' : 'text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs font-semibold';
+                    const header = document.createElement('div'); header.className = 'flex items-center justify-between';
+                    const left = document.createElement('div'); left.innerHTML = `<strong>${it.unit}</strong> <div class="text-sm text-gray-600">Aggression check</div>`;
+                    header.appendChild(left); header.appendChild(badge); card.appendChild(header);
+                    const detail = document.createElement('div'); detail.className = 'text-sm text-gray-700 mt-2'; detail.textContent = `d6=${it.roll} + mod=${it.modifier} => total=${it.total} vs target=${it.target}`;
+                    card.appendChild(detail); container.appendChild(card); return;
                   }
                   if (it.action_resolved) {
                     const a = it.action_resolved;
-                    const line = `ACTION: ${a.unit} -> ${a.card_title} (init=${a.initiative}) ${a.behavior || ''}`;
-                    const d = document.createElement('div'); d.textContent = line; d.style.fontWeight='600'; d.style.margin='4px 0'; container.appendChild(d); return;
+                    const title = document.createElement('div'); title.className = 'font-semibold'; title.textContent = `${a.unit} → ${a.card_title || 'Action'}`;
+                    const meta = document.createElement('div'); meta.className = 'text-xs text-gray-600 mt-1'; meta.textContent = `init=${a.initiative} ${a.behavior || ''}`;
+                    card.appendChild(title); card.appendChild(meta);
+                    if (a.results) {
+                      const res = document.createElement('pre'); res.className = 'mt-2 p-2 bg-gray-50 border text-sm'; res.textContent = JSON.stringify(a.results, null, 2); card.appendChild(res);
+                    }
+                    container.appendChild(card); return;
                   }
                   // fallback JSON
-                  const pre = document.createElement('pre');
-                  pre.style.margin = '4px 0';
-                  pre.style.background = '#fafafa';
-                  pre.style.border = '1px solid #eee';
-                  pre.style.padding = '6px';
-                  pre.textContent = JSON.stringify(it, null, 2);
-                  container.appendChild(pre);
+                  const pre = document.createElement('pre'); pre.className = 'bg-gray-50 border p-2 text-sm'; pre.textContent = JSON.stringify(it, null, 2); card.appendChild(pre); container.appendChild(card);
                 } else {
-                  const pre = document.createElement('pre');
-                  pre.style.margin = '4px 0';
-                  pre.style.background = '#fafafa';
-                  pre.style.border = '1px solid #eee';
-                  pre.style.padding = '6px';
-                  pre.textContent = JSON.stringify(it, null, 2);
-                  container.appendChild(pre);
+                  const pre = document.createElement('pre'); pre.className = 'bg-gray-50 border p-2 text-sm'; pre.textContent = JSON.stringify(it, null, 2); card.appendChild(pre); container.appendChild(card);
                 }
               });
             document.getElementById('log-page').textContent = r.data.page || logPage;
