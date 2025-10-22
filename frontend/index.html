@@ -23,6 +23,11 @@
       .pane { display: inline-block; vertical-align: top; }
       /* responsive layout handled by Tailwind classes on elements; avoid fixed pixel sizes here */
       button { margin: 4px; }
+      /* collapse transition helper */
+      .collapse-content { overflow: hidden; transition: max-height 320ms ease; }
+      .btn-icon { background: transparent; border: none; padding: 4px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+      .toggle-icon { transition: transform 220ms ease; display:inline-block; }
+      .rotate-180 { transform: rotate(180deg); }
     </style>
   </head>
   <body>
@@ -250,20 +255,26 @@
             title.className = 'text-sm font-medium';
             title.textContent = `AI Turn Summary`;
             const toggle = document.createElement('button');
-            toggle.className = 'text-xs text-blue-600 hover:underline';
+            toggle.className = 'btn-icon';
             toggle.type = 'button';
-            toggle.textContent = 'Collapse';
+            toggle.setAttribute('aria-label','Collapse or expand AI summary');
+            const chev = document.createElement('span'); chev.className = 'toggle-icon';
+            chev.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 8l4 4 4-4" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            toggle.appendChild(chev);
             const content = document.createElement('div');
             content.appendChild(pre);
+            // smooth collapse using max-height
+            content.classList.add('collapse-content');
+            content.style.maxHeight = content.scrollHeight + 'px';
             let collapsed = false;
             toggle.addEventListener('click', () => {
               collapsed = !collapsed;
               if (collapsed) {
-                content.style.display = 'none';
-                toggle.textContent = 'Expand';
+                content.style.maxHeight = '0px';
+                chev.classList.add('rotate-180');
               } else {
-                content.style.display = '';
-                toggle.textContent = 'Collapse';
+                content.style.maxHeight = content.scrollHeight + 'px';
+                chev.classList.remove('rotate-180');
               }
             });
             header.appendChild(title);
@@ -419,9 +430,12 @@
                 cardHeader.className = 'flex items-center justify-between p-3';
                 const cardTitle = document.createElement('div');
                 const cardToggle = document.createElement('button');
-                cardToggle.className = 'text-xs text-blue-600 hover:underline';
+                cardToggle.className = 'btn-icon';
                 cardToggle.type = 'button';
-                cardToggle.textContent = 'Collapse';
+                cardToggle.setAttribute('aria-label','Collapse or expand log card');
+                const cardChev = document.createElement('span'); cardChev.className = 'toggle-icon';
+                cardChev.innerHTML = `<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 8l4 4 4-4" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                cardToggle.appendChild(cardChev);
                 cardHeader.appendChild(cardTitle);
                 cardHeader.appendChild(cardToggle);
                 const cardContent = document.createElement('div');
@@ -439,9 +453,11 @@
                     cardTitle.innerHTML = `<strong>${it.unit}</strong> <div class="text-sm text-gray-600">Aggression check</div>`;
                     cardContent.innerHTML = `<div class="text-sm text-gray-700">d6=${it.roll} + mod=${it.modifier} => total=${it.total} vs target=${it.target}</div>`;
                     card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
-                    // toggle behavior
+                    // toggle behavior with transition
+                    cardContent.classList.add('collapse-content');
+                    cardContent.style.maxHeight = cardContent.scrollHeight + 'px';
                     cardToggle.addEventListener('click', () => {
-                      if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                      if (cardContent.style.maxHeight === '0px') { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); } else { cardContent.style.maxHeight = '0px'; cardChev.classList.add('rotate-180'); }
                     });
                     return;
                   }
@@ -452,8 +468,10 @@
                     if (a.results) metaHtml += `<pre class="mt-2 p-2 bg-gray-50 border text-sm">${JSON.stringify(a.results, null, 2)}</pre>`;
                     cardContent.innerHTML = metaHtml;
                     card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                    cardContent.classList.add('collapse-content');
+                    cardContent.style.maxHeight = cardContent.scrollHeight + 'px';
                     cardToggle.addEventListener('click', () => {
-                      if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                      if (cardContent.style.maxHeight === '0px') { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); } else { cardContent.style.maxHeight = '0px'; cardChev.classList.add('rotate-180'); }
                     });
                     return;
                   }
@@ -465,8 +483,10 @@
                   cardTitle.textContent = 'Event';
                   cardContent.innerHTML = `<pre class="bg-gray-50 border p-2 text-sm">${JSON.stringify(it, null, 2)}</pre>`;
                   card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                  cardContent.classList.add('collapse-content');
+                  cardContent.style.maxHeight = cardContent.scrollHeight + 'px';
                   cardToggle.addEventListener('click', () => {
-                    if (cardContent.style.display === 'none') { cardContent.style.display = ''; cardToggle.textContent = 'Collapse'; } else { cardContent.style.display = 'none'; cardToggle.textContent = 'Expand'; }
+                    if (cardContent.style.maxHeight === '0px') { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); } else { cardContent.style.maxHeight = '0px'; cardChev.classList.add('rotate-180'); }
                   });
                 }
               });
