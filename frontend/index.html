@@ -91,6 +91,29 @@
       <div id="notes-list" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:140px;overflow:auto"></div>
     </div>
     <script>
+      // Helper: produce a clear human instruction for a pending action
+      function actionHintFor(a) {
+        const behavior = (a.behavior || '').toString().toLowerCase();
+        const title = (a.card_title || '').toString().toLowerCase();
+        // Common behavior heuristics
+        if (/move|advance|walk|march/.test(behavior) || /move|advance/.test(title)) {
+          return 'Movement: move this model now (follow the card for distance/effects). No dice required unless the card specifies an attack.';
+        }
+        if (/charge/.test(behavior) || /charge/.test(title)) {
+          return 'Charge: move into contact and then perform charge or combat attacks as listed on the card; provide attack rolls where requested.';
+        }
+        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
+          return 'Ranged attack: pick a valid target and provide the attack roll(s) for ranged weapons listed on the card.';
+        }
+        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
+          return 'Melee attack: pick a target in range and provide the attack roll(s). Choose weapons/targets according to the card.';
+        }
+        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
+          return 'Ability / spell: follow the card text for targets and effects. Enter any requested dice values for checks (e.g., casting roll) below.';
+        }
+        // fallback
+        return 'Action: follow the card text for this action. Provide any requested d6 roll(s) in the input to the right (e.g. 4 or 3,2).';
+      }
       const api = {
         createSessionFromFile: (file, rollMode = 'ai') => {
           const fd = new FormData();
@@ -209,17 +232,19 @@
                     const row = document.createElement('div');
                     row.className = 'flex items-center gap-3 bg-white p-2 rounded shadow-sm';
                     const id = `req-${a.request_id}`;
+                    const hint = actionHintFor(a);
                     row.innerHTML = `
-                      <div class="flex-1">
-                        <div class="font-medium">${a.unit}</div>
-                        <div class="text-sm text-gray-600">${a.card_title} <span class="ml-2 text-xs">(req=${a.request_id})</span></div>
-                      </div>
-                      <div class="w-48">
-                        <label for="${id}" class="sr-only">Enter rolls for ${a.unit}</label>
-                        <input id="${id}" data-req="${a.request_id}" class="roll-input border rounded px-2 py-1 w-full" placeholder="e.g. 4 or 3,2" aria-describedby="err-${id}" />
-                        <div id="err-${id}" class="text-red-600 text-xs mt-1" aria-live="polite"></div>
-                      </div>
-                    `;
+                        <div class="flex-1">
+                          <div class="font-medium">${a.unit}</div>
+                          <div class="text-sm text-gray-600">${a.card_title} <span class="ml-2 text-xs">(req=${a.request_id})</span></div>
+                          <div class="text-xs text-gray-700 mt-1">💡 ${hint}</div>
+                        </div>
+                        <div class="w-48">
+                          <label for="${id}" class="sr-only">Enter rolls for ${a.unit}</label>
+                          <input id="${id}" data-req="${a.request_id}" class="roll-input border rounded px-2 py-1 w-full" placeholder="e.g. 4 or 3,2" aria-describedby="err-${id}" />
+                          <div id="err-${id}" class="text-red-600 text-xs mt-1" aria-live="polite"></div>
+                        </div>
+                      `;
                     list.appendChild(row);
                   });
                   document.getElementById('pending-rolls').classList.remove('hidden');
