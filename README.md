@@ -1,81 +1,90 @@
 # Sad Hammer — Solo Wargaming AI
 
-This workspace contains a small card-driven AI for solo Age of Sigmar-style play, a BattleScribe HTML parser, and an interactive simulator that can import rosters.
+Sad Hammer is a small, card-driven solo AI for Age of Sigmar-style play. It provides
+a lightweight BattleScribe HTML roster parser, a Solo AI that uses card decks (tactics
+and action cards), and a minimal Flask API + static frontend to run and inspect AI turns.
 
-Quick start
+This repo is intended to be both a playable table tool and a development kit for
+experimenting with different rule-fidelity modes (MVP, Accurate, Automated).
 
-1. Create and activate the virtual environment (macOS / zsh):
+Contents
+
+- `api_server.py` — Flask backend and session manager.
+- `frontend/` — single-file static frontend used for local play/testing.
+- `battlescribe_parser.py` — parser for BattleScribe HTML roster exports.
+- `full_simulator.py` — Solo AI (tactic pool, aggression checks, action draws).
+- `interactive_simulator.py` — combat helpers and simplified model/wounds handling.
+- `reference_card_decks.py` — decks of tactics/actions/objectives used by the AI.
+- `tests/` — pytest test suite (unit, integration, acceptance).
+- `docs/` — project documentation (rule mapping, API, architecture).
+
+Quick start (local development)
+
+1. Create and activate a virtual environment (macOS / zsh):
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-2. Install dependencies:
+2. Install runtime and test dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-If you don't have a `requirements.txt`, install `pytest` and `beautifulsoup4` in your venv.
-
-CLI simulator (developer tool)
-
-Run the interactive simulator with a BattleScribe HTML roster (this is a developer-facing tool that demonstrates parsing and the simplified combat harness):
-
-```bash
-python interactive_simulator.py --auto --seed 2 --roster "Current Stormcasts.html"
-```
-
-Run tests:
+3. Run tests:
 
 ```bash
 pytest -q
 ```
 
-AI-only server (what this app provides)
-
-This project hosts an AI opponent only. Upload a BattleScribe HTML roster and the server will:
-
-- Parse the roster and treat it as the AI-controlled army.
-- Drive AI decisions using the card decks (battle tactics and action cards).
-- Expose session endpoints so a UI can step the AI turns and display the AI's chosen actions.
-
-Important: the server does NOT model or validate the human player's units or actions. The human player manages their own rules and applies AI events on their side of the table.
-
-Web frontend (recommended UI)
-
-The repository includes a small frontend and API server. The recommended flow:
-
-1. Upload the opponent's roster (BattleScribe HTML) using the frontend → this creates an AI session.
-2. Use "Run AI Turn" to have the AI draw tactics/actions and return a structured list of events.
-3. The human player resolves those events locally against their own army on the tabletop.
-
-Project layout
-
-- `api_server.py` — Flask API that parses rosters and runs the card-driven AI. Serves the frontend static files.
-- `frontend/` — static frontend (`index.html`) that uploads rosters and steps AI turns.
-- `battlescribe_parser.py` — lightweight parser for BattleScribe HTML exports.
-- `full_simulator.py` — the Solo AI that implements the card logic and returns structured events.
-
-Start the backend API server (after activating your venv):
+4. Start the backend (development mode):
 
 ```bash
 ./scripts/start_backend.sh
 ```
 
-Open the frontend in your default browser:
+5. Start the frontend (local static preview):
 
 ```bash
 ./scripts/start_frontend.sh
 ```
 
-Docker (optional)
-
-Run both services with Docker Compose:
+Or use Docker Compose to run everything:
 
 ```bash
 docker compose up --build
 ```
 
-The frontend will be available at http://localhost:8080 (nginx) and the backend runs on the compose network at port 5000.
+High-level usage
+
+- Upload a BattleScribe HTML roster (the uploaded roster becomes the AI's army).
+- Create a session; the server returns a session ID and persists session state in-memory.
+- Use "Run AI Turn" to have the server draw tactics/actions and return a human-readable
+  text summary plus structured JSON events. The human player resolves those events
+  at the table against their physical units.
+
+Rule fidelity and roll handling
+
+Sad Hammer supports different fidelity modes; see `docs/rule_mapping.md` for details.
+Sessions also support a `roll_mode` (per-session) that controls who provides the AI's
+dice rolls:
+
+- `ai` (default): server executes rolls and returns resolved events.
+- `player`: player resolves AI rolls locally; the server persists the flag and clients
+  can opt to use a server-mediated roll-request flow (planned) or resolve locally.
+
+API and developer notes
+
+See `docs/api.md` for a complete API reference. For architecture and data shapes,
+read `docs/architecture.md`.
+
+Contributing
+
+- Write tests for new behavior and run the full test suite before opening a PR.
+- Keep acceptance tests deterministic by seeding RNGs where appropriate.
+
+License & Credits
+
+This project is a personal/homegrown tool—see repository for authorship and license notes.
