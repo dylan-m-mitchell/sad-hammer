@@ -224,7 +224,23 @@
             pre.style.padding = '8px';
             pre.style.marginTop = '8px';
             pre.style.whiteSpace = 'pre-wrap';
-            pre.textContent = (typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+            // If server returned a human-readable string, insert blank lines between model entries
+            if (typeof text === 'string') {
+              const lines = text.split('\n');
+              const out = [];
+              for (let i = 0; i < lines.length; i++) {
+                const ln = lines[i];
+                out.push(ln);
+                // heuristics: add a blank line after aggression checks, action lines, or pending action list items
+                const trim = ln.trim();
+                if (trim.startsWith('AI check:') || trim.startsWith('AI action:') || trim.startsWith('- ') || trim.startsWith('ACTION:')) {
+                  out.push('');
+                }
+              }
+              pre.textContent = out.join('\n');
+            } else {
+              pre.textContent = JSON.stringify(text, null, 2);
+            }
             logEl.appendChild(pre);
             // keep scroll at bottom
             logEl.scrollTop = logEl.scrollHeight;
