@@ -114,6 +114,30 @@
         // fallback
         return 'Action: follow the card text for this action. Provide any requested d6 roll(s) in the input to the right (e.g. 4 or 3,2).';
       }
+
+      // Helper: return a small inline SVG for action types
+      function actionIconFor(a) {
+        const behavior = (a.behavior || '').toString().toLowerCase();
+        const title = (a.card_title || '').toString().toLowerCase();
+        // sword = melee
+        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 22l6-6 4 4 10-10-4-4L14 6 10 10 2 22z" fill="#374151"/></svg>`;
+        }
+        // arrow = ranged
+        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h15M14 5l7 7-7 7" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // boot = move/charge
+        if (/move|advance|charge|march/.test(behavior) || /move|advance|charge/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21c0-4 4-6 7-6s6 2 6 6" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7h10l2 4H9" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // magic = spell/ability
+        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6M12 22v-6M4.2 4.2l4.2 4.2M19.8 19.8l-4.2-4.2M2 12h6M22 12h-6" stroke="#374151" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // default
+        return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#374151" stroke-width="1.6"/><path d="M12 8v4l2 2" stroke="#374151" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
       const api = {
         createSessionFromFile: (file, rollMode = 'ai') => {
           const fd = new FormData();
@@ -237,7 +261,7 @@
                         <div class="flex-1">
                           <div class="font-medium">${a.unit}</div>
                           <div class="text-sm text-gray-600">${a.card_title} <span class="ml-2 text-xs">(req=${a.request_id})</span></div>
-                          <div class="text-xs text-gray-700 mt-1">💡 ${hint}</div>
+                          <div class="text-xs text-gray-700 mt-1">${actionIconFor(a)}<span class="align-middle">${hint}</span></div>
                         </div>
                         <div class="w-48">
                           <label for="${id}" class="sr-only">Enter rolls for ${a.unit}</label>
