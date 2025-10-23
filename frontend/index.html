@@ -616,6 +616,23 @@
                       const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
                       extraCandidates.push(`/assets/battleplan_maps/${slug}.png`);
                       extraCandidates.push(`/assets/battleplan_maps/${slug}.jpg`);
+                      // Title-Case hyphenated variant (matches files like 'Border-War-2048x1524.jpg')
+                      const titleCaseHyphen = rawTitle.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
+                      if (titleCaseHyphen) {
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.png`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.png`);
+                      }
+                      // Sometimes the title contains a trailing parenthetical year like 'Border War (2016)'. Strip parentheses to match filenames
+                      const stripped = rawTitle.replace(/\s*\([^\)]*\)\s*/g, '').trim();
+                      if (stripped && stripped !== rawTitle) {
+                        const strippedHyphen = stripped.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}-2048x1524.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}-2048x1524.png`);
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.png`);
+                      }
                     }
                     // Merge and dedupe candidates preserving order
                     const allCandidates = Array.from(new Set((candidates || []).concat(extraCandidates)));
