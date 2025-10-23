@@ -637,29 +637,37 @@
                         const src = allCandidates[tried++];
                         if (!imgEl) { tryNextImg(); return; }
                         imgEl.onload = () => {
-                          // image is available; leave grid visible and offer a toggle to show image
-                          imgEl.style.display = 'none';
-                          // Add a toggle button so the player can view the map image if desired
-                          const toggleId = 'placement-map-show-image-btn';
-                          if (!document.getElementById(toggleId)) {
-                            const btn = document.createElement('button');
-                            btn.id = toggleId;
-                            btn.type = 'button';
-                            btn.className = 'bg-white border text-sm px-2 py-1 rounded mt-2';
-                            btn.textContent = 'Show map image';
-                            btn.addEventListener('click', () => {
-                              if (imgEl.style.display === 'none' || imgEl.style.display === '') {
-                                imgEl.style.display = 'block';
-                                btn.textContent = 'Hide map image';
-                              } else {
-                                imgEl.style.display = 'none';
-                                btn.textContent = 'Show map image';
-                              }
-                            });
-                            imgWrap.appendChild(btn);
-                            // place the image element after the button if not already moved
-                            imgWrap.appendChild(imgEl);
-                          }
+                          // image is available — replace the grid with the full map image and show it by default
+                          try {
+                            // clear existing contents (grid) and show the image
+                            if (imgWrap) imgWrap.innerHTML = '';
+                            imgEl.style.display = 'block';
+                            imgEl.classList.add('mx-auto');
+                            if (imgWrap) imgWrap.appendChild(imgEl);
+                            // add a small toggle to allow the player to restore the grid if desired
+                            const toggleId = 'placement-map-show-grid-btn';
+                            if (!document.getElementById(toggleId) && imgWrap) {
+                              const gbtn = document.createElement('button');
+                              gbtn.id = toggleId;
+                              gbtn.type = 'button';
+                              gbtn.className = 'bg-white border text-sm px-2 py-1 rounded mt-2';
+                              gbtn.textContent = 'Show deployment grid';
+                              gbtn.addEventListener('click', () => {
+                                // restore the grid SVG
+                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                                        <rect width="100%" height="100%" fill="#ffffff" />\n                                        <g stroke="#e5e7eb" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#374151" font-size="16">Deployment Grid (use as primary guide)</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
+                                // re-append a small button to allow viewing the image again
+                                const viewImg = document.createElement('button');
+                                viewImg.className = 'bg-white border text-sm px-2 py-1 rounded mt-2';
+                                viewImg.textContent = 'Show map image';
+                                viewImg.addEventListener('click', () => {
+                                  imgWrap.innerHTML = '';
+                                  imgWrap.appendChild(imgEl);
+                                });
+                                imgWrap.appendChild(viewImg);
+                              });
+                              imgWrap.appendChild(gbtn);
+                            }
+                          } catch (e) { /* non-fatal */ }
                         };
                         imgEl.onerror = () => { imgEl.src = ''; imgEl.style.display = 'none'; tryNextImg(); };
                         imgEl.src = src;
