@@ -1920,18 +1920,23 @@
                       placement.battleplan_id ||
                       placement.battleplan_title ||
                       null;
+                    console.log("[Deployment Map] Battleplan data:", placement.battleplan);
                     const candidates = [];
-                    if (placement.battleplan && placement.battleplan.id)
-                      candidates.push(
-                        `/assets/battleplan_maps/${placement.battleplan.id}.png`
-                      );
+                    if (placement.battleplan && placement.battleplan.id) {
+                      const path = `/assets/battleplan_maps/${placement.battleplan.id}.png`;
+                      candidates.push(path);
+                      console.log("[Deployment Map] Added candidate from battleplan.id:", path);
+                    }
                     if (placement.battleplan && placement.battleplan.title) {
                       const rawTitle = placement.battleplan.title.toString();
+                      console.log("[Deployment Map] Raw battleplan title:", rawTitle);
                       const slug = rawTitle
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, "-")
                         .replace(/(^-|-$)/g, "");
-                      candidates.push(`/assets/battleplan_maps/${slug}.png`);
+                      const slugPath = `/assets/battleplan_maps/${slug}.png`;
+                      candidates.push(slugPath);
+                      console.log("[Deployment Map] Added candidate from slug:", slugPath);
                       // extra patterns
                       const extraCandidates = [];
                       extraCandidates.push(
@@ -2015,9 +2020,11 @@
                       const allCandidates = Array.from(
                         new Set((candidates || []).concat(extraCandidates))
                       );
+                      console.log("[Deployment Map] All candidate paths:", allCandidates);
                       let tried = 0;
                       const showGridFallback = () => {
                         // No image found — show grid as fallback
+                        console.log("[Deployment Map] No image found, showing grid fallback");
                         if (imgWrap) {
                           imgWrap.innerHTML = `\n                            <div class="text-center">\n                              <div style="max-width:100%;">\n                                <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                  <rect width="100%" height="100%" fill="#1a1a1a" />\n                                  <g stroke="#3a3a3a" stroke-width="2">\n                                    <line x1="0" y1="200" x2="800" y2="200" />\n                                    <line x1="0" y1="400" x2="800" y2="400" />\n                                    <line x1="266" y1="0" x2="266" y2="600" />\n                                    <line x1="533" y1="0" x2="533" y2="600" />\n                                  </g>\n                                  <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (no map image available)</text>\n                                </svg>\n                              </div>\n                            </div>\n                          `;
                         }
@@ -2025,16 +2032,20 @@
                       const tryNextImg = () => {
                         if (tried >= allCandidates.length) {
                           // no image found — show grid as fallback
+                          console.log("[Deployment Map] All candidates exhausted");
                           showGridFallback();
                           return;
                         }
                         const src = allCandidates[tried++];
+                        console.log(`[Deployment Map] Trying image ${tried}/${allCandidates.length}:`, src);
                         if (!imgEl) {
+                          console.log("[Deployment Map] imgEl not found, skipping to next");
                           tryNextImg();
                           return;
                         }
                         imgEl.onload = () => {
                           // image is available — show the image as primary view
+                          console.log("[Deployment Map] ✓ Image loaded successfully:", src);
                           try {
                             // clear wrapper and show the image
                             if (imgWrap) imgWrap.innerHTML = "";
@@ -2077,16 +2088,18 @@
                               imgWrap.appendChild(gbtn);
                             }
                           } catch (e) {
-                            /* non-fatal */
+                            console.error("[Deployment Map] Error displaying image:", e);
                           }
                         };
                         imgEl.onerror = () => {
+                          console.log("[Deployment Map] ✗ Image failed to load:", src);
                           imgEl.src = "";
                           imgEl.style.display = "none";
                           tryNextImg();
                         };
                         imgEl.src = src;
                       };
+                      console.log("[Deployment Map] Starting image loading sequence");
                       tryNextImg();
                     }
                     // open the modal immediately to show the grid; image toggle will appear if an image is found
