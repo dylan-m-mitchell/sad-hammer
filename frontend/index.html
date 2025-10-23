@@ -2415,7 +2415,8 @@
             // server returns plain text summary; render it as a separate pre block
             const text = resp.data || resp;
             const pre = document.createElement("pre");
-            pre.style.background = "#ffffff";
+            pre.style.background = "var(--bg-card)";
+            pre.style.color = "var(--text-primary)";
             pre.style.border = "none";
             pre.style.padding = "0";
             pre.style.margin = "0";
@@ -2448,14 +2449,17 @@
             }
             // Wrap the pre block in a collapsible container with a toggle
             const wrapper = document.createElement("div");
-            wrapper.className =
-              "mb-4 border border-gray-200 rounded-lg bg-gray-50";
+            wrapper.className = "mb-4 border rounded-lg";
+            wrapper.style.borderColor = "var(--border-primary)";
+            wrapper.style.background = "var(--bg-card)";
             const header = document.createElement("div");
             header.className =
-              "flex items-center justify-between gap-3 p-3 bg-white rounded-t-lg border-b border-gray-200";
+              "flex items-center justify-between gap-3 p-3 rounded-t-lg border-b";
+            header.style.background = "var(--bg-secondary)";
+            header.style.borderBottomColor = "var(--border-primary)";
             const title = document.createElement("div");
-            title.className =
-              "text-base sm:text-sm font-semibold text-gray-900";
+            title.className = "text-base sm:text-sm font-semibold";
+            title.style.color = "var(--text-primary)";
             title.textContent = `AI Turn Summary`;
             const toggle = document.createElement("button");
             toggle.className = "btn-icon flex-shrink-0";
