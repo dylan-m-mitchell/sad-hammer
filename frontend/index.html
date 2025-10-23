@@ -630,6 +630,21 @@
       ></div>
     </div>
 
+    <!-- AI Units Panel - displays active units with remove buttons -->
+    <div class="max-w-4xl mx-auto p-2">
+      <div
+        id="ai-units-panel"
+        class="hidden w-full bg-white border rounded p-4 mb-2"
+      >
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">AI Units</h3>
+        <div
+          id="ai-units-list"
+          class="space-y-2"
+          style="font-size: 16px"
+        ></div>
+      </div>
+    </div>
+
     <!-- Main action buttons - sticky on mobile for easy access -->
     <div class="sticky-actions max-w-4xl mx-auto">
       <div
@@ -1060,6 +1075,10 @@
           axios
             .post(`/api/session/${id}/resolve_rolls`, payload)
             .then((r) => r.data),
+        removeUnit: (id, unitName) =>
+          axios
+            .post(`/api/session/${id}/remove_unit`, { unit_name: unitName })
+            .then((r) => r.data),
       };
 
       // Modal helpers
@@ -1297,6 +1316,126 @@
           el.textContent = msg;
           aiOut.appendChild(el);
         } catch (e) {}
+      }
+
+      // Helper to display AI units with remove buttons
+      function displayAiUnits(data) {
+        const panel = document.getElementById("ai-units-panel");
+        const list = document.getElementById("ai-units-list");
+        if (!panel || !list) return;
+
+        const profiles = data.ai_profiles || [];
+        const units = data.ai_units || [];
+
+        if (units.length === 0 && profiles.length === 0) {
+          panel.classList.add("hidden");
+          return;
+        }
+
+        panel.classList.remove("hidden");
+        list.innerHTML = "";
+
+        // Use profiles if available, otherwise fall back to ai_units
+        const displayList = profiles.length > 0 ? profiles : units;
+
+        displayList.forEach((u) => {
+          const unitDiv = document.createElement("div");
+          unitDiv.className =
+            "flex items-start justify-between p-3 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition-colors";
+
+          // Unit info section
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "flex-1 mr-3";
+
+          let html = `<div class="font-semibold text-gray-900">${
+            u.name || "Unknown Unit"
+          }</div>`;
+
+          // Add details if profile data available
+          if (profiles.length > 0) {
+            const keywords = u.keywords?.length
+              ? `<span class="text-sm text-gray-600">${u.keywords.join(
+                  ", "
+                )}</span>`
+              : "";
+            html += keywords
+              ? `<div class="text-sm text-gray-700 mt-1">${keywords}</div>`
+              : "";
+
+            const stats = [];
+            if (u.models) stats.push(`${u.models} models`);
+            if (u.wounds_per_model)
+              stats.push(`${u.wounds_per_model} wounds/model`);
+            if (u.attacks) stats.push(`${u.attacks} attacks`);
+
+            if (stats.length > 0) {
+              html += `<div class="text-sm text-gray-600 mt-1">${stats.join(
+                " • "
+              )}</div>`;
+            }
+          } else {
+            // Simple display for ai_units
+            const aggression = u.aggression
+              ? `<span class="text-sm text-gray-600">${u.aggression}</span>`
+              : "";
+            if (aggression)
+              html += `<div class="text-sm text-gray-700 mt-1">${aggression}</div>`;
+          }
+
+          infoDiv.innerHTML = html;
+
+          // Remove button
+          const removeBtn = document.createElement("button");
+          removeBtn.className =
+            "bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium transition-colors flex-shrink-0";
+          removeBtn.style.minHeight = "44px";
+          removeBtn.style.minWidth = "80px";
+          removeBtn.textContent = "Remove";
+          removeBtn.setAttribute("aria-label", `Remove ${u.name}`);
+          removeBtn.dataset.unitName = u.name;
+
+          removeBtn.addEventListener("click", async () => {
+            if (!currentSession) {
+              alert("No active session");
+              return;
+            }
+
+            const unitName = removeBtn.dataset.unitName;
+            const confirmMsg = `Remove "${unitName}" from the battlefield?\n\nThis action cannot be undone.`;
+
+            if (!confirm(confirmMsg)) return;
+
+            // Disable button during request
+            removeBtn.disabled = true;
+            removeBtn.textContent = "Removing...";
+
+            try {
+              const result = await api.removeUnit(currentSession, unitName);
+
+              // Success feedback
+              appendAiOutput(
+                `✓ Removed ${result.removed_unit} (${result.remaining_count} units remaining)`
+              );
+
+              // Refresh the display
+              const sessionData = await api.getSession(currentSession);
+              displayAiUnits(sessionData);
+            } catch (e) {
+              // Re-enable button on error
+              removeBtn.disabled = false;
+              removeBtn.textContent = "Remove";
+
+              const errorMsg =
+                e.response?.data?.error || e.message || "Unknown error";
+              alert(`Failed to remove unit: ${errorMsg}`);
+              console.error("Remove unit error:", e);
+            }
+          });
+
+          unitDiv.appendChild(infoDiv);
+          unitDiv.appendChild(removeBtn);
+          list.appendChild(unitDiv);
+        });
       }
 
       // Helper to display battleplan banner with title, note, and image
@@ -2034,6 +2173,12 @@
               if (bpInfo) {
                 displayBattleplanBanner(bpInfo);
               }
+              // Immediately fetch and display AI units
+              api.getSession(currentSession).then((sessionData) => {
+                displayAiUnits(sessionData);
+              }).catch(e => {
+                console.warn("Failed to fetch units after session creation", e);
+              });
               // Immediately show placement UI if the server has proposed placement
               try {
                 showPlacementUI(currentSession);
@@ -2054,46 +2199,9 @@
         api
           .getSession(currentSession)
           .then((data) => {
-            unitsEl.innerHTML = "";
-            // show AI profiles (full parsed roster) when available
-            const profiles = data.ai_profiles || [];
-            if (profiles.length === 0) {
-              // fallback to ai_units summary
-              (data.ai_units || []).forEach((u) => {
-                const d = document.createElement("div");
-                d.textContent = `${u.name} — ${u.aggression || ""}`;
-                unitsEl.appendChild(d);
-              });
-            } else {
-              profiles.forEach((u) => {
-                const d = document.createElement("div");
-                let kw = "";
-                if (u.keywords && u.keywords.length)
-                  kw = " - " + u.keywords.join(", ");
-                let html = `<strong>${u.name}</strong> ${kw}<br/>Wounds: ${
-                  u.wounds_per_model || "?"
-                } Attacks: ${u.attacks || "?"} `;
-                if (u.weapons && u.weapons.length) {
-                  html +=
-                    "<br/><em>Weapons:</em><ul>" +
-                    u.weapons
-                      .map(
-                        (w) =>
-                          `<li>${w.name || w.title || "weapon"} — dmg:${
-                            (w.damage && w.damage.type === "D"
-                              ? "D" + w.damage.sides
-                              : w.damage) || ""
-                          } to_hit:${w.to_hit || ""} to_wound:${
-                            w.to_wound || ""
-                          }</li>`
-                      )
-                      .join("") +
-                    "</ul>";
-                }
-                d.innerHTML = html;
-                unitsEl.appendChild(d);
-              });
-            }
+            // Display AI units with remove buttons
+            displayAiUnits(data);
+
             appendAiOutput(`Fetched session state (turn ${data.turn})`);
             if (data.roll_mode) {
               appendAiOutput(`Roll handling: ${data.roll_mode}`);
