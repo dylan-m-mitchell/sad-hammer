@@ -1901,8 +1901,7 @@
                       if (scat) scat.appendChild(badge);
                     }
                   });
-                  // show a grid SVG as the primary visual aid for deployment; if an image exists the player
-                  // can optionally view it via a toggle. This avoids relying on the external image presence.
+                  // Try to load the battleplan image first; if not found, show the deployment grid as fallback
                   if (mapModal) {
                     const imgWrap = document.getElementById(
                       "placement-map-image-wrap"
@@ -1910,9 +1909,9 @@
                     const imgEl = document.getElementById(
                       "placement-map-image"
                     );
-                    // Render the default grid immediately
+                    // Clear the wrapper and prepare for content
                     if (imgWrap) {
-                      imgWrap.innerHTML = `\n                        <div class="text-center">\n                          <div style="max-width:100%;">\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                              <rect width="100%" height="100%" fill="#1a1a1a" />\n                              <g stroke="#3a3a3a" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (use as primary guide)</text>\n                            </svg>\n                          </div>\n                        </div>\n                      `;
+                      imgWrap.innerHTML = "";
                       imgWrap.classList.remove("hidden");
                     }
                     // build candidate paths (same as before)
@@ -2017,13 +2016,16 @@
                         new Set((candidates || []).concat(extraCandidates))
                       );
                       let tried = 0;
+                      const showGridFallback = () => {
+                        // No image found — show grid as fallback
+                        if (imgWrap) {
+                          imgWrap.innerHTML = `\n                            <div class="text-center">\n                              <div style="max-width:100%;">\n                                <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                  <rect width="100%" height="100%" fill="#1a1a1a" />\n                                  <g stroke="#3a3a3a" stroke-width="2">\n                                    <line x1="0" y1="200" x2="800" y2="200" />\n                                    <line x1="0" y1="400" x2="800" y2="400" />\n                                    <line x1="266" y1="0" x2="266" y2="600" />\n                                    <line x1="533" y1="0" x2="533" y2="600" />\n                                  </g>\n                                  <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (no map image available)</text>\n                                </svg>\n                              </div>\n                            </div>\n                          `;
+                        }
+                      };
                       const tryNextImg = () => {
                         if (tried >= allCandidates.length) {
-                          // no image found — keep grid visible, and leave optional image hidden
-                          if (imgEl) {
-                            imgEl.src = "";
-                            imgEl.style.display = "none";
-                          }
+                          // no image found — show grid as fallback
+                          showGridFallback();
                           return;
                         }
                         const src = allCandidates[tried++];
@@ -2032,14 +2034,14 @@
                           return;
                         }
                         imgEl.onload = () => {
-                          // image is available — replace the grid with the full map image and show it by default
+                          // image is available — show the image as primary view
                           try {
-                            // clear existing contents (grid) and show the image
+                            // clear wrapper and show the image
                             if (imgWrap) imgWrap.innerHTML = "";
                             imgEl.style.display = "block";
                             imgEl.classList.add("mx-auto");
                             if (imgWrap) imgWrap.appendChild(imgEl);
-                            // add a small toggle to allow the player to restore the grid if desired
+                            // add a small toggle to allow the player to view the grid if desired
                             const toggleId = "placement-map-show-grid-btn";
                             if (!document.getElementById(toggleId) && imgWrap) {
                               const gbtn = document.createElement("button");
@@ -2047,23 +2049,28 @@
                               gbtn.type = "button";
                               gbtn.className = "text-sm px-2 py-1 rounded mt-2";
                               gbtn.style.background = "var(--bg-secondary)";
-                              gbtn.style.border = "1px solid var(--border-primary)";
+                              gbtn.style.border =
+                                "1px solid var(--border-primary)";
                               gbtn.style.color = "var(--text-primary)";
-                              gbtn.textContent = "Show deployment grid";
+                              gbtn.textContent = "Show simplified grid";
                               gbtn.addEventListener("click", () => {
-                                // restore the grid SVG
-                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                        <rect width="100%" height="100%" fill="#1a1a1a" />\n                                        <g stroke="#3a3a3a" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (use as primary guide)</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
+                                // show the grid SVG
+                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                        <rect width="100%" height="100%" fill="#1a1a1a" />\n                                        <g stroke="#3a3a3a" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Simplified Deployment Grid</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
                                 // re-append a small button to allow viewing the image again
                                 const viewImg =
                                   document.createElement("button");
-                                viewImg.className = "text-sm px-2 py-1 rounded mt-2";
-                                viewImg.style.background = "var(--bg-secondary)";
-                                viewImg.style.border = "1px solid var(--border-primary)";
+                                viewImg.className =
+                                  "text-sm px-2 py-1 rounded mt-2";
+                                viewImg.style.background =
+                                  "var(--bg-secondary)";
+                                viewImg.style.border =
+                                  "1px solid var(--border-primary)";
                                 viewImg.style.color = "var(--text-primary)";
-                                viewImg.textContent = "Show map image";
+                                viewImg.textContent = "Show battleplan map";
                                 viewImg.addEventListener("click", () => {
                                   imgWrap.innerHTML = "";
                                   imgWrap.appendChild(imgEl);
+                                  imgWrap.appendChild(gbtn);
                                 });
                                 imgWrap.appendChild(viewImg);
                               });
