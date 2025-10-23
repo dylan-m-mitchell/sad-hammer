@@ -20,44 +20,47 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        --primary-600: #3b82f6;
-        --primary-700: #2563eb;
-        --primary-800: #1d4ed8;
-        --secondary-600: #8b5cf6;
-        --success-600: #10b981;
-        --danger-600: #ef4444;
-        --danger-700: #dc2626;
-        --gray-50: #f9fafb;
-        --gray-100: #f3f4f6;
-        --gray-200: #e5e7eb;
-        --gray-300: #d1d5db;
-        --gray-600: #4b5563;
-        --gray-700: #374151;
-        --gray-800: #1f2937;
-        --gray-900: #111827;
-        --bg-primary: #ffffff;
-        --bg-secondary: #f8fafc;
-        --border-color: #e2e8f0;
+        /* LeetCode-inspired dark theme colors */
+        --bg-primary: #282828;
+        --bg-secondary: #1a1a1a;
+        --bg-card: #2d2d2d;
+        --border-primary: #3a3a3a;
+        --border-secondary: #404040;
+        
+        --text-primary: #eff1f6bf;
+        --text-secondary: #a8a8b3;
+        --text-tertiary: #6c6c6c;
+        
+        --primary: #ffa116;
+        --primary-hover: #ffb84d;
+        --success: #00b8a3;
+        --success-hover: #00c9b4;
+        --danger: #ef4743;
+        --danger-hover: #f66c68;
+        --blue: #2cbb5d;
+        --blue-hover: #46c575;
       }
 
       body {
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, sans-serif;
-        background: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
         min-height: 100vh;
+        margin: 0;
+        padding: 0;
       }
 
-      /* Clean container styles - no glass morphism */
+      /* Card containers */
       .glass {
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        box-shadow: none;
       }
 
       .glass-dark {
-        background: var(--gray-50);
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        box-shadow: none;
       }
       .pane {
         display: inline-block;
@@ -91,16 +94,19 @@
       input[type="file"] {
         min-height: 44px;
         padding: 8px 12px;
-        font-size: 16px;
+        font-size: 14px;
         transition: all 0.15s ease;
         border-radius: 6px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        color: var(--text-primary);
       }
 
       select:focus,
       input[type="file"]:focus {
         outline: none;
-        border-color: var(--primary-600);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: var(--primary);
+        background: var(--bg-card);
       }
 
       input[type="text"],
@@ -108,17 +114,25 @@
       textarea {
         min-height: 44px;
         padding: 10px 12px;
-        font-size: 16px;
+        font-size: 14px;
         transition: all 0.15s ease;
         border-radius: 6px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        color: var(--text-primary);
       }
 
       input[type="text"]:focus,
       input[type="number"]:focus,
       textarea:focus {
         outline: none;
-        border-color: var(--primary-600);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: var(--primary);
+        background: var(--bg-card);
+      }
+      
+      label {
+        color: var(--text-secondary);
+        font-size: 14px;
       }
       /* collapse transition helper */
       .collapse-content {
@@ -578,14 +592,10 @@
     </style>
   </head>
   <body>
-    <header class="glass-dark max-w-4xl mx-auto mt-6 mb-4 p-6 rounded-lg border-b-2 border-blue-600">
+    <header class="glass-dark max-w-4xl mx-auto mt-6 mb-4 px-6 py-4 rounded-lg">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
-          Sad Hammer
-        </h1>
-        <p class="text-sm text-gray-600 mt-2">
-          Solo Wargaming AI Assistant
-        </p>
+        <h1 class="text-2xl font-semibold" style="color: var(--text-primary)">Sad Hammer</h1>
+        <p class="text-sm mt-1" style="color: var(--text-secondary)">Solo Wargaming AI Assistant</p>
       </div>
     </header>
     <main class="glass max-w-4xl mx-auto mb-4 p-6 rounded-lg">
@@ -642,16 +652,21 @@
         <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
           <button
             id="create-session"
-            class="w-full sm:w-auto bg-blue-600 text-white px-5 py-3 rounded-md hover:bg-blue-700 text-base font-medium"
-            style="min-height: 44px"
+            class="w-full sm:w-auto px-5 py-3 rounded-md text-base font-medium"
+            style="min-height: 44px; background: var(--blue); color: white;"
+            onmouseover="this.style.background='var(--blue-hover)'"
+            onmouseout="this.style.background='var(--blue)'"
           >
             Upload & Start Session
           </button>
-          <span class="text-sm text-gray-700 bg-gray-100 px-3 py-2 rounded-md border border-gray-200"
+          <span
+            class="text-sm px-3 py-2 rounded-md"
+            style="color: var(--text-secondary); background: var(--bg-secondary); border: 1px solid var(--border-primary)"
             >Session ID:
             <span
               id="session-id"
-              class="font-mono text-sm font-bold text-blue-600"
+              class="font-mono text-sm font-semibold"
+              style="color: var(--primary)"
               >(none)</span
             ></span
           >
@@ -662,7 +677,8 @@
     <!-- Battleplan banner: shows the selected battleplan and a short note -->
     <div
       id="battleplan-banner"
-      class="glass max-w-4xl mx-auto mb-4 p-5 rounded-lg hidden border-l-4 border-blue-600"
+      class="glass max-w-4xl mx-auto mb-4 p-5 rounded-lg hidden"
+      style="border-left: 3px solid var(--primary)"
     >
       <div>
         <!-- Mobile: Stack image below text; Desktop: Side by side -->
@@ -671,13 +687,15 @@
           <div class="flex-1">
             <div
               id="battleplan-title"
-              class="text-lg sm:text-xl font-semibold text-gray-900"
+              class="text-lg sm:text-xl font-semibold"
+              style="color: var(--text-primary)"
             >
               Battleplan: (none)
             </div>
             <div
               id="battleplan-note"
-              class="text-base sm:text-sm text-gray-700 mt-2"
+              class="text-base sm:text-sm mt-2"
+              style="color: var(--text-secondary)"
             >
               No battleplan selected.
             </div>
@@ -704,19 +722,20 @@
         style="
           min-height: 60px;
           overflow: auto;
-          font-size: 15px;
+          font-size: 14px;
           line-height: 1.6;
+          color: var(--text-primary);
         "
       ></div>
     </div>
 
     <!-- AI Units Panel - displays active units with remove buttons -->
     <div class="max-w-4xl mx-auto mb-4">
-      <div
-        id="ai-units-panel"
-        class="glass hidden w-full rounded-lg p-5"
-      >
-        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+      <div id="ai-units-panel" class="glass hidden w-full rounded-lg p-5">
+        <h3
+          class="text-lg font-semibold mb-4 pb-2"
+          style="color: var(--text-primary); border-bottom: 1px solid var(--border-primary)"
+        >
           AI Units
         </h3>
         <div id="ai-units-list" class="space-y-3" style="font-size: 16px"></div>
@@ -730,16 +749,20 @@
       >
         <button
           id="fetch-state"
-          class="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-md hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-base font-medium"
-          style="min-height: 44px"
+          class="w-full sm:w-auto px-4 py-3 rounded-md focus:outline-none cursor-pointer text-base font-medium"
+          style="min-height: 44px; background: var(--bg-card); border: 1px solid var(--border-primary); color: var(--text-primary)"
+          onmouseover="this.style.background='var(--bg-secondary)'"
+          onmouseout="this.style.background='var(--bg-card)'"
           aria-label="Get current session state"
         >
           Get Session State
         </button>
         <button
           id="ai-turn"
-          class="w-full sm:w-auto bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-base font-medium"
-          style="min-height: 44px"
+          class="w-full sm:w-auto px-4 py-3 rounded-md focus:outline-none cursor-pointer text-base font-medium"
+          style="min-height: 44px; background: var(--blue); color: white;"
+          onmouseover="this.style.background='var(--blue-hover)'"
+          onmouseout="this.style.background='var(--blue)'"
           aria-label="Run AI Turn"
         >
           Run AI Turn
@@ -750,25 +773,32 @@
     <!-- Placement UI: appears after session creation and before game start -->
     <div class="max-w-4xl mx-auto mb-4">
       <div id="placement-panel" class="glass hidden rounded-lg p-5">
-        <h2 class="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">
+        <h2
+          class="text-lg font-semibold mb-3 pb-2"
+          style="color: var(--text-primary); border-bottom: 1px solid var(--border-primary)"
+        >
           Placement Suggestions
         </h2>
-        <div id="placement-info" class="text-base text-gray-700 mt-3"></div>
+        <div id="placement-info" class="text-base mt-3" style="color: var(--text-secondary)"></div>
         <div id="placement-list" class="mt-4 space-y-3"></div>
         <div
           class="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
         >
           <button
             id="confirm-placement"
-            class="w-full sm:w-auto bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 text-base font-medium"
-            style="min-height: 44px"
+            class="w-full sm:w-auto px-4 py-3 rounded-md text-base font-medium"
+            style="min-height: 44px; background: var(--success); color: white;"
+            onmouseover="this.style.background='var(--success-hover)'"
+            onmouseout="this.style.background='var(--success)'"
           >
             Confirm Placement
           </button>
           <button
             id="cancel-placement"
-            class="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-md hover:bg-gray-50 hover:border-gray-400 text-base font-medium"
-            style="min-height: 44px"
+            class="w-full sm:w-auto px-4 py-3 rounded-md text-base font-medium"
+            style="min-height: 44px; background: var(--bg-card); border: 1px solid var(--border-primary); color: var(--text-primary)"
+            onmouseover="this.style.background='var(--bg-secondary)'"
+            onmouseout="this.style.background='var(--bg-card)'"
           >
             Cancel
           </button>
@@ -778,14 +808,14 @@
           ></div>
         </div>
       </div>
-      <div
-        id="placement-summary"
-        class="glass hidden rounded-lg p-5"
-      >
-        <h2 class="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">
+      <div id="placement-summary" class="glass hidden rounded-lg p-5">
+        <h2
+          class="text-lg font-semibold mb-3 pb-2"
+          style="color: var(--text-primary); border-bottom: 1px solid var(--border-primary)"
+        >
           AI Auto-Placement — Please place enemy units
         </h2>
-        <div id="placement-summary-info" class="text-base text-gray-700 mt-3">
+        <div id="placement-summary-info" class="text-base mt-3" style="color: var(--text-secondary)">
           The AI has determined unit placement and applied it automatically.
           Please place the enemy models on your table according to the list
           below.
@@ -943,18 +973,21 @@
     <div class="max-w-4xl mx-auto p-4">
       <div
         id="pending-rolls"
-        class="hidden border-l-4 border-yellow-500 rounded-lg p-5 bg-yellow-50"
+        class="hidden rounded-lg p-5 glass"
+        style="border-left: 3px solid var(--primary)"
       >
-        <h2 class="text-lg font-semibold text-gray-900 mb-3">
+        <h2 class="text-lg font-semibold mb-3" style="color: var(--text-primary)">
           Pending Roll Requests
         </h2>
         <div
           id="pending-summary"
-          class="text-base text-gray-800 mt-3 mb-3 font-medium"
+          class="text-base mt-3 mb-3 font-medium"
+          style="color: var(--text-primary)"
         ></div>
         <p
           id="pending-instruction"
-          class="text-base text-gray-700 leading-relaxed"
+          class="text-base leading-relaxed"
+          style="color: var(--text-secondary)"
         >
           Enter die values (single number or comma-separated for multiple dice).
           Valid d6 values: 1–6.
@@ -1416,25 +1449,33 @@
         displayList.forEach((u) => {
           const unitDiv = document.createElement("div");
           unitDiv.className =
-            "flex items-start justify-between p-4 bg-white rounded-md border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all";
+            "flex items-start justify-between p-4 rounded-md border transition-all";
+          unitDiv.style.background = "var(--bg-card)";
+          unitDiv.style.borderColor = "var(--border-primary)";
+          unitDiv.onmouseover = function() {
+            this.style.borderColor = "var(--border-secondary)";
+          };
+          unitDiv.onmouseout = function() {
+            this.style.borderColor = "var(--border-primary)";
+          };
 
           // Unit info section
           const infoDiv = document.createElement("div");
           infoDiv.className = "flex-1 mr-3";
 
-          let html = `<div class="font-semibold text-gray-900">${
+          let html = `<div class="font-semibold" style="color: var(--text-primary)">${
             u.name || "Unknown Unit"
           }</div>`;
 
           // Add details if profile data available
           if (profiles.length > 0) {
             const keywords = u.keywords?.length
-              ? `<span class="text-sm text-gray-600">${u.keywords.join(
+              ? `<span class="text-sm" style="color: var(--text-secondary)">${u.keywords.join(
                   ", "
                 )}</span>`
               : "";
             html += keywords
-              ? `<div class="text-sm text-gray-700 mt-1">${keywords}</div>`
+              ? `<div class="text-sm mt-1" style="color: var(--text-secondary)">${keywords}</div>`
               : "";
 
             const stats = [];
@@ -1444,17 +1485,17 @@
             if (u.attacks) stats.push(`${u.attacks} attacks`);
 
             if (stats.length > 0) {
-              html += `<div class="text-sm text-gray-600 mt-1">${stats.join(
+              html += `<div class="text-sm mt-1" style="color: var(--text-secondary)">${stats.join(
                 " • "
               )}</div>`;
             }
           } else {
             // Simple display for ai_units
             const aggression = u.aggression
-              ? `<span class="text-sm text-gray-600">${u.aggression}</span>`
+              ? `<span class="text-sm" style="color: var(--text-secondary)">${u.aggression}</span>`
               : "";
             if (aggression)
-              html += `<div class="text-sm text-gray-700 mt-1">${aggression}</div>`;
+              html += `<div class="text-sm mt-1" style="color: var(--text-secondary)">${aggression}</div>`;
           }
 
           infoDiv.innerHTML = html;
@@ -1462,9 +1503,17 @@
           // Remove button
           const removeBtn = document.createElement("button");
           removeBtn.className =
-            "bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium flex-shrink-0";
+            "px-4 py-2 rounded-md focus:outline-none text-sm font-medium flex-shrink-0";
           removeBtn.style.minHeight = "44px";
           removeBtn.style.minWidth = "80px";
+          removeBtn.style.background = "var(--danger)";
+          removeBtn.style.color = "white";
+          removeBtn.onmouseover = function() {
+            this.style.background = "var(--danger-hover)";
+          };
+          removeBtn.onmouseout = function() {
+            this.style.background = "var(--danger)";
+          };
           removeBtn.textContent = "Remove";
           removeBtn.setAttribute("aria-label", `Remove ${u.name}`);
           removeBtn.dataset.unitName = u.name;
@@ -1530,7 +1579,10 @@
           const noteText = bpInfo.deployment || bpInfo.note || "";
           n.textContent = noteText;
           // Hide the note element completely if there's no text
-          if (noteText.trim() === "" || noteText === "No battleplan selected.") {
+          if (
+            noteText.trim() === "" ||
+            noteText === "No battleplan selected."
+          ) {
             n.classList.add("hidden");
           } else {
             n.classList.remove("hidden");
