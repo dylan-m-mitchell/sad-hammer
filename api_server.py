@@ -68,6 +68,66 @@ def _get_zone_info_for_bp(bp):
         pass
     return None
 
+
+def _find_map_for_bp(bp):
+    """Return a map URL (under /assets/battleplan_maps/) for the given battleplan dict, or None.
+
+    Tries several filename patterns against the `battleplans-media` directory and returns
+    the first match. Patterns include: Title-Case hyphenated, slug, raw title, stripped-parentheses,
+    and common extensions (.jpg, .jpeg, .png, .webp).
+    """
+    if not bp:
+        return None
+    base_dir = os.path.join(os.path.dirname(__file__), 'battleplans-media')
+    # collect candidate stems
+    stems = []
+    try:
+        title = str(bp.get('title', '')).strip()
+    except Exception:
+        title = ''
+    if title:
+        # Title-Case hyphenated
+        parts = [p for p in [w for w in __import__('re').split(r'[^A-Za-z0-9]+', title)] if p]
+    # Fallback: build via safe transforms (avoid complex errors)
+    try:
+        raw = title
+        # slug
+        slug = raw.lower().replace(' ', '-').replace('/', '-').replace("'", '').replace('"', '')
+        slug = __import__('re').sub(r'[^a-z0-9\-]+', '-', slug).strip('-')
+        stems.append(slug)
+        # title-case hyphen
+        words = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', raw) if w]
+        if words:
+            title_case = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in words])
+            stems.append(title_case)
+            stems.append(title_case + '-2048x1524')
+        # raw with spaces
+        stems.append(raw)
+        stems.append(raw + '-2048x1524')
+        # stripped parentheses
+        stripped = __import__('re').sub(r'\s*\([^\)]*\)\s*', '', raw).strip()
+        if stripped and stripped != raw:
+            ws = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', stripped) if w]
+            stripped_hy = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in ws])
+            stems.append(stripped_hy)
+            stems.append(stripped_hy + '-2048x1524')
+    except Exception:
+        stems = stems or []
+
+    # candidate extensions
+    exts = ['.jpg', '.jpeg', '.png', '.webp']
+    for stem in stems:
+        for ext in exts:
+            fname = f"{stem}{ext}"
+            fpath = os.path.join(base_dir, fname)
+            try:
+                if os.path.exists(fpath):
+                    return f"/assets/battleplan_maps/{fname}"
+            except Exception:
+                continue
+    # No file found
+    return None
+
 # Serve the web frontend (static) from the web/ directory
 @app.route('/')
 def index():
@@ -312,7 +372,18 @@ def create_session():
         # don't block session creation on placement building failures
         pass
 
-    return jsonify({'session_id': session_id, 'state': {'turn': sim.turn, 'ai_count': len(ai_units), 'roll_mode': roll_mode}})
+    # If a battleplan was selected, attempt to find and include its map URL
+    bp_info = None
+    if selected_battleplan:
+        try:
+            bp_info = {'id': selected_battleplan.get('id'), 'title': selected_battleplan.get('title'), 'deployment': selected_battleplan.get('deployment')}
+            m = _find_map_for_bp(selected_battleplan)
+            if m:
+                bp_info['map'] = m
+        except Exception:
+            bp_info = {'id': selected_battleplan.get('id'), 'title': selected_battleplan.get('title'), 'deployment': selected_battleplan.get('deployment')}
+
+    return jsonify({'session_id': session_id, 'battleplan': bp_info, 'state': {'turn': sim.turn, 'ai_count': len(ai_units), 'roll_mode': roll_mode}})
 
 
 @app.route('/api/session/<session_id>', methods=['GET'])
@@ -333,7 +404,16 @@ def get_session_state(session_id):
 @app.route('/api/battleplans', methods=['GET'])
 def list_battleplans():
     # Return the available battleplan cards (id and title and short deployment text)
-    plans = [{'id': b.get('id'), 'title': b.get('title'), 'deployment': b.get('deployment')} for b in battleplan_deck]
+    plans = []
+    for b in battleplan_deck:
+        p = {'id': b.get('id'), 'title': b.get('title'), 'deployment': b.get('deployment')}
+        try:
+            murl = _find_map_for_bp(b)
+            if murl:
+                p['map'] = murl
+        except Exception:
+            pass
+        plans.append(p)
     return jsonify({'battleplans': plans})
 
 
