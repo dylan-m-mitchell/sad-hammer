@@ -637,11 +637,7 @@
         class="hidden w-full bg-white border rounded p-4 mb-2"
       >
         <h3 class="text-lg font-semibold text-gray-900 mb-3">AI Units</h3>
-        <div
-          id="ai-units-list"
-          class="space-y-2"
-          style="font-size: 16px"
-        ></div>
+        <div id="ai-units-list" class="space-y-2" style="font-size: 16px"></div>
       </div>
     </div>
 
@@ -2174,11 +2170,17 @@
                 displayBattleplanBanner(bpInfo);
               }
               // Immediately fetch and display AI units
-              api.getSession(currentSession).then((sessionData) => {
-                displayAiUnits(sessionData);
-              }).catch(e => {
-                console.warn("Failed to fetch units after session creation", e);
-              });
+              api
+                .getSession(currentSession)
+                .then((sessionData) => {
+                  displayAiUnits(sessionData);
+                })
+                .catch((e) => {
+                  console.warn(
+                    "Failed to fetch units after session creation",
+                    e
+                  );
+                });
               // Immediately show placement UI if the server has proposed placement
               try {
                 showPlacementUI(currentSession);
