@@ -28,18 +28,18 @@ import random
 # The blog mentions a 'cover card' that explains deployment and a number of
 # deployment cards. We provide 12 cards with deployment hints.
 battleplan_deck = [
-    {"id": 1, "title": "Cover: Standard Deployment", "deployment": "Follow cover card layout; place objectives as shown; deploy card-controlled units as specified."},
-    {"id": 2, "title": "Deploy: Right Flank", "deployment": "Place majority of card-controlled units on the right flank within 6\" of table edge; light screen in centre."},
-    {"id": 3, "title": "Deploy: Left Flank", "deployment": "Place majority of card-controlled units on the left flank within 6\" of table edge; light screen in centre."},
-    {"id": 4, "title": "Deploy: Balanced", "deployment": "Split forces evenly across left, centre and right — deploy battleline evenly."},
-    {"id": 5, "title": "Deploy: Clumped Centre", "deployment": "Concentrate forces toward centre objective; place one heavy unit guarding centre."},
-    {"id": 6, "title": "Deploy: Forward Push", "deployment": "Deploy most units forward, within 9\" of centre line to encourage early engagement."},
-    {"id": 7, "title": "Deploy: Defensive Line", "deployment": "Deploy units in a defensive line across centre; place monsters to anchor flanks."},
-    {"id": 8, "title": "Deploy: Ambush", "deployment": "Deploy small units forward and keep heavy units in reserve behind terrain features."},
-    {"id": 9, "title": "Deploy: Objective Hold", "deployment": "Place one unit directly on the centre objective if possible; rest arrayed to defend."},
-    {"id": 10, "title": "Deploy: Scattered", "deployment": "Distribute units across table to contest multiple objectives."},
-    {"id": 11, "title": "Deploy: Strong Left", "deployment": "Heavy concentration on left with a token force on right."},
-    {"id": 12, "title": "Deploy: Strong Right", "deployment": "Heavy concentration on right with a token force on left."},
+    {"id": 1, "title": "Border War (2016)", "deployment": "4 objectives: hold your own=1, border objectives=2, opponent's objective=5; cap 6 points plus tactic. Play prudently; don't overextend.", "twist": "Underdog +1 to hit if they charged this turn."},
+    {"id": 2, "title": "Focal Points (2018)", "deployment": "Capture objectives across the central cross: Home and Flank objectives with one/two/more scoring and extra for holding a cross. Choose between wide flank grabs or pushing into opponent Home.", "twist": "Underdog can change the central objective to Home or Flank to consolidate scoring."},
+    {"id": 3, "title": "Starstrike (2019)", "deployment": "Fewer landing lanes; objectives that would be on terrain become that terrain piece. Simpler scoring: 3 points per objective and 3 for holding more than opponent.", "twist": "—"},
+    {"id": 4, "title": "Shifting Objectives (2020)", "deployment": "Large open map; each round the active player sets which objective is worth 2 points, others worth 1; controlling more objectives gives +2. Suggested terrain: obscuring and place of power per side.", "twist": "Underdog can force the active player to reroll the die that selects the primary objective."},
+    {"id": 5, "title": "Feral Foray (2021)", "deployment": "Six objectives, straightforward scoring. Incentivizes raiding and scouting; the twist rewards attacking and clever play.", "twist": "At start of round players may raid an enemy objective they control; underdog may raid a contested enemy objective."},
+    {"id": 6, "title": "Jaws of Gallet (2022-2023 S2)", "deployment": "Five objectives, Hold One/Two/More scoring. After turn 1 objectives begin to collapse (one removed each turn).", "twist": "Starting on round 2 the Underdog may pick an objective to pull if they wish."},
+    {"id": 7, "title": "Battle for the Pass (2017)", "deployment": "Similar scoring to Border War (hold your own=1, border=2, opponent's=5) but uses a short-edge deployment so armies hike sooner into the field.", "twist": "+2 to control score for non-hero units (encourages smaller forces to push up)."},
+    {"id": 8, "title": "Scorched Earth (2019)", "deployment": "Standard Hold One/Two/More scoring with a modified deployment (long/short edges may differ); focuses on denying opponent opportunities.", "twist": "Underdog can pick one objective in their territory and treat enemy control score as 5 less for that objective."},
+    {"id": 9, "title": "The Better Part of Valour (2020)", "deployment": "Six objectives, scoring similar to other six-objective maps. Unique mechanic: non-hero kills on objectives can gain Dominant status and boost control score.", "twist": "Underdog gains +1 to hit against Dominant units."},
+    {"id": 10, "title": "The Vice (2021)", "deployment": "Long-edge deployment drawing players to the centre; objectives shift through the game with new objectives appearing on later rounds.", "twist": "Underdog can inflict D3 mortal damage on units contesting a selected objective at end of their turn; objectives are moved/removed on later rounds."},
+    {"id": 11, "title": "Close to the Chest (2022-2023 S2)", "deployment": "Small neutral territory; hold 1/2 scoring with a designated primary objective worth more. The none-active player picks the primary objective each round.", "twist": "Underdog can roll to force the opponent to pick a different primary objective on a 5+."},
+    {"id": 12, "title": "Limited Resources (2023)", "deployment": "Hold One/Two/More scoring; extracting resources can prevent a player from controlling an objective on later turns.", "twist": "Underdog can add +3 to control scores for friendly units contesting an objective from which they are extracting resources."},
 ]
 
 

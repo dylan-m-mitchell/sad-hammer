@@ -1,0 +1,170 @@
+[
+  {
+    "id": 1,
+    "title": "Border War (2016)",
+    "zones": {
+      "left": 1,
+      "center": 3,
+      "right": 1,
+      "forward": 1,
+      "defensive": 2,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "4 objectives; capped scoring encourages cautious play. Favor centre for holding your own and defensive placements; underdog twist rewards bold charges (+1 to hit if charged)."
+  },
+  {
+    "id": 2,
+    "title": "Focal Points (2018)",
+    "zones": {
+      "left": 2,
+      "center": 3,
+      "right": 2,
+      "forward": 1,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Objectives form a central cross; bias toward centre and the paired flank/home axes. Encourages contesting central cross objectives. Twist: underdog can change centre objective type."
+  },
+  {
+    "id": 3,
+    "title": "Starstrike (2019)",
+    "zones": {
+      "left": 1,
+      "center": 3,
+      "right": 1,
+      "forward": 2,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Fewer clear lanes; objectives cluster in central lanes and terrain pieces can become objectives. Favor centre lanes with some forward bias for landing."
+  },
+  {
+    "id": 4,
+    "title": "Shifting Objectives (2020)",
+    "zones": {
+      "left": 1,
+      "center": 2,
+      "right": 1,
+      "forward": 1,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 2
+    },
+    "note": "Open map with shifting primary objectives each round. Keep flexible (scattered) placement and moderate centre presence to adapt to changing priorities."
+  },
+  {
+    "id": 5,
+    "title": "Feral Foray (2021)",
+    "zones": {
+      "left": 1,
+      "center": 2,
+      "right": 1,
+      "forward": 3,
+      "defensive": 0,
+      "reserve": 0,
+      "scattered": 1
+    },
+    "note": "Six objectives, rewards raiding/scouting. Favor forward deployment to contest objectives early and enable raids. Twist: raid mechanics reward aggression."
+  },
+  {
+    "id": 6,
+    "title": "Jaws of Gallet (2022-2023 S2)",
+    "zones": {
+      "left": 1,
+      "center": 3,
+      "right": 1,
+      "forward": 1,
+      "defensive": 2,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Five objectives with Hold One/Two/More scoring; objectives begin to collapse after turn 1. Emphasize centre control and hold positions; underdog may pull objectives starting round 2."
+  },
+  {
+    "id": 7,
+    "title": "Battle for the Pass (2017)",
+    "zones": {
+      "left": 2,
+      "center": 3,
+      "right": 2,
+      "forward": 1,
+      "defensive": 2,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Similar to Border War but short-edge deployment; armies push up sooner. Favor centre and defensive placements; twist: +2 control for non-hero units."
+  },
+  {
+    "id": 8,
+    "title": "Scorched Earth (2019)",
+    "zones": {
+      "left": 2,
+      "center": 2,
+      "right": 2,
+      "forward": 1,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Classic Hold One/Two/More scoring. Deployment varies from older editions; encourage balanced coverage to deny enemy easy captures. Twist reduces enemy control score on a chosen objective."
+  },
+  {
+    "id": 9,
+    "title": "The Better Part of Valour (2020)",
+    "zones": {
+      "left": 1,
+      "center": 3,
+      "right": 1,
+      "forward": 1,
+      "defensive": 3,
+      "reserve": 0,
+      "scattered": 0
+    },
+    "note": "Six objectives; unique Dominant mechanic for units securing objectives. Lean defensive and centre-focused to exploit dominant units; underdog gains +1 to hit vs Dominant units."
+  },
+  {
+    "id": 10,
+    "title": "The Vice (2021)",
+    "zones": {
+      "left": 1,
+      "center": 3,
+      "right": 1,
+      "forward": 1,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 1
+    },
+    "note": "Long-edge deployment pushing players to centre; objectives move/remove across rounds. Favor centre presence and flexibility to respond to objective changes; twist allows underdog to punish contesting units."
+  },
+  {
+    "id": 11,
+    "title": "Close to the Chest (2022-2023 S2)",
+    "zones": {
+      "left": 1,
+      "center": 2,
+      "right": 1,
+      "forward": 0,
+      "defensive": 3,
+      "reserve": 0,
+      "scattered": 1
+    },
+    "note": "Small neutral territory and a designated primary objective. Prefer defensive placement near your primary objective; underdog can force opponent to change primary objective on a high roll."
+  },
+  {
+    "id": 12,
+    "title": "Limited Resources (2023)",
+    "zones": {
+      "left": 2,
+      "center": 2,
+      "right": 2,
+      "forward": 1,
+      "defensive": 1,
+      "reserve": 0,
+      "scattered": 1
+    },
+    "note": "Resources and extraction mechanics influence objective control. Use balanced placement with slight emphasis on zones that enable resource extraction; underdog bonus to contested extractors."
+  }
+]
