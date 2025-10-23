@@ -46,19 +46,76 @@ battleplan_deck = [
 # ----------------------
 # Battle Tactic deck (8 cards)
 # ----------------------
-# The blog references a set of battle tactic cards. We'll include the named
-# ones and a few common tactics used in the posts. Each tactic entry includes
-# a short rule for selection/usage (how it is added/removed from the tactic
-# pool across turns) to help any simulator implementation.
+# The blog references a set of battle tactic cards. Each battle tactic has:
+# - title: The name of the tactic
+# - description: What the tactic focuses on
+# - enters_deck_on_turn: Which turn this card is added to the tactics deck
+#   (0 = in deck from start, 1 = added after turn 1, etc.)
+# - designated_units: How to choose which unit(s) this tactic applies to
+# - designated_objectives: How to choose which objective(s) this tactic applies to
+#
+# The Tactics Deck is shuffled at the start of the game (with cards that have
+# enters_deck_on_turn=0), then one card is drawn each turn. When a card is drawn,
+# it is discarded from the deck. Cards with enters_deck_on_turn > 0 are added
+# to the discard pile at the appropriate time, then all discarded cards are
+# reshuffled back into the deck when it runs out.
 battle_tactic_deck = [
-    {"title": "Monstrous Takeover", "description": "Prioritize monstrous units to seize objectives; designate target monster if multiple.", "usage": "Start in pool; when drawn discard; other tactics added per rules."},
-    {"title": "Ferocious Advance", "description": "Aggressive repositioning and charges: select a hero/unit to lead the advance.", "usage": "Start in pool; when drawn discard."},
-    {"title": "Aggressive Expansion", "description": "Attempt to move multiple units toward objectives to contest or capture.", "usage": "Start in pool; when drawn discard."},
-    {"title": "Conquer", "description": "Focus on taking and holding objectives; select two objectives as priority.", "usage": "Start in pool; when drawn discard."},
-    {"title": "Broken Ranks", "description": "A versatile tactic used by several examples on the blog; its action deck is provided separately.", "usage": "Added into the tactic pool after turn 1 (per blog)."},
-    {"title": "Bring It Down", "description": "Target a specific enemy unit to be destroyed; designate nearest high-value target.", "usage": "Start in pool; when drawn discard."},
-    {"title": "Slay the Warlord", "description": "Prioritise killing the enemy commander/leader; if impossible, pick the next highest-cost enemy model.", "usage": "Start in pool; when drawn discard."},
-    {"title": "Savage Spearhead", "description": "Push a concentrated spearhead forward to overwhelm a flank and seize objectives.", "usage": "Start in pool; when drawn discard."},
+    {
+        "title": "Monstrous Takeover",
+        "description": "Prioritize monstrous units to seize objectives.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "All units with Monster keyword; if multiple, choose closest to nearest objective.",
+        "designated_objectives": "Nearest objective to designated monster(s)."
+    },
+    {
+        "title": "Ferocious Advance", 
+        "description": "Aggressive repositioning and charges.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "Hero with highest move characteristic; if tied, closest to enemy.",
+        "designated_objectives": "Objective closest to designated hero."
+    },
+    {
+        "title": "Aggressive Expansion",
+        "description": "Move multiple units toward objectives to contest or capture.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "All units within 18\" of any objective.",
+        "designated_objectives": "All objectives not currently controlled by AI."
+    },
+    {
+        "title": "Conquer",
+        "description": "Focus on taking and holding objectives.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "All Battleline units.",
+        "designated_objectives": "Two closest objectives to AI deployment zone."
+    },
+    {
+        "title": "Broken Ranks",
+        "description": "A versatile tactic that breaks enemy formations.",
+        "enters_deck_on_turn": 2,  # Added to deck after turn 1 completes (drawn starting turn 2)
+        "designated_units": "All units; priority to fastest units first.",
+        "designated_objectives": "Center objective or objective closest to enemy Battleline."
+    },
+    {
+        "title": "Bring It Down",
+        "description": "Target a specific enemy unit to be destroyed.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "All units that can shoot or fight; prioritize units with highest attack count.",
+        "designated_objectives": "None; focus is on destroying designated enemy unit (highest wounds or points value)."
+    },
+    {
+        "title": "Slay the Warlord",
+        "description": "Kill the enemy commander/leader.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "All units; priority to units with high damage output.",
+        "designated_objectives": "None; focus is on eliminating enemy general/leader (if dead, next highest-cost enemy)."
+    },
+    {
+        "title": "Savage Spearhead",
+        "description": "Push a concentrated spearhead forward to overwhelm a flank.",
+        "enters_deck_on_turn": 0,  # In deck from start
+        "designated_units": "Three fastest units or units on one flank (left or right, whichever has more units).",
+        "designated_objectives": "Flank objective on the same side as designated units."
+    },
 ]
 
 
@@ -158,12 +215,18 @@ hold_the_line_actions = [
     {"title": "Orderly Retreat", "behavior": "If overwhelmed, withdraw to the next objective in order and regroup.", "initiative": 1},
 ]
 
-# Objective action cards (a small set inferred from the blog)
+# ----------------------
+# Objective Action Cards (4 cards)
+# ----------------------
+# These 4 cards are shuffled together with the 8 tactic-specific action cards
+# each turn to create a 12-card Action Deck. Each card specifies general
+# objective-focused behavior. Initiative numbers are included to ensure proper
+# sorting when drawn.
 objective_action_deck = [
-    {"title": "Contest Objective", "behavior": "If within 6\" of objective, attempt to contest rather than charge."},
-    {"title": "Capture Objective", "behavior": "Move to capture nearest friendly-controlled objective."},
-    {"title": "Deny Objective", "behavior": "Prevent enemy from holding objective: attempt to contest if possible."},
-    {"title": "Ignore Objective", "behavior": "Prioritize combat over objective unless within 3\"."},
+    {"title": "Contest Objective", "behavior": "If within 6\" of an objective, move to contest it rather than charging enemies. If already contesting, hold position.", "initiative": 9},
+    {"title": "Capture Objective", "behavior": "Move to the nearest objective not controlled by the AI. If already there, secure it by removing enemy models.", "initiative": 10},
+    {"title": "Deny Objective", "behavior": "Move toward an enemy-controlled objective and attempt to contest it. Priority is denying enemy points, not securing it yourself.", "initiative": 11},
+    {"title": "Secure Objective", "behavior": "If within 3\" of an objective, remain there and defend it. Attack any enemy units that come within 3\".", "initiative": 12},
 ]
 
 

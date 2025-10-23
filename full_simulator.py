@@ -31,6 +31,7 @@ from reference_card_decks import (
     tactic_to_actions,
     objective_action_deck,
 )
+from deck_manager import TacticsDeckManager, create_turn_action_assignments
 
 
 # Aggression thresholds (default more likely to ACT than prior mapping)
@@ -66,18 +67,8 @@ class SoloSimulator:
         # allow callers to override aggression thresholds for experimentation or tests
         self.aggression_targets = aggression_thresholds or AGGRESSION_CHECK_TARGET
 
-        # Build tactic pool per blog: initial 4 tactics
-        self.initial_tactics = [
-            'Monstrous Takeover',
-            'Ferocious Advance',
-            'Aggressive Expansion',
-            'Conquer',
-        ]
-        # remaining tactics that get added later
-        self.remaining_tactics = [t['title'] for t in battle_tactic_deck if t['title'] not in self.initial_tactics]
-
-        self.tactic_pool = list(self.initial_tactics)
-        self.tactic_discard: List[str] = []
+        # Initialize Battle Tactics Deck Manager
+        self.tactics_deck = TacticsDeckManager(rng=self.rng, current_turn=self.turn)
 
     def aggression_check(self, unit: Unit) -> Dict:
         """Perform an aggression check and return a dict with details.
@@ -97,55 +88,39 @@ class SoloSimulator:
         result = total >= target
         return {'result': result, 'roll': roll, 'modifier': modifier, 'total': total, 'target': target}
 
-    def choose_battle_tactic(self) -> Optional[str]:
-        # add Broken Ranks on turn 2
-        if self.turn >= 2 and 'Broken Ranks' not in self.tactic_pool and 'Broken Ranks' not in self.tactic_discard:
-            self.tactic_pool.append('Broken Ranks')
-
-        # add remaining tactics on turn 3
-        if self.turn >= 3:
-            for t in list(self.remaining_tactics):
-                if t not in self.tactic_pool and t not in self.tactic_discard:
-                    self.tactic_pool.append(t)
-
-        if not self.tactic_pool:
-            return None
-
-        choice = self.rng.choice(self.tactic_pool)
-        # move to discard
-        self.tactic_pool.remove(choice)
-        self.tactic_discard.append(choice)
-        return choice
-
-    def build_action_deck(self, tactic_title: str) -> List[Dict]:
-        # Copy tactic actions
-        tactic_actions = deepcopy(tactic_to_actions.get(tactic_title, []))
-        # Determine how many objective cards to mix in (roughly 1/5 of objective deck)
-        num_obj = max(1, len(objective_action_deck) // 5) if objective_action_deck else 0
-        mixed = list(tactic_actions)
-        if num_obj > 0:
-            mixed.extend(deepcopy(self.rng.sample(objective_action_deck, min(num_obj, len(objective_action_deck)))))
-        self.rng.shuffle(mixed)
-        return mixed
+    def choose_battle_tactic(self) -> Optional[Dict]:
+        """Draw a Battle Tactic card from the managed deck.
+        
+        Returns the full tactic dict (with title, description, etc.) or None if empty.
+        This method is now a thin wrapper around TacticsDeckManager.
+        """
+        tactic_card = self.tactics_deck.draw_tactic()
+        return tactic_card
 
     def simulate_turn(self) -> List[Dict]:
         """Simulate a single AI turn; returns a list of resolved action records."""
         log = []
-        tactic = self.choose_battle_tactic()
-        if tactic is None:
+        
+        # Advance the tactics deck turn counter
+        self.tactics_deck.advance_turn(self.turn)
+        
+        # Draw a Battle Tactic card
+        tactic_card = self.choose_battle_tactic()
+        if tactic_card is None:
             log.append({"event": "no_tactic_available"})
+            self.turn += 1
             return log
+        
+        tactic_title = tactic_card['title']
 
-        action_deck = self.build_action_deck(tactic)
-
-        # For each unit, perform aggression check and draw an action if it passes
-        drawn_actions = []  # tuples of (unit, card)
-        discard_pile = []
-
+        # Perform aggression checks for all units
+        aggression_results = {}
         for u in self.units:
             check = self.aggression_check(u)
             will_act = check['result']
-            # include debug fields so a client can see the roll and modifier
+            aggression_results[u.name] = will_act
+            
+            # Include debug fields so a client can see the roll and modifier
             log.append({
                 "unit": u.name,
                 "aggression_check": will_act,
@@ -154,32 +129,23 @@ class SoloSimulator:
                 "total": check['total'],
                 "target": check['target'],
             })
-            if will_act:
-                # draw a card non-destructively: pop from front
-                if not action_deck:
-                    # if empty, rebuild (rare) -- rebuild without objective mix to avoid infinite loop
-                    action_deck = deepcopy(tactic_to_actions.get(tactic, []))
-                    self.rng.shuffle(action_deck)
-                card = action_deck.pop(0)
-                discard_pile.append(card)
-                # ensure initiative exists
-                initiative = card.get('initiative', 0)
-                drawn_actions.append({"unit": u, "card": card, "initiative": initiative})
 
-        # Resolve actions in descending initiative order
-        drawn_actions.sort(key=lambda x: x['initiative'], reverse=True)
-        for item in drawn_actions:
-            u = item['unit']
-            card = item['card']
+        # Use deck manager to create action assignments sorted by initiative
+        action_assignments = create_turn_action_assignments(
+            tactic_card, self.units, aggression_results, rng=self.rng
+        )
+
+        # Resolve actions in initiative order (already sorted by create_turn_action_assignments)
+        for assignment in action_assignments:
             rec = {
                 "turn": self.turn,
-                "tactic": tactic,
-                "unit": u.name,
-                "card_title": card.get('title'),
-                "initiative": item['initiative'],
-                "behavior": card.get('behavior'),
+                "tactic": tactic_title,
+                "unit": assignment['unit'],
+                "card_title": assignment['card_title'],
+                "initiative": assignment['initiative'],
+                "behavior": assignment['behavior'],
             }
-            # simple textual resolution: append to log
+            # Simple textual resolution: append to log
             log.append({"action_resolved": rec})
 
         self.turn += 1
