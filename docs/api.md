@@ -45,7 +45,22 @@ Endpoints
 - Purpose: return structured events from the last AI turn.
 - Response: 200 JSON `{ "turn": <int>, "events": [...] }`.
 
-7. GET /api/session/<session_id>/log
+7. POST /api/session/<session_id>/remove_unit
+
+- Purpose: remove an AI unit from the session (e.g., when killed by the player).
+- Request (JSON): `{ "unit_name": "<exact unit name>" }`.
+- Response: 
+  - 200 JSON `{ "ok": true, "removed_unit": "<name>", "remaining_units": [{name, aggression}], "remaining_count": <int> }`.
+  - 400 JSON `{ "error": "unit_name required" }` if unit_name is missing.
+  - 404 JSON `{ "error": "session not found" }` if session doesn't exist.
+  - 404 JSON `{ "error": "unit not found", "unit_name": "<name>" }` if unit doesn't exist in the session.
+- Behavior: 
+  - Removes the unit from the simulator's active units list.
+  - Updates session's ai_units and ai_profiles.
+  - Creates a log entry: `{ "event": "unit_removed", "turn": <int>, "unit_name": "<name>", "reason": "killed_by_player" }`.
+  - Future AI turns will not include actions for the removed unit.
+
+8. GET /api/session/<session_id>/log
 
 - Purpose: paginated access to the session log.
 - Query params: `page` (1-based, default 1), `size` (items per page, default 50).
