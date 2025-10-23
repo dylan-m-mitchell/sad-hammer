@@ -525,25 +525,35 @@
         // Try to load the battleplan map image
         if (img && imgContainer) {
           const battleplanTitle = bpInfo.title || bpInfo.id || '';
+          console.log('Attempting to load battleplan image for:', battleplanTitle);
           if (battleplanTitle) {
             // Normalize the title to match image filename format
-            // Remove year suffix like "(2016)", trim, and replace spaces with hyphens
+            // Remove year suffix like "(2016)" or "(2022-2023 S2)", trim, and replace spaces with hyphens
             let normalizedName = battleplanTitle
-              .replace(/\s*\(\d{4}\)\s*$/, '') // Remove year like "(2016)"
+              .replace(/\s*\(\d{4}(?:-\d{4})?\s*(?:S\d+)?\)\s*$/i, '') // Remove year like "(2016)" or "(2022-2023 S2)"
               .trim()
-              .replace(/\s+/g, '-'); // Replace spaces with hyphens
+              .split(/\s+/) // Split by spaces
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize each word
+              .join('-'); // Join with hyphens
+            
+            console.log('Normalized name:', normalizedName);
             
             // Try the image with the normalized name
             const imagePath = `/battleplans-media/${normalizedName}-2048x1524.jpg`;
+            console.log('Trying first path:', imagePath);
             
             img.src = imagePath;
             img.onerror = () => {
+              console.log('First path failed, trying without resolution suffix');
               // Try without the resolution suffix
               const simpleImagePath = `/battleplans-media/${normalizedName}.jpg`;
+              console.log('Trying second path:', simpleImagePath);
               img.src = simpleImagePath;
               img.onerror = () => {
+                console.log('Second path failed, trying PNG');
                 // Try PNG format
                 const pngPath = `/battleplans-media/${normalizedName}.png`;
+                console.log('Trying third path:', pngPath);
                 img.src = pngPath;
                 img.onerror = () => {
                   // Hide the image container if no format works
@@ -554,6 +564,7 @@
             };
             img.onload = () => {
               // Show the image container when image loads successfully
+              console.log('Successfully loaded battleplan image:', img.src);
               imgContainer.classList.remove('hidden');
             };
           }
