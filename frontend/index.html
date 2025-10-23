@@ -1978,41 +1978,6 @@
                             imgEl.style.display = "block";
                             imgEl.classList.add("mx-auto");
                             if (imgWrap) imgWrap.appendChild(imgEl);
-                            // add a small toggle to allow the player to view the grid if desired
-                            const toggleId = "placement-map-show-grid-btn";
-                            if (!document.getElementById(toggleId) && imgWrap) {
-                              const gbtn = document.createElement("button");
-                              gbtn.id = toggleId;
-                              gbtn.type = "button";
-                              gbtn.className = "text-sm px-2 py-1 rounded mt-2";
-                              gbtn.style.background = "var(--bg-secondary)";
-                              gbtn.style.border =
-                                "1px solid var(--border-primary)";
-                              gbtn.style.color = "var(--text-primary)";
-                              gbtn.textContent = "Show simplified grid";
-                              gbtn.addEventListener("click", () => {
-                                // show the grid SVG
-                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                        <rect width="100%" height="100%" fill="#1a1a1a" />\n                                        <g stroke="#3a3a3a" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Simplified Deployment Grid</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
-                                // re-append a small button to allow viewing the image again
-                                const viewImg =
-                                  document.createElement("button");
-                                viewImg.className =
-                                  "text-sm px-2 py-1 rounded mt-2";
-                                viewImg.style.background =
-                                  "var(--bg-secondary)";
-                                viewImg.style.border =
-                                  "1px solid var(--border-primary)";
-                                viewImg.style.color = "var(--text-primary)";
-                                viewImg.textContent = "Show battleplan map";
-                                viewImg.addEventListener("click", () => {
-                                  imgWrap.innerHTML = "";
-                                  imgWrap.appendChild(imgEl);
-                                  imgWrap.appendChild(gbtn);
-                                });
-                                imgWrap.appendChild(viewImg);
-                              });
-                              imgWrap.appendChild(gbtn);
-                            }
                           } catch (e) {
                             console.error(
                               "[Deployment Map] Error displaying image:",
