@@ -876,20 +876,20 @@
         <div
           class="modal-content"
           role="document"
-          style="max-width: 760px; width: 96%"
+          style="max-width: 760px; width: 96%; background: var(--bg-card); color: var(--text-primary)"
         >
           <button
             id="placement-map-close"
             class="btn-icon float-right"
-            style="min-width: 44px; min-height: 44px"
+            style="min-width: 44px; min-height: 44px; color: var(--text-primary)"
             aria-label="Close placement map"
           >
             ✕
           </button>
-          <h2 class="text-lg font-semibold text-gray-900">
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">
             AI Suggested Deployment Map
           </h2>
-          <p id="placement-map-info" class="text-base text-gray-700 mt-3">
+          <p id="placement-map-info" class="text-base mt-3" style="color: var(--text-secondary)">
             This map shows where the AI has chosen to place its units. Use it as
             a guide to place enemy models on your table.
           </p>
@@ -908,45 +908,47 @@
           </div>
           <div
             id="placement-map-canvas"
-            class="mt-4 p-4 bg-white border-2 border-gray-300 rounded-lg"
+            class="mt-4 p-4 rounded-lg"
             style="
               display: grid;
               grid-template-columns: repeat(3, 1fr);
               grid-auto-rows: auto;
               gap: 12px;
+              background: var(--bg-secondary);
+              border: 2px solid var(--border-primary);
             "
           >
             <!-- Row 1: left | center | right -->
             <div class="zone-column" data-zone="left">
-              <div class="text-sm font-semibold mb-2 text-gray-900">Left</div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Left</div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <div class="zone-column" data-zone="center">
-              <div class="text-sm font-semibold mb-2 text-gray-900">Center</div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Center</div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <div class="zone-column" data-zone="right">
-              <div class="text-sm font-semibold mb-2 text-gray-900">Right</div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Right</div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <!-- Row 2: forward | defensive | reserve -->
             <div class="zone-column" data-zone="forward">
-              <div class="text-sm font-semibold mb-2 text-gray-900">
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
                 Forward
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <div class="zone-column" data-zone="defensive">
-              <div class="text-sm font-semibold mb-2 text-gray-900">
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
                 Defensive
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <div class="zone-column" data-zone="reserve">
-              <div class="text-sm font-semibold mb-2 text-gray-900">
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
                 Reserve
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px"></div>
+              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
             </div>
             <!-- Scattered / other zone spanning full width -->
             <div
@@ -954,13 +956,13 @@
               data-zone="scattered"
               style="grid-column: 1 / -1"
             >
-              <div class="text-sm font-semibold mb-2 text-gray-900">
+              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
                 Scattered / Other
               </div>
-              <div class="zone-items text-sm" style="min-height: 24px"></div>
+              <div class="zone-items text-sm" style="min-height: 24px; color: var(--text-secondary)"></div>
             </div>
           </div>
-          <div class="mt-4 text-base text-gray-600">
+          <div class="mt-4 text-base" style="color: var(--text-secondary)">
             Close this map when you've placed the enemy units on your table.
           </div>
         </div>
