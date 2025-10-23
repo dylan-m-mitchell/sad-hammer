@@ -865,6 +865,63 @@ def get_session_notes(session_id):
     return jsonify({'notes': sess.get('notes', [])})
 
 
+@app.route('/api/session/<session_id>/remove_unit', methods=['POST'])
+def remove_unit(session_id):
+    """Remove an AI unit from the session (e.g., when killed by the player).
+    
+    JSON payload: { "unit_name": str }
+    
+    Returns:
+        - 200: Unit successfully removed
+        - 400: Missing or invalid unit_name
+        - 404: Session not found or unit not found
+    """
+    data = request.get_json(force=True) or {}
+    unit_name = data.get('unit_name')
+    
+    if not unit_name:
+        return jsonify({'error': 'unit_name required'}), 400
+    
+    with SESSIONS_LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess:
+            return jsonify({'error': 'session not found'}), 404
+        
+        sim = sess['sim']
+        
+        # Remove from simulator's units list
+        removed = sim.remove_unit(unit_name)
+        
+        if not removed:
+            return jsonify({'error': 'unit not found', 'unit_name': unit_name}), 404
+        
+        # Also remove from session's ai_units list (for consistency)
+        sess['ai_units'] = [u for u in sess['ai_units'] if u.name != unit_name]
+        
+        # Remove from ai_profiles if present
+        if 'ai_profiles' in sess:
+            sess['ai_profiles'] = [p for p in sess['ai_profiles'] if p.get('name') != unit_name]
+        
+        # Log the removal event
+        removal_event = {
+            'event': 'unit_removed',
+            'turn': sim.turn,
+            'unit_name': unit_name,
+            'reason': 'killed_by_player'
+        }
+        sess['log'].append(removal_event)
+        
+        # Return updated state
+        remaining_units = [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in sess['ai_units']]
+        
+    return jsonify({
+        'ok': True,
+        'removed_unit': unit_name,
+        'remaining_units': remaining_units,
+        'remaining_count': len(remaining_units)
+    })
+
+
 if __name__ == '__main__':
     # bind to 0.0.0.0 so the app is reachable from nginx in docker-compose
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -97,6 +97,21 @@ class SoloSimulator:
         tactic_card = self.tactics_deck.draw_tactic()
         return tactic_card
 
+    def remove_unit(self, unit_name: str) -> bool:
+        """Remove a unit from the simulation (e.g., when killed by the player).
+        
+        Args:
+            unit_name: The name of the unit to remove
+            
+        Returns:
+            True if unit was found and removed, False otherwise
+        """
+        for i, unit in enumerate(self.units):
+            if unit.name == unit_name:
+                self.units.pop(i)
+                return True
+        return False
+
     def simulate_turn(self) -> List[Dict]:
         """Simulate a single AI turn; returns a list of resolved action records."""
         log = []
