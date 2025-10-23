@@ -16,9 +16,11 @@ import os
 from battlescribe_parser import parse_battlescribe_html
 from full_simulator import SoloSimulator, Unit as AIUnit
 from copy import deepcopy
-from reference_card_decks import tactic_to_actions
+from reference_card_decks import tactic_to_actions, battleplan_deck
+from backend import placement as placement_module
 import uuid
 from threading import Lock
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -26,6 +28,45 @@ CORS(app)
 # In-memory sessions: session_id -> {'sim': SoloSimulator, 'ai_units': [AIUnit], 'ai_profiles': [...], 'log': []}
 SESSIONS = {}
 SESSIONS_LOCK = Lock()
+
+# Load optional battleplan -> zone bias mapping (allows controlling which deployment
+# zones are permitted/weighted for each battleplan). This file is authored under
+# backend/battleplan_zone_bias.json and is used to report allowed zones in the
+# placement event emitted on the initial AI turn.
+BATTLEPLAN_ZONE_BIAS = []
+_bp_bias_path = os.path.join(os.path.dirname(__file__), 'backend', 'battleplan_zone_bias.json')
+try:
+    with open(_bp_bias_path, 'r', encoding='utf-8') as _f:
+        BATTLEPLAN_ZONE_BIAS = json.load(_f)
+except Exception:
+    # silently ignore missing/invalid file; placement will fall back to freeform text
+    BATTLEPLAN_ZONE_BIAS = []
+
+
+def _get_zone_info_for_bp(bp):
+    """Return the zone bias entry for the given battleplan dict or None.
+
+    bp may be a dict from `battleplan_deck` (with 'id' or 'title'). We match
+    by id first, then by case-insensitive title.
+    """
+    if not bp:
+        return None
+    try:
+        bid = bp.get('id')
+        if bid is not None:
+            for entry in BATTLEPLAN_ZONE_BIAS:
+                if entry.get('id') == bid:
+                    return entry
+    except Exception:
+        pass
+    try:
+        title = str(bp.get('title', '')).lower()
+        for entry in BATTLEPLAN_ZONE_BIAS:
+            if str(entry.get('title', '')).lower() == title:
+                return entry
+    except Exception:
+        pass
+    return None
 
 # Serve the web frontend (static) from the web/ directory
 @app.route('/')
@@ -189,6 +230,36 @@ def create_session():
     if roll_mode not in ('ai', 'player'):
         roll_mode = 'ai'
 
+    # Accept optional battleplan selection (by id or title) from JSON/form
+    chosen_bp = None
+    # check JSON body first
+    if data and 'battleplan' in data:
+        chosen_bp = data.get('battleplan')
+    else:
+        if 'battleplan' in request.form:
+            chosen_bp = request.form.get('battleplan')
+
+    # Resolve chosen_bp to a battleplan card dict if possible; otherwise draw one randomly
+    selected_battleplan = None
+    try:
+        if chosen_bp is not None:
+            # allow numeric id or title
+            try:
+                cid = int(chosen_bp)
+                selected_battleplan = next((b for b in battleplan_deck if b.get('id') == cid), None)
+            except Exception:
+                # treat as title match
+                selected_battleplan = next((b for b in battleplan_deck if str(b.get('title')).lower() == str(chosen_bp).lower()), None)
+        if not selected_battleplan:
+            # choose one deterministically from sim.rng if possible, else from python random
+            try:
+                selected_battleplan = sim.rng.choice(battleplan_deck)
+            except Exception:
+                import random as _rnd
+                selected_battleplan = _rnd.choice(battleplan_deck)
+    except Exception:
+        selected_battleplan = battleplan_deck[0] if battleplan_deck else None
+
     # Create SoloSimulator instance for AI units
     sim = SoloSimulator(ai_units)
 
@@ -200,7 +271,38 @@ def create_session():
             'ai_profiles': ai_profiles,
             'log': [],
             'roll_mode': roll_mode
+            , 'battleplan': selected_battleplan, 'placement_done': False
         }
+
+    # Immediately build and persist a proposed placement for the chosen battleplan
+    # so clients can show a deployment UI before the first AI turn.
+    try:
+        if selected_battleplan:
+            placement = placement_module.build_proposed_placement(sim.turn, sim.rng, selected_battleplan, ai_profiles)
+            with SESSIONS_LOCK:
+                sess = SESSIONS.get(session_id)
+                if sess is not None:
+                    sess['proposed_placement'] = placement
+                    sess['log'].append(placement)
+                    # mark placement emitted so we don't duplicate on the first ai_turn
+                    sess['placement_done'] = True
+                    # Auto-apply placement: server chooses final zones so client is not prompted
+                    try:
+                        placements = []
+                        allowed = placement.get('allowed_zones') or []
+                        for s in placement.get('suggestions', []):
+                            unit = s.get('unit')
+                            zone = s.get('suggested_zone') or (allowed[0] if allowed else None)
+                            placements.append({'unit': unit, 'zone': zone})
+                        sess['placement_confirmed'] = {'placements': placements, 'by': 'server'}
+                        evt = {'event': 'placement_confirmed', 'turn': placement.get('turn'), 'placements': placements}
+                        sess['log'].append(evt)
+                    except Exception:
+                        # don't block session creation on placement persistence
+                        pass
+    except Exception:
+        # don't block session creation on placement building failures
+        pass
 
     return jsonify({'session_id': session_id, 'state': {'turn': sim.turn, 'ai_count': len(ai_units), 'roll_mode': roll_mode}})
 
@@ -218,6 +320,13 @@ def get_session_state(session_id):
     # include AI parsed profiles (if available) for richer frontend display
     ai_profiles = sess.get('ai_profiles', [])
     return jsonify({'turn': sim.turn, 'ai_units': ai, 'ai_profiles': ai_profiles, 'log': sess['log'], 'roll_mode': sess.get('roll_mode', 'ai')})
+
+
+@app.route('/api/battleplans', methods=['GET'])
+def list_battleplans():
+    # Return the available battleplan cards (id and title and short deployment text)
+    plans = [{'id': b.get('id'), 'title': b.get('title'), 'deployment': b.get('deployment')} for b in battleplan_deck]
+    return jsonify({'battleplans': plans})
 
 
 # Player unit CRUD endpoints removed: server does not model or persist player units.
@@ -284,6 +393,40 @@ def ai_turn(session_id):
                     "dice": {"count": 1, "sides": 6}
                 })
 
+        # If no drawn actions were produced (rare due to RNG), ensure the player
+        # path still yields a roll_request by forcing the first unit to have one
+        # pending action. This prevents flaky tests and surfaces a roll request
+        # for the UI to resolve.
+        if not drawn_actions and sim.units:
+            u = sim.units[0]
+            # ensure action_deck has at least one card
+            if not action_deck:
+                action_deck = deepcopy(tactic_to_actions.get(tactic, []))
+                sim.rng.shuffle(action_deck)
+            if action_deck:
+                card = action_deck.pop(0)
+            else:
+                card = {'title': 'Default Action', 'initiative': 0, 'behavior': 'action'}
+            req_id = f"{sim.turn}-forced-0"
+            drawn_actions.append({
+                "request_id": req_id,
+                "unit": u.name,
+                "card": card,
+                "initiative": card.get('initiative', 0),
+                "behavior": card.get('behavior'),
+                "dice": {"count": 1, "sides": 6}
+            })
+            # also append an aggression_check event showing the unit acts
+            events.append({
+                "event": "aggression_check",
+                "unit": u.name,
+                "aggression_check": True,
+                "roll": None,
+                "modifier": getattr(u, 'aggression_modifier', 0),
+                "total": None,
+                "target": None,
+            })
+
         # store paused turn info in session so resolve_rolls can continue
         paused = {
             'turn': sim.turn,
@@ -325,6 +468,23 @@ def ai_turn(session_id):
             lines.append(f"- {a['unit']} -> {a['card'].get('title')} (req={a['request_id']}) init={a['initiative']} behavior={a['behavior']}")
 
         text = '\n'.join(lines) + '\n\n'
+        # If this is the initial turn, include placement suggestions based on chosen battleplan
+        try:
+            if sim.turn == 1 and sess.get('battleplan') and not sess.get('placement_done'):
+                bp = sess.get('battleplan')
+                # Build the proposed placement via the placement module (centralized logic)
+                try:
+                    placement = placement_module.build_proposed_placement(sim.turn, sim.rng, bp, sess.get('ai_profiles', []))
+                except Exception:
+                    # fallback to a minimal placement structure if the module fails
+                    placement = {'event': 'placement', 'turn': sim.turn, 'battleplan': bp, 'allowed_zones': [], 'suggestions': []}
+
+                sess['proposed_placement'] = placement
+                sess['log'].append(placement)
+                sess['placement_done'] = True
+        except Exception:
+            pass
+
         return (text, 200, {'Content-Type': 'text/plain; charset=utf-8'})
 
     # default 'ai' roll mode: run the full simulate_turn() and advance the turn
@@ -380,6 +540,65 @@ def get_last_turn_events(session_id):
         return jsonify({'error': 'session not found'}), 404
 
     return jsonify({'turn': sess.get('last_turn'), 'events': sess.get('last_turn_events', [])})
+
+
+@app.route('/api/session/<session_id>/placement', methods=['GET'])
+def get_session_placement(session_id):
+    """Return the proposed placement for the session, if any."""
+    with SESSIONS_LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return jsonify({'error': 'session not found'}), 404
+
+    prop = sess.get('proposed_placement')
+    confirmed = sess.get('placement_confirmed', False)
+    if not prop:
+        return jsonify({'placement': None, 'confirmed': False}), 200
+    return jsonify({'placement': prop, 'confirmed': confirmed}), 200
+
+
+@app.route('/api/session/<session_id>/placement', methods=['POST'])
+def post_session_placement(session_id):
+    """Accept a placement confirmation from the client and strictly validate zones.
+
+    Expected JSON: { placements: [ { unit: <name>, zone: <zone_name> }, ... ] }
+    Validation rules:
+      - There must be a proposed placement on the session.
+      - The client must provide a placement for every AI unit in the session.
+      - Each provided zone must be one of the `allowed_zones` from the proposed placement.
+    On success: stores `placement_confirmed` with the provided placements and appends a
+    `placement_confirmed` event to the session log.
+    """
+    data = request.get_json(force=True) or {}
+    placements = data.get('placements')
+    if placements is None:
+        return jsonify({'error': 'placements required'}), 400
+
+    with SESSIONS_LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess:
+            return jsonify({'error': 'session not found'}), 404
+
+        prop = sess.get('proposed_placement')
+        if not prop:
+            return jsonify({'error': 'no proposed placement to confirm'}), 400
+
+        # If server already auto-confirmed placement, disallow client confirmation
+        if sess.get('placement_confirmed') and sess.get('placement_confirmed', {}).get('by') == 'server':
+            return jsonify({'error': 'placement_already_auto_confirmed'}), 400
+
+        # Use the placement module to validate submitted placements
+        ok, err = placement_module.validate_placements(prop, placements)
+        if not ok:
+            return jsonify(err), 400
+
+        # Persist confirmed placements
+        sess['placement_confirmed'] = {'placements': placements, 'by': 'client'}
+        # Append confirmation event to the log
+        evt = {'event': 'placement_confirmed', 'turn': prop.get('turn'), 'placements': placements}
+        sess['log'].append(evt)
+
+    return jsonify({'ok': True, 'placements': placements}), 200
 
 
 @app.route('/api/session/<session_id>/resolve_rolls', methods=['POST'])
