@@ -587,36 +587,30 @@
                         if (scat) scat.appendChild(badge);
                       }
                     });
-                  // attempt to load a battleplan-specific map image, then open the modal so player can review placement visually
+                  // show a grid SVG as the primary visual aid for deployment; if an image exists the player
+                  // can optionally view it via a toggle. This avoids relying on the external image presence.
                   if (mapModal) {
                     const imgWrap = document.getElementById('placement-map-image-wrap');
                     const imgEl = document.getElementById('placement-map-image');
-                    // build candidate paths: try by id, then slugified title
+                    // Render the default grid immediately
+                    if (imgWrap) {
+                      imgWrap.innerHTML = `\n                        <div class="text-center">\n                          <div style="max-width:100%;">\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                              <rect width="100%" height="100%" fill="#ffffff" />\n                              <g stroke="#e5e7eb" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="400" y="40" text-anchor="middle" fill="#374151" font-size="16">Deployment Grid (use as primary guide)</text>\n                            </svg>\n                          </div>\n                        </div>\n                      `;
+                      imgWrap.classList.remove('hidden');
+                    }
+                    // build candidate paths (same as before)
                     const bp = placement.battleplan || placement.battleplan_id || placement.battleplan_title || null;
                     const candidates = [];
                     if (placement.battleplan && placement.battleplan.id) candidates.push(`/assets/battleplan_maps/${placement.battleplan.id}.png`);
-                    // slugify title fallback
                     if (placement.battleplan && placement.battleplan.title) {
-                      const slug = placement.battleplan.title.toString().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+                      const rawTitle = placement.battleplan.title.toString();
+                      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
                       candidates.push(`/assets/battleplan_maps/${slug}.png`);
-                    }
-                    // try candidates sequentially; if any loads, show it
-                    // Extend candidates with additional common filename patterns (exact title, title with spaces,
-                    // resolution suffixes, and common extensions) to match files in `battleplans-media/`.
-                    const extraCandidates = [];
-                    const rawTitle = placement.battleplan && placement.battleplan.title ? placement.battleplan.title.toString() : '';
-                    if (rawTitle) {
-                      // original title with spaces preserved
+                      // extra patterns
+                      const extraCandidates = [];
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.png`);
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.jpg`);
-                      // with a common high-res suffix used in repository
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.png`);
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.jpg`);
-                      // slugified form
-                      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-                      extraCandidates.push(`/assets/battleplan_maps/${slug}.png`);
-                      extraCandidates.push(`/assets/battleplan_maps/${slug}.jpg`);
-                      // Title-Case hyphenated variant (matches files like 'Border-War-2048x1524.jpg')
                       const titleCaseHyphen = rawTitle.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
                       if (titleCaseHyphen) {
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.jpg`);
@@ -624,7 +618,6 @@
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.png`);
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.png`);
                       }
-                      // Sometimes the title contains a trailing parenthetical year like 'Border War (2016)'. Strip parentheses to match filenames
                       const stripped = rawTitle.replace(/\s*\([^\)]*\)\s*/g, '').trim();
                       if (stripped && stripped !== rawTitle) {
                         const strippedHyphen = stripped.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
@@ -633,34 +626,48 @@
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}-2048x1524.png`);
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.png`);
                       }
-                    }
-                    // Merge and dedupe candidates preserving order
-                    const allCandidates = Array.from(new Set((candidates || []).concat(extraCandidates)));
-                    let tried = 0;
-                    const tryNext = () => {
-                      if (tried >= allCandidates.length) {
-                        // none found — hide image wrapper and show a lightweight grid fallback
-                        if (imgWrap) {
-                          imgWrap.innerHTML = '';
-                          // simple SVG grid fallback to convey zones
-                          const svg = `\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                              <rect width="100%" height="100%" fill="#ffffff" />\n                              <g stroke="#e5e7eb" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-size="18">No map image available — use the grid below as a guide</text>\n                            </svg>\n                          `;
-                          imgWrap.innerHTML = svg;
-                          imgWrap.classList.remove('hidden');
+                      const allCandidates = Array.from(new Set((candidates || []).concat(extraCandidates)));
+                      let tried = 0;
+                      const tryNextImg = () => {
+                        if (tried >= allCandidates.length) {
+                          // no image found — keep grid visible, and leave optional image hidden
+                          if (imgEl) { imgEl.src = ''; imgEl.style.display = 'none'; }
+                          return;
                         }
-                        openModal(mapModal);
-                        return;
-                      }
-                      const src = allCandidates[tried++];
-                      if (!imgEl) { tryNext(); return; }
-                      imgEl.onload = () => {
-                        if (imgWrap) imgWrap.classList.remove('hidden');
-                        imgEl.style.display = 'block';
-                        openModal(mapModal);
+                        const src = allCandidates[tried++];
+                        if (!imgEl) { tryNextImg(); return; }
+                        imgEl.onload = () => {
+                          // image is available; leave grid visible and offer a toggle to show image
+                          imgEl.style.display = 'none';
+                          // Add a toggle button so the player can view the map image if desired
+                          const toggleId = 'placement-map-show-image-btn';
+                          if (!document.getElementById(toggleId)) {
+                            const btn = document.createElement('button');
+                            btn.id = toggleId;
+                            btn.type = 'button';
+                            btn.className = 'bg-white border text-sm px-2 py-1 rounded mt-2';
+                            btn.textContent = 'Show map image';
+                            btn.addEventListener('click', () => {
+                              if (imgEl.style.display === 'none' || imgEl.style.display === '') {
+                                imgEl.style.display = 'block';
+                                btn.textContent = 'Hide map image';
+                              } else {
+                                imgEl.style.display = 'none';
+                                btn.textContent = 'Show map image';
+                              }
+                            });
+                            imgWrap.appendChild(btn);
+                            // place the image element after the button if not already moved
+                            imgWrap.appendChild(imgEl);
+                          }
+                        };
+                        imgEl.onerror = () => { imgEl.src = ''; imgEl.style.display = 'none'; tryNextImg(); };
+                        imgEl.src = src;
                       };
-                      imgEl.onerror = () => { imgEl.src = ''; imgEl.style.display = 'none'; tryNext(); };
-                      imgEl.src = src;
-                    };
-                    tryNext();
+                      tryNextImg();
+                    }
+                    // open the modal immediately to show the grid; image toggle will appear if an image is found
+                    openModal(mapModal);
                   }
                 }
               }
