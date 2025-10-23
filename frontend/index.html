@@ -127,8 +127,15 @@
     <!-- Battleplan banner: shows the selected battleplan and a short note -->
     <div id="battleplan-banner" class="max-w-4xl mx-auto p-2 hidden">
       <div class="border-l-4 border-blue-500 bg-blue-50 p-3 rounded">
-        <div id="battleplan-title" class="font-semibold">Battleplan: (none)</div>
-        <div id="battleplan-note" class="text-sm text-gray-700 mt-1">No battleplan selected.</div>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1">
+            <div id="battleplan-title" class="font-semibold">Battleplan: (none)</div>
+            <div id="battleplan-note" class="text-sm text-gray-700 mt-1">No battleplan selected.</div>
+          </div>
+          <div id="battleplan-image-container" class="hidden">
+            <img id="battleplan-image" src="" alt="Battleplan map" class="rounded border border-gray-300 shadow-sm" style="max-width: 200px; height: auto;" />
+          </div>
+        </div>
       </div>
     </div>
     <!-- Always-visible AI output strip so AI summaries are seen without opening the full log panel -->
@@ -501,6 +508,58 @@
         } catch (e) {}
       }
 
+      // Helper to display battleplan banner with title, note, and image
+      function displayBattleplanBanner(bpInfo) {
+        if (!bpInfo) return;
+        
+        const bpBanner = document.getElementById('battleplan-banner');
+        const t = document.getElementById('battleplan-title');
+        const n = document.getElementById('battleplan-note');
+        const imgContainer = document.getElementById('battleplan-image-container');
+        const img = document.getElementById('battleplan-image');
+        
+        if (t) t.textContent = `Battleplan: ${bpInfo.title || bpInfo}`;
+        if (n) n.textContent = bpInfo.deployment || bpInfo.note || '';
+        if (bpBanner) bpBanner.classList.remove('hidden');
+        
+        // Try to load the battleplan map image
+        if (img && imgContainer) {
+          const battleplanTitle = bpInfo.title || bpInfo.id || '';
+          if (battleplanTitle) {
+            // Normalize the title to match image filename format
+            // Remove year suffix like "(2016)", trim, and replace spaces with hyphens
+            let normalizedName = battleplanTitle
+              .replace(/\s*\(\d{4}\)\s*$/, '') // Remove year like "(2016)"
+              .trim()
+              .replace(/\s+/g, '-'); // Replace spaces with hyphens
+            
+            // Try the image with the normalized name
+            const imagePath = `/battleplans-media/${normalizedName}-2048x1524.jpg`;
+            
+            img.src = imagePath;
+            img.onerror = () => {
+              // Try without the resolution suffix
+              const simpleImagePath = `/battleplans-media/${normalizedName}.jpg`;
+              img.src = simpleImagePath;
+              img.onerror = () => {
+                // Try PNG format
+                const pngPath = `/battleplans-media/${normalizedName}.png`;
+                img.src = pngPath;
+                img.onerror = () => {
+                  // Hide the image container if no format works
+                  imgContainer.classList.add('hidden');
+                  console.warn('Could not load battleplan image for:', battleplanTitle, 'tried:', imagePath, simpleImagePath, pngPath);
+                };
+              };
+            };
+            img.onload = () => {
+              // Show the image container when image loads successfully
+              imgContainer.classList.remove('hidden');
+            };
+          }
+        }
+      }
+
         // --- Placement UI helpers ---
         function showPlacementUI(sessionId) {
           if (!sessionId) return;
@@ -542,12 +601,7 @@
                 });
                 // Show battleplan banner if placement includes battleplan info
                 if (placement && placement.battleplan) {
-                  const bpBanner = document.getElementById('battleplan-banner');
-                  const t = document.getElementById('battleplan-title');
-                  const n = document.getElementById('battleplan-note');
-                  if (t) t.textContent = `Battleplan: ${placement.battleplan.title || placement.battleplan}`;
-                  if (n) n.textContent = placement.battleplan.deployment || placement.battleplan.note || '';
-                  if (bpBanner) bpBanner.classList.remove('hidden');
+                  displayBattleplanBanner(placement.battleplan);
                 }
                 // Also populate the visual placement map (left/center/right) using placements or suggestions
                 const mapModal = document.getElementById('placement-map');
@@ -895,12 +949,7 @@
             // show selected battleplan if provided by server state or the request
             const bpInfo = data.state?.battleplan || data.battleplan || (bp ? { title: bp } : null);
             if (bpInfo) {
-              const bpBanner = document.getElementById('battleplan-banner');
-              const t = document.getElementById('battleplan-title');
-              const n = document.getElementById('battleplan-note');
-              if (t) t.textContent = `Battleplan: ${bpInfo.title || bpInfo}`;
-              if (n) n.textContent = bpInfo.deployment || bpInfo.note || '';
-              if (bpBanner) bpBanner.classList.remove('hidden');
+              displayBattleplanBanner(bpInfo);
             }
               // Immediately show placement UI if the server has proposed placement
               try { showPlacementUI(currentSession); } catch (e) { console.warn('placement UI error', e); }
