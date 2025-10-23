@@ -274,12 +274,14 @@ def ai_turn(session_id):
                 card = action_deck.pop(0)
                 # create a pending action request id
                 req_id = f"{sim.turn}-{len(drawn_actions)}"
+                # default dice descriptor: 1 d6 (can be enhanced later per-card)
                 drawn_actions.append({
                     "request_id": req_id,
                     "unit": u.name,
                     "card": card,
                     "initiative": card.get('initiative', 0),
-                    "behavior": card.get('behavior')
+                    "behavior": card.get('behavior'),
+                    "dice": {"count": 1, "sides": 6}
                 })
 
         # store paused turn info in session so resolve_rolls can continue
@@ -301,7 +303,8 @@ def ai_turn(session_id):
                     "unit": a['unit'],
                     "card_title": a['card'].get('title'),
                     "initiative": a['initiative'],
-                    "behavior": a['behavior']
+                    "behavior": a['behavior'],
+                    "dice": a.get('dice', {"count": 1, "sides": 6})
                 } for a in drawn_actions
             ]
         })

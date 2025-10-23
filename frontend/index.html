@@ -16,84 +16,210 @@
       crossorigin
       src="https://unpkg.com/axios/dist/axios.min.js"
     ></script>
+    <!-- Tailwind CDN for rapid prototyping -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body {
-        font-family: sans-serif;
-        margin: 16px;
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+      .pane { display: inline-block; vertical-align: top; }
+      /* responsive layout handled by Tailwind classes on elements; avoid fixed pixel sizes here */
+      button { margin: 4px; }
+      /* collapse transition helper */
+      .collapse-content { overflow: hidden; transition: max-height 320ms ease; }
+      /* Icon button and chevron color animation
+         - chevrons use stroke="currentColor" so they inherit color from the button
+         - animate color on hover/focus/active and provide a visible focus ring for a11y
+      */
+      .btn-icon {
+        background: transparent;
+        border: none;
+        padding: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #2563EB; /* base blue (Tailwind indigo-600 equivalent) */
+        transition: color 160ms ease, transform 160ms ease;
       }
-      .pane {
-        display: inline-block;
-        vertical-align: top;
+      .btn-icon:hover, .btn-icon:focus {
+        color: #1e40af; /* slightly darker on hover (indigo-800) */
       }
-      #units {
-        width: 320px;
-        height: 480px;
-        overflow: auto;
-        border: 1px solid #ddd;
-        padding: 8px;
+      .btn-icon:active { color: #1d4ed8; transform: scale(0.98); }
+      .btn-icon:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); border-radius: 6px; }
+      .toggle-icon { transition: transform 220ms ease, color 160ms ease; display: inline-block; color: inherit; }
+      .rotate-180 { transform: rotate(180deg); }
+      /* action icon color coding */
+      .icon-melee { color: #dc2626; } /* red */
+      .icon-ranged { color: #d97706; } /* amber */
+      .icon-move { color: #059669; } /* emerald */
+      .icon-magic { color: #7c3aed; } /* violet */
+      .icon-default { color: #374151; } /* gray-700 */
+  /* modal for mobile pending-rolls */
+      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 60; }
+      .modal-overlay.open { display: flex; }
+      .modal-content { background: white; border-radius: 8px; max-width: 640px; width: 94%; max-height: 92vh; overflow:auto; padding: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);} 
+      @media (prefers-reduced-motion: reduce) {
+        .modal-content { transition: none !important; }
       }
-      #log {
-        width: 560px;
-        height: 480px;
-        overflow: auto;
-        border: 1px solid #ddd;
-        padding: 8px;
-        margin-left: 12px;
+      /* Clear focus-visible styles inside modal for keyboard users */
+      .modal-content :is(button, a, input, select, textarea, [tabindex]) :where(:focus-visible) {
+        outline: 3px solid rgba(59,130,246,0.9);
+        outline-offset: 2px;
+        box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
       }
-      button {
-        margin: 4px;
+      /* Slightly larger focus target for inputs */
+      .modal-content input:focus-visible, .modal-content button:focus-visible {
+        border-color: rgba(59,130,246,0.9);
       }
+      /* Prevent pre and text areas from causing horizontal scroll; wrap long lines */
+      pre, textarea, .bg-gray-50 pre {
+        white-space: pre-wrap !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+      }
+      /* Ensure the main log panel uses vertical scrolling only when hidden content overflows */
+      #log, #log-items { overflow-x: hidden; }
+      /* badge pulse animation for unseen logs */
+      @keyframes badge-pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.25); opacity: 0.95; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      #log-badge.pulse { animation: badge-pulse 420ms cubic-bezier(.2,.9,.2,1); }
     </style>
   </head>
   <body>
-    <h1>Sad Hammer — Frontend</h1>
-    <div>
-      <input id="file" type="file" />
-      <label style="margin-left:8px">AI roll handling:
-        <select id="roll-mode">
-          <option value="ai">AI handles rolls</option>
-          <option value="player">Player handles AI rolls</option>
-        </select>
-      </label>
-      <button id="create-session">Upload & Start Session</button>
-      <span style="margin-left:12px">Session ID: <span id="session-id">(none)</span></span>
+    <header class="max-w-4xl mx-auto p-4">
+      <h1 class="text-2xl font-semibold">Sad Hammer — Frontend</h1>
+      <p class="text-sm text-gray-600">Upload an opponent roster and let the AI take its turn. Choose who resolves AI rolls.</p>
+    </header>
+    <main class="max-w-4xl mx-auto p-4">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <input id="file" type="file" class="" />
+        <label class="ml-2 inline-flex items-center text-sm">
+          <span class="mr-2">AI roll handling:</span>
+          <select id="roll-mode" class="border rounded px-2 py-1">
+            <option value="ai">AI handles rolls</option>
+            <option value="player">Player handles AI rolls</option>
+          </select>
+        </label>
+        <button id="create-session" class="ml-0 sm:ml-3 w-full sm:w-auto bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Upload & Start Session</button>
+        <span class="ml-auto text-sm">Session ID: <span id="session-id" class="font-mono text-sm">(none)</span>
+          <button id="toggle-logs" class="ml-3 relative bg-gray-100 text-gray-800 px-2 py-1 rounded hover:bg-gray-200 text-xs">Show logs
+            <span id="log-badge" class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 hidden" aria-hidden="true">0</span>
+          </button>
+        </span>
+      </div>
+    </main>
+    <!-- Always-visible AI output strip so AI summaries are seen without opening the full log panel -->
+    <div class="max-w-4xl mx-auto p-2">
+      <div id="ai-output" class="w-full bg-white border rounded p-3 mb-2" style="min-height:48px; overflow:auto;"></div>
     </div>
-    <div style="margin-top:8px">
-      <button id="fetch-state">Get Session State</button>
-      <button id="ai-turn">Run AI Turn</button>
+    <div style="margin-top:8px" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <button id="fetch-state" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer" aria-label="Get current session state">Get Session State</button>
+      <button id="ai-turn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer" aria-label="Run AI Turn">Run AI Turn</button>
     </div>
     <div style="margin-top:8px">
       <strong>Session Log Viewer:</strong>
       <div id="log-controls" style="margin-top:6px">
         Page: <span id="log-page">1</span>
-        <button id="log-prev">Prev</button>
-        <button id="log-next">Next</button>
-        Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
-        <button id="fetch-log">View Log</button>
+  <button id="log-prev" class="bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Previous log page">Prev</button>
+  <button id="log-next" class="bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Next log page">Next</button>
+  Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
+  <button id="fetch-log" class="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="View session log">View Log</button>
+  <button id="collapse-all" class="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200" aria-label="Collapse all log cards">Collapse all</button>
+  <button id="expand-all" class="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200" aria-label="Expand all log cards">Expand all</button>
       </div>
       <label style="margin-left:12px"><input id="compact-toggle" type="checkbox" checked /> Compact view</label>
-      <div id="log-items" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#fff"></div>
+      <div id="log-items" class="w-full border p-2 mt-2 max-h-64 overflow-auto whitespace-pre-wrap bg-white hidden"></div>
     </div>
-    <div style="margin-top: 12px">
-      <div id="units" class="pane"></div>
-      <div id="log" class="pane"></div>
+    <div class="max-w-4xl mx-auto p-4">
+      <div id="log-panel" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div id="units" class="col-span-1 border rounded p-3 bg-white shadow-sm h-64 md:h-96 overflow-auto w-full"></div>
+          <div id="log" class="col-span-2 border rounded p-3 bg-white shadow-sm h-64 md:h-96 overflow-auto w-full"></div>
+        </div>
+      </div>
     </div>
-    <div style="margin-top:12px">
-      <div id="pending-rolls" style="width:920px;border:1px dashed #ccc;padding:8px;margin-top:6px;display:none">
-        <strong>Pending roll requests</strong>
-        <div id="pending-list"></div>
-        <button id="submit-rolls">Submit Rolls</button>
-        <div id="roll-errors" style="color:#900;margin-top:6px"></div>
+    <div class="max-w-4xl mx-auto p-4">
+      <div id="pending-rolls" class="hidden border-2 border-dashed border-gray-200 rounded p-4 bg-yellow-50">
+        <h2 class="font-medium">Pending roll requests</h2>
+        <div id="pending-summary" class="text-sm text-gray-800 mt-2 mb-2"></div>
+        <p id="pending-instruction" class="text-sm text-gray-700">Enter die values (single number or comma-separated for multiple dice). Valid d6 values: 1–6.</p>
+        <ul id="pending-steps" class="mt-2 text-sm text-gray-700 list-disc list-inside hidden">
+          <li>1) Identify the enemy model that is performing the action (see the unit name above each input).</li>
+          <li>2) Decide which dice to provide for that model's attack/ability (enter one value or a comma-separated list; e.g. "4" or "3,2").</li>
+          <li>3) Submit all requested rolls when ready; the server will resolve the action and continue the turn.</li>
+        </ul>
+          <div id="pending-list" class="mt-3 space-y-2"></div>
+          <div class="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button id="submit-rolls" class="w-full sm:w-auto bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">Submit Rolls</button>
+          <div id="roll-errors" class="text-red-600 text-sm" role="alert" aria-live="polite"></div>
+        </div>
+      </div>
+      <!-- Modal for mobile pending-rolls -->
+      <div id="pending-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-content" role="document">
+          <button id="modal-close" class="btn-icon float-right" aria-label="Close pending rolls">✕</button>
+          <div id="modal-body"></div>
+        </div>
       </div>
     </div>
     <div style="margin-top:8px">
-      <textarea id="notes" placeholder="Player notes (free-form)" style="width:920px;height:80px"></textarea>
-      <br/>
-      <button id="submit-note">Save Note</button>
-      <button id="fetch-notes">Get Notes</button>
-      <div id="notes-list" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:140px;overflow:auto"></div>
+    <textarea id="notes" placeholder="Player notes (free-form)" class="w-full h-20"></textarea>
+  <br/>
+  <button id="submit-note" class="w-full sm:w-auto bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400" aria-label="Save player note">Save Note</button>
+  <button id="fetch-notes" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-800 px-3 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Get saved notes">Get Notes</button>
+    <div id="notes-list" class="w-full border p-2 mt-2 max-h-36 overflow-auto"></div>
     </div>
     <script>
+      // Helper: produce a clear human instruction for a pending action
+      function actionHintFor(a) {
+        const behavior = (a.behavior || '').toString().toLowerCase();
+        const title = (a.card_title || '').toString().toLowerCase();
+        // Common behavior heuristics
+        if (/move|advance|walk|march/.test(behavior) || /move|advance/.test(title)) {
+          return 'Movement: move this model now (follow the card for distance/effects). No dice required unless the card specifies an attack.';
+        }
+        if (/charge/.test(behavior) || /charge/.test(title)) {
+          return 'Charge: move into contact and then perform charge or combat attacks as listed on the card; provide attack rolls where requested.';
+        }
+        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
+          return 'Ranged attack: pick a valid target and provide the attack roll(s) for ranged weapons listed on the card.';
+        }
+        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
+          return 'Melee attack: pick a target in range and provide the attack roll(s). Choose weapons/targets according to the card.';
+        }
+        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
+          return 'Ability / spell: follow the card text for targets and effects. Enter any requested dice values for checks (e.g., casting roll) below.';
+        }
+        // fallback
+        return 'Action: follow the card text for this action. Provide any requested d6 roll(s) in the input to the right (e.g. 4 or 3,2).';
+      }
+
+      // Helper: return a small inline SVG for action types
+      function actionIconFor(a) {
+        const behavior = (a.behavior || '').toString().toLowerCase();
+        const title = (a.card_title || '').toString().toLowerCase();
+        // sword = melee
+        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 22l6-6 4 4 10-10-4-4L14 6 10 10 2 22z" fill="currentColor"/></svg>`;
+        }
+        // arrow = ranged
+        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h15M14 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // boot = move/charge
+        if (/move|advance|charge|march/.test(behavior) || /move|advance|charge/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21c0-4 4-6 7-6s6 2 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7h10l2 4H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // magic = spell/ability
+        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
+          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6M12 22v-6M4.2 4.2l4.2 4.2M19.8 19.8l-4.2-4.2M2 12h6M22 12h-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        }
+        // default (include emoji fallback)
+        return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v4l2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span aria-hidden="true">⚑</span>`;
+      }
       const api = {
         createSessionFromFile: (file, rollMode = 'ai') => {
           const fd = new FormData();
@@ -109,12 +235,195 @@
   postResolveRolls: (id, payload) => axios.post(`/api/session/${id}/resolve_rolls`, payload).then((r) => r.data),
       };
 
+      // Modal helpers
+      // Robust modal focus trap helpers
+      function openModal(modalEl) {
+        if (!modalEl) return;
+        const previouslyFocused = document.activeElement;
+        modalEl._prevFocus = previouslyFocused;
+        // Hide main content from screen readers while modal open
+        const main = document.querySelector('main') || document.body;
+        main.setAttribute('aria-hidden', 'true');
+        modalEl.classList.add('open');
+        modalEl.setAttribute('aria-hidden', 'false');
+        // Gather focusable elements inside modal
+        const focusableSelector = 'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+        const focusables = Array.from(modalEl.querySelectorAll(focusableSelector)).filter(el => el.offsetParent !== null);
+        const first = focusables[0] || modalEl;
+        const last = focusables[focusables.length - 1] || modalEl;
+        // focus first element
+        first.focus();
+
+        // key handler to trap tab and handle Escape
+        const onKey = (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeModal(modalEl);
+            return;
+          }
+          if (e.key === 'Tab') {
+            if (focusables.length === 0) {
+              e.preventDefault();
+              return;
+            }
+            if (e.shiftKey) {
+              if (document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+              }
+            } else {
+              if (document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+              }
+            }
+          }
+        };
+        modalEl._onKey = onKey;
+        document.addEventListener('keydown', onKey);
+      }
+      function closeModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.classList.remove('open');
+        modalEl.setAttribute('aria-hidden', 'true');
+        const main = document.querySelector('main') || document.body;
+        main.removeAttribute('aria-hidden');
+        // remove key handler
+        if (modalEl._onKey) {
+          document.removeEventListener('keydown', modalEl._onKey);
+          delete modalEl._onKey;
+        }
+        // restore focus
+        try { if (modalEl._prevFocus) modalEl._prevFocus.focus(); } catch (e) {}
+      }
+
+      // Shared submit handler so modal clone and desktop button use same logic
+      function submitRollsHandler(e) {
+        e?.preventDefault?.();
+        document.getElementById('roll-errors').textContent = '';
+        const modal = document.getElementById('pending-modal');
+        let inputs = [];
+        if (modal && modal.classList.contains('open')) {
+          inputs = Array.from(modal.querySelectorAll('.roll-input'));
+        } else {
+          inputs = Array.from(document.querySelectorAll('.roll-input'));
+        }
+        const payload = { action_results: [] };
+        let hasClientError = false;
+        inputs.forEach(inp => {
+          const rid = inp.getAttribute('data-req');
+          const errElId = (inp.id && (modal && modal.classList.contains('open'))) ? (`err-modal-${inp.id.replace(/^modal-/, '')}`) : `err-${inp.id}`;
+          const errEl = document.getElementById(errElId) || document.getElementById(`err-${inp.id}`) || (inp.nextElementSibling && inp.nextElementSibling.classList && inp.nextElementSibling);
+          if (errEl && errEl.textContent !== undefined) errEl.textContent = '';
+          const raw = inp.value || '';
+          if (!raw.trim()) {
+            if (errEl) errEl.textContent = 'Please enter at least one roll (1-6)';
+            hasClientError = true;
+            return;
+          }
+          const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+          const nums = parts.map(p => parseInt(p, 10));
+          if (nums.some(n => Number.isNaN(n))) {
+            if (errEl) errEl.textContent = 'Invalid number';
+            hasClientError = true;
+            return;
+          }
+          if (nums.some(n => n < 1 || n > 6)) {
+            if (errEl) errEl.textContent = 'Rolls must be 1-6';
+            hasClientError = true;
+            return;
+          }
+          const resultObj = {};
+          if (nums.length === 1) resultObj.roll = nums[0];
+          else resultObj.roll = nums;
+          payload.action_results.push({ request_id: rid, result: resultObj });
+        });
+        if (hasClientError) {
+          document.getElementById('roll-errors').textContent = 'Fix input errors above before submitting.';
+          return;
+        }
+        api.postResolveRolls(currentSession, payload).then(resp => {
+          // hide pending UI and show returned events
+          document.getElementById('pending-rolls').classList.add('hidden');
+          const modal = document.getElementById('pending-modal');
+          if (modal && modal.classList.contains('open')) closeModal(modal);
+          const evpre = document.createElement('pre');
+          evpre.className = 'bg-green-50 border border-green-200 p-3 rounded mt-3';
+          evpre.textContent = JSON.stringify(resp.events || [], null, 2);
+          // Append resolved events to the AI output strip and to side log if visible
+          const aiOut = document.getElementById('ai-output'); if (aiOut) aiOut.appendChild(evpre.cloneNode(true));
+          if (!logPanel || !logPanel.classList.contains('hidden')) logEl.appendChild(evpre);
+          // Remove any paused banners now that player provided rolls
+          Array.from(document.querySelectorAll('.ai-paused-banner')).forEach(b => b.remove());
+          // Reset unseen badge since we've addressed pending rolls
+          resetUnseenCount();
+        }).catch(err => {
+          const data = err.response?.data || err.message;
+          document.getElementById('roll-errors').textContent = (data?.error || JSON.stringify(data));
+        });
+      }
+
+
       const unitsEl = document.getElementById("units");
       const logEl = document.getElementById("log");
       const fileInput = document.getElementById("file");
       const sessionIdEl = document.getElementById("session-id");
+  const toggleLogsBtn = document.getElementById('toggle-logs');
+  const logPanel = document.getElementById('log-panel');
 
       let currentSession = null;
+
+      // Initialize log panel hidden; update toggle label
+      (function initLogPanel() {
+        if (logPanel) logPanel.classList.add('hidden');
+        if (toggleLogsBtn) {
+          toggleLogsBtn.textContent = 'Show logs';
+          toggleLogsBtn.addEventListener('click', () => {
+            const wasHidden = logPanel.classList.contains('hidden');
+            const hidden = logPanel.classList.toggle('hidden');
+            toggleLogsBtn.textContent = hidden ? 'Show logs' : 'Hide logs';
+            // When showing logs, also make the compact log-items visible
+            const li = document.getElementById('log-items');
+            if (li) {
+              if (hidden) li.classList.add('hidden'); else li.classList.remove('hidden');
+            }
+            // If opening logs, reset unseen count
+            if (wasHidden && !hidden) resetUnseenCount();
+          });
+        }
+      })();
+
+      // Show logs helper: reveal the log panel and update toggle text
+      function showLogsIfHidden() {
+        if (!logPanel || !toggleLogsBtn) return;
+        if (logPanel.classList.contains('hidden')) {
+          logPanel.classList.remove('hidden');
+          const li = document.getElementById('log-items'); if (li) li.classList.remove('hidden');
+          toggleLogsBtn.textContent = 'Hide logs';
+        }
+      }
+
+      // Unseen badge helpers
+      function incUnseenCount() {
+        const badge = document.getElementById('log-badge'); if (!badge) return;
+        let n = parseInt(badge.getAttribute('data-count') || badge.textContent || '0', 10) || 0;
+        n += 1;
+        // Cap display at 9+
+        badge.setAttribute('data-count', String(n));
+        badge.textContent = n > 9 ? '9+' : String(n);
+        badge.classList.remove('hidden');
+        // Trigger pulse animation
+        badge.classList.remove('pulse');
+        // Force reflow to restart animation
+        void badge.offsetWidth;
+        badge.classList.add('pulse');
+        // Remove pulse class after animation to allow retrigger
+        setTimeout(() => badge.classList.remove('pulse'), 500);
+      }
+      function resetUnseenCount() {
+        const badge = document.getElementById('log-badge'); if (!badge) return;
+        badge.textContent = '0'; badge.setAttribute('data-count','0'); badge.classList.add('hidden'); badge.classList.remove('pulse');
+      }
 
       document.getElementById("create-session").addEventListener("click", () => {
         const f = fileInput.files[0];
@@ -181,25 +490,218 @@
             pre.style.padding = '8px';
             pre.style.marginTop = '8px';
             pre.style.whiteSpace = 'pre-wrap';
-            pre.textContent = (typeof text === 'string' ? text : JSON.stringify(text, null, 2));
-            logEl.appendChild(pre);
-            // keep scroll at bottom
-            logEl.scrollTop = logEl.scrollHeight;
+            // If server returned a human-readable string, insert blank lines between model entries
+            if (typeof text === 'string') {
+              const lines = text.split('\n');
+              const out = [];
+              for (let i = 0; i < lines.length; i++) {
+                const ln = lines[i];
+                out.push(ln);
+                // heuristics: add a blank line after aggression checks, action lines, or pending action list items
+                const trim = ln.trim();
+                if (trim.startsWith('AI check:') || trim.startsWith('AI action:') || trim.startsWith('- ') || trim.startsWith('ACTION:')) {
+                  out.push('');
+                }
+              }
+              pre.textContent = out.join('\n');
+            } else {
+              pre.textContent = JSON.stringify(text, null, 2);
+            }
+            // Wrap the pre block in a collapsible container with a toggle
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mb-3';
+            const header = document.createElement('div');
+            header.className = 'flex items-center justify-between gap-3';
+            const title = document.createElement('div');
+            title.className = 'text-sm font-medium';
+            title.textContent = `AI Turn Summary`;
+            const toggle = document.createElement('button');
+            toggle.className = 'btn-icon';
+            toggle.type = 'button';
+            toggle.setAttribute('aria-label','Collapse or expand AI summary');
+            const chev = document.createElement('span'); chev.className = 'toggle-icon';
+            chev.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            toggle.appendChild(chev);
+            const content = document.createElement('div');
+            content.appendChild(pre);
+            // smooth collapse using max-height with helper to centralize behavior and optionally persist state
+            content.classList.add('collapse-content');
+            content.style.maxHeight = content.scrollHeight + 'px';
+            // rAF-based expand/collapse for smoother animation
+            const animateCollapse = (el, collapse, chevron, onComplete) => {
+              // collapse: true => collapse, false => expand
+              // Cancel any ongoing animation by clearing transition and forcing layout
+              el.style.transition = 'none';
+              const startHeight = el.getBoundingClientRect().height;
+              const targetHeight = collapse ? 0 : el.scrollHeight;
+              // set explicit start height
+              el.style.maxHeight = startHeight + 'px';
+              // force layout
+              void el.offsetHeight;
+              // enable transition
+              el.style.transition = 'max-height 360ms ease';
+              requestAnimationFrame(() => {
+                el.style.maxHeight = targetHeight + 'px';
+                if (collapse) chevron.classList.add('rotate-180'); else chevron.classList.remove('rotate-180');
+              });
+              // After transition, clear maxHeight for expanded state so content can grow naturally
+              const onEnd = (ev) => {
+                if (!collapse) {
+                  el.style.maxHeight = '';
+                }
+                el.removeEventListener('transitionend', onEnd);
+                try { if (onComplete) onComplete(!!collapse); } catch (e) {}
+              };
+              el.addEventListener('transitionend', onEnd);
+            };
+            // Helper: produce a reasonably stable event key for storage
+            const makeEventId = (it, idx, page) => {
+              if (!it) return `p${page}-i${idx}`;
+              return it.id || it.event_id || it.timestamp || (`p${page}-i${idx}-${it.event || 'evt'}`);
+            };
+            const getEventKey = (eventId) => `collapse:${eventId}`;
+            const saveCollapseState = (eventId, collapsed) => {
+              try { sessionStorage.setItem(getEventKey(eventId), collapsed ? '1' : '0'); } catch (e) {}
+            };
+            const readCollapseState = (eventId) => {
+              try { return sessionStorage.getItem(getEventKey(eventId)) === '1'; } catch (e) { return false; }
+            };
+            const toggleCollapse = (btn, el, chevron, toState) => {
+              const isCollapsed = el.style.maxHeight === '0px' || el.getBoundingClientRect().height === 0;
+              const wantCollapse = toState === 'collapse' ? true : (toState === 'expand' ? false : !isCollapsed);
+              animateCollapse(el, wantCollapse, chevron);
+            };
+            toggle.addEventListener('click', () => toggleCollapse(toggle, content, chev));
+            header.appendChild(title);
+            header.appendChild(toggle);
+            wrapper.appendChild(header);
+            wrapper.appendChild(content);
+            // Append AI summary to the always-visible AI output strip
+            const aiOut = document.getElementById('ai-output');
+            if (aiOut) aiOut.appendChild(wrapper);
+            // Also append to side log only if the log panel is visible
+            const panelHidden = (logPanel && logPanel.classList.contains('hidden'));
+            if (!panelHidden) {
+              // clone so the AI output remains in the top strip independently
+              logEl.appendChild(wrapper.cloneNode(true));
+              // keep scroll at bottom
+              logEl.scrollTop = logEl.scrollHeight;
+            } else {
+              // increment unseen badge when new AI output arrives and log panel is hidden
+              incUnseenCount();
+            }
+            // Ensure the summary is expanded by default (measure after append)
+            requestAnimationFrame(() => {
+              content.style.maxHeight = content.scrollHeight + 'px';
+              chev.classList.remove('rotate-180');
+            });
             // Try to fetch last_turn structured events to detect roll_request
             axios.get(`/api/session/${currentSession}/last_turn`).then(r => {
               const events = r.data.events || [];
               const rr = events.find(e => e.event === 'roll_request');
               if (rr) {
-                const list = document.getElementById('pending-list');
-                list.innerHTML = '';
-                rr.pending_actions.forEach(a => {
-                  const row = document.createElement('div');
-                  row.style.margin = '6px 0';
-                  row.innerHTML = `<strong>${a.unit}</strong> — ${a.card_title} (req=${a.request_id}) init=${a.initiative} behavior=${a.behavior} <br/>Rolls (comma-separated): <input data-req="${a.request_id}" class="roll-input" style="width:120px;margin-left:6px" />`;
-                  list.appendChild(row);
-                });
-                document.getElementById('pending-rolls').style.display = 'block';
-              }
+                  const renderPendingActions = (rr) => {
+                    const list = document.getElementById('pending-list');
+                    list.innerHTML = '';
+                    // Show step checklist to the player
+                    document.getElementById('pending-steps').classList.remove('hidden');
+                    // Append a prominent instruction banner to the main log area so it's visible in console
+                    const banner = document.createElement('div');
+                    banner.className = 'w-full p-3 rounded border-l-4 border-yellow-400 bg-yellow-100 text-gray-800 mb-3 ai-paused-banner';
+                    banner.innerHTML = `<div class="font-semibold">Player action required — AI paused for roll resolution</div>
+                      <div class="text-sm mt-1">The AI has paused to request specific dice for enemy models' actions. For each listed enemy model:</div>
+                      <ol class="mt-2 text-sm list-decimal list-inside">
+                        <li>Locate the enemy model name above the input field in the <strong>Pending roll requests</strong> box.</li>
+                        <li>Enter the die value(s) the model should use (d6 values, comma-separated for multiple dice).</li>
+                        <li>When all requested rolls are entered, click <strong>Submit Rolls</strong> to continue the turn.</li>
+                      </ol>
+                      <div class="text-xs text-gray-600 mt-2">Tip: use the model's unit name and card title to match the action to the model on the table.</div>`;
+                    // Append banner to the AI output strip so player sees the prompt even when side log is collapsed
+                    const aiOut = document.getElementById('ai-output');
+                    if (aiOut) aiOut.appendChild(banner.cloneNode(true));
+                    // Also append to side log only if visible; otherwise increment unseen badge
+                    const logPanelVisible = !document.getElementById('log-panel').classList.contains('hidden');
+                    if (logPanelVisible) {
+                      logEl.appendChild(banner);
+                      logEl.scrollTop = logEl.scrollHeight;
+                    } else {
+                      incUnseenCount();
+                    }
+                    // compute aggregate dice summary
+                    const byDice = {};
+                    let totalDice = 0;
+                    rr.pending_actions.forEach((a, idx) => {
+                      const row = document.createElement('div');
+                      row.className = 'flex items-center gap-3 bg-white p-2 rounded shadow-sm';
+                      const id = `req-${a.request_id}`;
+                      const hint = actionHintFor(a);
+                      // dice descriptor from server (defaulted to 1d6)
+                      const dice = (a.dice && a.dice.count) ? a.dice : {count:1, sides:6};
+                      const diceBadge = `<span class="ml-2 text-xs bg-gray-100 border px-2 py-0.5 rounded">${dice.count}d${dice.sides}</span>`;
+                      // aggregate
+                      const k = `${dice.count}d${dice.sides}`;
+                      byDice[k] = (byDice[k] || 0) + 1;
+                      totalDice += dice.count;
+                      row.innerHTML = `
+                          <div class="flex-1">
+                            <div class="font-medium">${a.unit}</div>
+                            <div class="text-sm text-gray-600">${a.card_title} <span class="ml-2 text-xs">(req=${a.request_id})</span>${diceBadge}</div>
+                            <div class="text-xs text-gray-700 mt-1">${actionIconFor(a)}<span class="align-middle">${hint}</span></div>
+                          </div>
+                          <div class="w-48">
+                            <label for="${id}" class="sr-only">Enter rolls for ${a.unit}</label>
+                          <input id="${id}" data-req="${a.request_id}" data-dice-count="${dice.count}" class="roll-input border rounded px-2 py-1 w-full" placeholder="e.g. ${dice.count===1? '4' : '3,2'}" aria-describedby="err-${id}" />
+                            <div id="err-${id}" class="text-red-600 text-xs mt-1" aria-live="polite"></div>
+                          </div>
+                        `;
+                      list.appendChild(row);
+                    });
+                    // render aggregate summary text
+                    const renderPendingSummary = (byDiceObj, total) => {
+                      const parts = [];
+                      Object.keys(byDiceObj).forEach(k => parts.push(`${byDiceObj[k]}×${k}`));
+                      const summary = `Total dice: ${total} — ${parts.join(', ')}`;
+                      const el = document.getElementById('pending-summary');
+                      if (el) el.textContent = summary;
+                      return summary;
+                    };
+                    const summary = renderPendingSummary(byDice, totalDice);
+                    document.getElementById('pending-rolls').classList.remove('hidden');
+                    // If small screen, move content into modal for easier input
+                    const isMobile = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+                    if (isMobile) {
+                      const modal = document.getElementById('pending-modal');
+                      const body = document.getElementById('modal-body');
+                      body.innerHTML = '';
+                      // clone the pending-rolls content into modal body and prefix IDs to avoid duplicates
+                      const original = document.getElementById('pending-rolls');
+                      const clone = original.cloneNode(true);
+                      // prefix ids inside clone with 'modal-'
+                      Array.from(clone.querySelectorAll('[id]')).forEach(el => {
+                        const old = el.id;
+                        el.id = 'modal-' + old;
+                      });
+                      clone.id = 'pending-rolls-modal-clone';
+                      body.appendChild(clone);
+                      // copy summary into modal clone (id was prefixed to modal-pending-summary)
+                      const modalSummary = body.querySelector('#modal-pending-summary');
+                      if (modalSummary) modalSummary.textContent = summary;
+                      // open modal
+                      openModal(modal);
+                      // auto-focus first input after render
+                      setTimeout(() => { const first = modal.querySelector('.roll-input'); if (first) first.focus(); }, 60);
+                      // wire close button
+                      document.getElementById('modal-close').onclick = () => closeModal(modal);
+                      // wire cloned submit button to shared handler
+                      const clonedSubmit = clone.querySelector('#modal-submit-rolls');
+                      if (clonedSubmit) {
+                        clonedSubmit.addEventListener('click', submitRollsHandler);
+                      }
+                    }
+                    // show the desktop panel as well so user on larger screens sees it
+                  };
+                  renderPendingActions(rr);
+                }
             }).catch(() => {});
           }).catch(e => {
             const msg = e.response?.data || e.message;
@@ -207,36 +709,7 @@
           });
       });
 
-      document.getElementById('submit-rolls').addEventListener('click', () => {
-        document.getElementById('roll-errors').textContent = '';
-        const inputs = Array.from(document.querySelectorAll('.roll-input'));
-        const payload = { action_results: [] };
-        inputs.forEach(inp => {
-          const rid = inp.getAttribute('data-req');
-          const raw = inp.value || '';
-          const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
-          const nums = parts.map(p => parseInt(p, 10)).filter(n => !Number.isNaN(n));
-          // For simplicity send under `result.roll` as single int or array
-          const resultObj = {};
-          if (nums.length === 1) resultObj.roll = nums[0];
-          else if (nums.length > 1) resultObj.roll = nums;
-          payload.action_results.push({ request_id: rid, result: resultObj });
-        });
-
-        api.postResolveRolls(currentSession, payload).then(resp => {
-          // hide pending UI and show returned events
-          document.getElementById('pending-rolls').style.display = 'none';
-          const evpre = document.createElement('pre');
-          evpre.style.background = '#f6fff6';
-          evpre.style.border = '1px solid #cfc';
-          evpre.style.padding = '8px';
-          evpre.textContent = JSON.stringify(resp.events || [], null, 2);
-          logEl.appendChild(evpre);
-        }).catch(err => {
-          const data = err.response?.data || err.message;
-          document.getElementById('roll-errors').textContent = (data?.error || JSON.stringify(data));
-        });
-      });
+        document.getElementById('submit-rolls').addEventListener('click', submitRollsHandler);
 
         document.getElementById('submit-note').addEventListener('click', () => {
           if (!currentSession) return alert('No session');
@@ -268,41 +741,110 @@
             const container = document.getElementById('log-items');
             container.innerHTML = '';
               const compact = document.getElementById('compact-toggle')?.checked;
-              items.forEach(it => {
+              items.forEach((it, idx) => {
+                // Create a card container for each log item for spacing and readability
+                const card = document.createElement('div');
+                card.className = 'mb-3 p-0 rounded border bg-white shadow-sm overflow-hidden';
+                const eventKey = makeEventId(it, idx, r.data.page || logPage);
+                card.setAttribute('data-event-key', eventKey);
+                // header and collapse toggle
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'flex items-center justify-between p-3';
+                const cardTitle = document.createElement('div');
+                const cardToggle = document.createElement('button');
+                cardToggle.className = 'btn-icon';
+                cardToggle.type = 'button';
+                cardToggle.setAttribute('aria-label','Collapse or expand log card');
+                const cardChev = document.createElement('span'); cardChev.className = 'toggle-icon';
+                cardChev.innerHTML = `<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                cardToggle.appendChild(cardChev);
+                cardHeader.appendChild(cardTitle);
+                cardHeader.appendChild(cardToggle);
+                const cardContent = document.createElement('div');
+                cardContent.className = 'p-3';
+
+                // Compact human-readable rendering
                 if (compact) {
-                  // compact, human readable rendering
                   if (it.event === 'no_tactic_available') {
-                    const d = document.createElement('div'); d.textContent = 'No tactic available'; d.style.opacity = '0.8'; d.style.margin='6px 0'; container.appendChild(d); return;
+                    cardTitle.textContent = 'No tactic available';
+                    cardContent.innerHTML = `<div class="text-gray-600">No tactic available</div>`;
+                    card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card); return;
                   }
                   if (it.aggression_check !== undefined) {
-                    const act = it.aggression_check ? 'ACT' : 'HOLD';
-                    const line = `${it.unit}: ${act} (d6=${it.roll} + mod=${it.modifier} => ${it.total} vs ${it.target})`;
-                    const d = document.createElement('div'); d.textContent = line; d.style.margin='4px 0'; container.appendChild(d); return;
+                    const badge = document.createElement('span'); badge.textContent = it.aggression_check ? 'ACT' : 'HOLD'; badge.className = it.aggression_check ? 'text-green-800 bg-green-100 px-2 py-0.5 rounded text-xs font-semibold' : 'text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs font-semibold';
+                    cardTitle.innerHTML = `<strong>${it.unit}</strong> <div class="text-sm text-gray-600">Aggression check</div>`;
+                    cardContent.innerHTML = `<div class="text-sm text-gray-700">d6=${it.roll} + mod=${it.modifier} => total=${it.total} vs target=${it.target}</div>`;
+          card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+          // toggle behavior with transition; initialize from stored state or expanded by default
+          cardContent.classList.add('collapse-content');
+          const stored = readCollapseState(eventKey);
+          if (stored) {
+            // collapsed
+            cardContent.style.maxHeight = '0px';
+            cardChev.classList.add('rotate-180');
+          } else {
+            // expanded
+            requestAnimationFrame(() => { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); });
+          }
+          cardToggle.addEventListener('click', () => {
+            toggleCollapse(cardToggle, cardContent, cardChev);
+            // save after toggle completes (use animateCollapse callback)
+            // animateCollapse calls onComplete with boolean collapsed
+            // to avoid duplicating, call animateCollapse here directly when toggling
+          });
+          // Wrap toggle to save state when animation ends
+          cardToggle.addEventListener('click', () => {
+            const isCollapsedNow = cardContent.style.maxHeight === '0px' || cardContent.getBoundingClientRect().height === 0;
+            const wantCollapse = !isCollapsedNow;
+            animateCollapse(cardContent, wantCollapse, cardChev, (collapsed) => { saveCollapseState(eventKey, collapsed); });
+          });
+                    return;
                   }
                   if (it.action_resolved) {
                     const a = it.action_resolved;
-                    const line = `ACTION: ${a.unit} -> ${a.card_title} (init=${a.initiative}) ${a.behavior || ''}`;
-                    const d = document.createElement('div'); d.textContent = line; d.style.fontWeight='600'; d.style.margin='4px 0'; container.appendChild(d); return;
+                    cardTitle.textContent = `${a.unit} → ${a.card_title || 'Action'}`;
+                    let metaHtml = `<div class="text-xs text-gray-600 mt-1">init=${a.initiative} ${a.behavior || ''}</div>`;
+                    if (a.results) metaHtml += `<pre class="mt-2 p-2 bg-gray-50 border text-sm">${JSON.stringify(a.results, null, 2)}</pre>`;
+                    cardContent.innerHTML = metaHtml;
+                    card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                    cardContent.classList.add('collapse-content');
+                    const stored2 = readCollapseState(eventKey);
+                    if (stored2) { cardContent.style.maxHeight = '0px'; cardChev.classList.add('rotate-180'); } else { requestAnimationFrame(() => { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); }); }
+                    cardToggle.addEventListener('click', () => { animateCollapse(cardContent, !(cardContent.style.maxHeight === '0px' || cardContent.getBoundingClientRect().height===0), cardChev, (collapsed) => saveCollapseState(eventKey, collapsed)); });
+                    return;
                   }
                   // fallback JSON
-                  const pre = document.createElement('pre');
-                  pre.style.margin = '4px 0';
-                  pre.style.background = '#fafafa';
-                  pre.style.border = '1px solid #eee';
-                  pre.style.padding = '6px';
-                  pre.textContent = JSON.stringify(it, null, 2);
-                  container.appendChild(pre);
+                  cardTitle.textContent = 'Event';
+                  cardContent.innerHTML = `<pre class="bg-gray-50 border p-2 text-sm">${JSON.stringify(it, null, 2)}</pre>`;
+                  card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
                 } else {
-                  const pre = document.createElement('pre');
-                  pre.style.margin = '4px 0';
-                  pre.style.background = '#fafafa';
-                  pre.style.border = '1px solid #eee';
-                  pre.style.padding = '6px';
-                  pre.textContent = JSON.stringify(it, null, 2);
-                  container.appendChild(pre);
+                  cardTitle.textContent = 'Event';
+                  cardContent.innerHTML = `<pre class="bg-gray-50 border p-2 text-sm">${JSON.stringify(it, null, 2)}</pre>`;
+                  card.appendChild(cardHeader); card.appendChild(cardContent); container.appendChild(card);
+                    cardContent.classList.add('collapse-content');
+                    const stored3 = readCollapseState(eventKey);
+                    if (stored3) { cardContent.style.maxHeight = '0px'; cardChev.classList.add('rotate-180'); } else { requestAnimationFrame(() => { cardContent.style.maxHeight = cardContent.scrollHeight + 'px'; cardChev.classList.remove('rotate-180'); }); }
+                    cardToggle.addEventListener('click', () => { animateCollapse(cardContent, !(cardContent.style.maxHeight === '0px' || cardContent.getBoundingClientRect().height===0), cardChev, (collapsed) => saveCollapseState(eventKey, collapsed)); });
                 }
               });
             document.getElementById('log-page').textContent = r.data.page || logPage;
+            // wire collapse-all / expand-all
+            document.getElementById('collapse-all').onclick = () => {
+              Array.from(document.querySelectorAll('.collapse-content')).forEach(el => {
+                const chev = el.parentElement.querySelector('.toggle-icon');
+                const card = el.closest('[data-event-key]');
+                const key = card?.getAttribute('data-event-key');
+                animateCollapse(el, true, chev || { classList: { add: () => {} } }, (collapsed) => { if (key) saveCollapseState(key, collapsed); });
+              });
+            };
+            document.getElementById('expand-all').onclick = () => {
+              Array.from(document.querySelectorAll('.collapse-content')).forEach(el => {
+                const chev = el.parentElement.querySelector('.toggle-icon');
+                const card = el.closest('[data-event-key]');
+                const key = card?.getAttribute('data-event-key');
+                animateCollapse(el, false, chev || { classList: { remove: () => {} } }, (collapsed) => { if (key) saveCollapseState(key, collapsed); });
+              });
+            };
           }).catch(e => alert('Failed to fetch log: ' + (e.response?.data?.error || e.message)));
         });
 
