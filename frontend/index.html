@@ -609,22 +609,29 @@
                       const extraCandidates = [];
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.png`);
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.jpg`);
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.jpeg`);
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.webp`);
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.png`);
                       extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.jpg`);
                       const titleCaseHyphen = rawTitle.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
                       if (titleCaseHyphen) {
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.jpeg`);
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.jpeg`);
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.png`);
                         extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.png`);
+                        extraCandidates.push(`/assets/battleplan_maps/${titleCaseHyphen}.webp`);
                       }
                       const stripped = rawTitle.replace(/\s*\([^\)]*\)\s*/g, '').trim();
                       if (stripped && stripped !== rawTitle) {
                         const strippedHyphen = stripped.split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0] ? (w[0].toUpperCase() + w.slice(1)) : w).join('-');
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}-2048x1524.jpg`);
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.jpg`);
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.jpeg`);
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}-2048x1524.png`);
                         extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.png`);
+                        extraCandidates.push(`/assets/battleplan_maps/${strippedHyphen}.webp`);
                       }
                       const allCandidates = Array.from(new Set((candidates || []).concat(extraCandidates)));
                       let tried = 0;
