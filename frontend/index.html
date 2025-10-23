@@ -1914,138 +1914,64 @@
                       imgWrap.innerHTML = "";
                       imgWrap.classList.remove("hidden");
                     }
-                    // build candidate paths (same as before)
-                    const bp =
-                      placement.battleplan ||
-                      placement.battleplan_id ||
-                      placement.battleplan_title ||
-                      null;
-                    console.log("[Deployment Map] Battleplan data:", placement.battleplan);
-                    const candidates = [];
-                    if (placement.battleplan && placement.battleplan.id) {
-                      const path = `/assets/battleplan_maps/${placement.battleplan.id}.png`;
-                      candidates.push(path);
-                      console.log("[Deployment Map] Added candidate from battleplan.id:", path);
-                    }
+                    // Build image path using normalized title format: (Title-Case-With-Hyphens)-2048x1524.jpg
+                    console.log(
+                      "[Deployment Map] Battleplan data:",
+                      placement.battleplan
+                    );
+
                     if (placement.battleplan && placement.battleplan.title) {
                       const rawTitle = placement.battleplan.title.toString();
-                      console.log("[Deployment Map] Raw battleplan title:", rawTitle);
-                      const slug = rawTitle
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, "-")
-                        .replace(/(^-|-$)/g, "");
-                      const slugPath = `/assets/battleplan_maps/${slug}.png`;
-                      candidates.push(slugPath);
-                      console.log("[Deployment Map] Added candidate from slug:", slugPath);
-                      // extra patterns
-                      const extraCandidates = [];
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}.png`
+                      console.log(
+                        "[Deployment Map] Raw battleplan title:",
+                        rawTitle
                       );
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}.jpg`
-                      );
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}.jpeg`
-                      );
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}.webp`
-                      );
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}-2048x1524.png`
-                      );
-                      extraCandidates.push(
-                        `/assets/battleplan_maps/${rawTitle}-2048x1524.jpg`
-                      );
-                      const titleCaseHyphen = rawTitle
-                        .split(/[^A-Za-z0-9]+/)
+
+                      // Remove year suffix like "(2016)" or "(2022-2023 S2)" and normalize to Title-Case-Hyphens
+                      const normalizedTitle = rawTitle
+                        .replace(/\s*\([^\)]*\)\s*$/i, "") // Remove year suffix
+                        .trim()
+                        .split(/[^A-Za-z0-9]+/) // Split on non-alphanumeric
                         .filter(Boolean)
-                        .map((w) =>
-                          w[0] ? w[0].toUpperCase() + w.slice(1) : w
-                        )
-                        .join("-");
-                      if (titleCaseHyphen) {
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}.jpg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}.jpeg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.jpg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.jpeg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}.png`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}-2048x1524.png`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${titleCaseHyphen}.webp`
-                        );
-                      }
-                      const stripped = rawTitle
-                        .replace(/\s*\([^\)]*\)\s*/g, "")
-                        .trim();
-                      if (stripped && stripped !== rawTitle) {
-                        const strippedHyphen = stripped
-                          .split(/[^A-Za-z0-9]+/)
-                          .filter(Boolean)
-                          .map((w) =>
-                            w[0] ? w[0].toUpperCase() + w.slice(1) : w
-                          )
-                          .join("-");
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}-2048x1524.jpg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}.jpg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}.jpeg`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}-2048x1524.png`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}.png`
-                        );
-                        extraCandidates.push(
-                          `/assets/battleplan_maps/${strippedHyphen}.webp`
-                        );
-                      }
-                      const allCandidates = Array.from(
-                        new Set((candidates || []).concat(extraCandidates))
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() +
+                            word.slice(1).toLowerCase()
+                        ) // Title case each word
+                        .join("-"); // Join with hyphens
+
+                      const imagePath = `/battleplans-media/${normalizedTitle}-2048x1524.jpg`;
+                      console.log(
+                        "[Deployment Map] Normalized title:",
+                        normalizedTitle
                       );
-                      console.log("[Deployment Map] All candidate paths:", allCandidates);
-                      let tried = 0;
+                      console.log("[Deployment Map] Image path:", imagePath);
+
+                      // Simplified: Try to load the single normalized path
                       const showGridFallback = () => {
                         // No image found — show grid as fallback
-                        console.log("[Deployment Map] No image found, showing grid fallback");
+                        console.log(
+                          "[Deployment Map] Image not found, showing grid fallback"
+                        );
                         if (imgWrap) {
                           imgWrap.innerHTML = `\n                            <div class="text-center">\n                              <div style="max-width:100%;">\n                                <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                  <rect width="100%" height="100%" fill="#1a1a1a" />\n                                  <g stroke="#3a3a3a" stroke-width="2">\n                                    <line x1="0" y1="200" x2="800" y2="200" />\n                                    <line x1="0" y1="400" x2="800" y2="400" />\n                                    <line x1="266" y1="0" x2="266" y2="600" />\n                                    <line x1="533" y1="0" x2="533" y2="600" />\n                                  </g>\n                                  <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (no map image available)</text>\n                                </svg>\n                              </div>\n                            </div>\n                          `;
                         }
                       };
-                      const tryNextImg = () => {
-                        if (tried >= allCandidates.length) {
-                          // no image found — show grid as fallback
-                          console.log("[Deployment Map] All candidates exhausted");
-                          showGridFallback();
-                          return;
-                        }
-                        const src = allCandidates[tried++];
-                        console.log(`[Deployment Map] Trying image ${tried}/${allCandidates.length}:`, src);
-                        if (!imgEl) {
-                          console.log("[Deployment Map] imgEl not found, skipping to next");
-                          tryNextImg();
-                          return;
-                        }
+
+                      if (!imgEl) {
+                        console.log("[Deployment Map] imgEl not found");
+                        showGridFallback();
+                      } else {
+                        console.log(
+                          "[Deployment Map] Attempting to load image:",
+                          imagePath
+                        );
                         imgEl.onload = () => {
                           // image is available — show the image as primary view
-                          console.log("[Deployment Map] ✓ Image loaded successfully:", src);
+                          console.log(
+                            "[Deployment Map] ✓ Image loaded successfully:",
+                            imagePath
+                          );
                           try {
                             // clear wrapper and show the image
                             if (imgWrap) imgWrap.innerHTML = "";
@@ -2088,19 +2014,29 @@
                               imgWrap.appendChild(gbtn);
                             }
                           } catch (e) {
-                            console.error("[Deployment Map] Error displaying image:", e);
+                            console.error(
+                              "[Deployment Map] Error displaying image:",
+                              e
+                            );
                           }
                         };
                         imgEl.onerror = () => {
-                          console.log("[Deployment Map] ✗ Image failed to load:", src);
+                          console.log(
+                            "[Deployment Map] ✗ Image failed to load:",
+                            imagePath
+                          );
                           imgEl.src = "";
                           imgEl.style.display = "none";
-                          tryNextImg();
+                          showGridFallback();
                         };
-                        imgEl.src = src;
-                      };
-                      console.log("[Deployment Map] Starting image loading sequence");
-                      tryNextImg();
+                        imgEl.src = imagePath;
+                      }
+                    } else {
+                      // No battleplan title, show grid
+                      console.log(
+                        "[Deployment Map] No battleplan title available"
+                      );
+                      showGridFallback();
                     }
                     // open the modal immediately to show the grid; image toggle will appear if an image is found
                     openModal(mapModal);
