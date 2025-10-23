@@ -876,12 +876,21 @@
         <div
           class="modal-content"
           role="document"
-          style="max-width: 760px; width: 96%; background: var(--bg-card); color: var(--text-primary)"
+          style="
+            max-width: 760px;
+            width: 96%;
+            background: var(--bg-card);
+            color: var(--text-primary);
+          "
         >
           <button
             id="placement-map-close"
             class="btn-icon float-right"
-            style="min-width: 44px; min-height: 44px; color: var(--text-primary)"
+            style="
+              min-width: 44px;
+              min-height: 44px;
+              color: var(--text-primary);
+            "
             aria-label="Close placement map"
           >
             ✕
@@ -889,7 +898,11 @@
           <h2 class="text-lg font-semibold" style="color: var(--text-primary)">
             AI Suggested Deployment Map
           </h2>
-          <p id="placement-map-info" class="text-base mt-3" style="color: var(--text-secondary)">
+          <p
+            id="placement-map-info"
+            class="text-base mt-3"
+            style="color: var(--text-secondary)"
+          >
             This map shows where the AI has chosen to place its units. Use it as
             a guide to place enemy models on your table.
           </p>
@@ -920,35 +933,77 @@
           >
             <!-- Row 1: left | center | right -->
             <div class="zone-column" data-zone="left">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Left</div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
+                Left
+              </div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <div class="zone-column" data-zone="center">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Center</div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
+                Center
+              </div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <div class="zone-column" data-zone="right">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">Right</div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
+                Right
+              </div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <!-- Row 2: forward | defensive | reserve -->
             <div class="zone-column" data-zone="forward">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
                 Forward
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <div class="zone-column" data-zone="defensive">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
                 Defensive
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <div class="zone-column" data-zone="reserve">
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
                 Reserve
               </div>
-              <div class="zone-items text-sm" style="min-height: 40px; color: var(--text-secondary)"></div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 40px; color: var(--text-secondary)"
+              ></div>
             </div>
             <!-- Scattered / other zone spanning full width -->
             <div
@@ -956,10 +1011,16 @@
               data-zone="scattered"
               style="grid-column: 1 / -1"
             >
-              <div class="text-sm font-semibold mb-2" style="color: var(--text-primary)">
+              <div
+                class="text-sm font-semibold mb-2"
+                style="color: var(--text-primary)"
+              >
                 Scattered / Other
               </div>
-              <div class="zone-items text-sm" style="min-height: 24px; color: var(--text-secondary)"></div>
+              <div
+                class="zone-items text-sm"
+                style="min-height: 24px; color: var(--text-secondary)"
+              ></div>
             </div>
           </div>
           <div class="mt-4 text-base" style="color: var(--text-secondary)">
@@ -1826,8 +1887,10 @@
                       `.zone-column[data-zone="${z}"] .zone-items`
                     );
                     const badge = document.createElement("div");
-                    badge.className =
-                      "px-2 py-1 rounded bg-blue-50 border text-sm mb-1";
+                    badge.className = "px-2 py-1 rounded text-sm mb-1";
+                    badge.style.background = "var(--bg-secondary)";
+                    badge.style.border = "1px solid var(--border-primary)";
+                    badge.style.color = "var(--text-primary)";
                     badge.textContent = p.unit;
                     if (col) col.appendChild(badge);
                     else {
@@ -1849,7 +1912,7 @@
                     );
                     // Render the default grid immediately
                     if (imgWrap) {
-                      imgWrap.innerHTML = `\n                        <div class="text-center">\n                          <div style="max-width:100%;">\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                              <rect width="100%" height="100%" fill="#ffffff" />\n                              <g stroke="#e5e7eb" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="400" y="40" text-anchor="middle" fill="#374151" font-size="16">Deployment Grid (use as primary guide)</text>\n                            </svg>\n                          </div>\n                        </div>\n                      `;
+                      imgWrap.innerHTML = `\n                        <div class="text-center">\n                          <div style="max-width:100%;">\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                              <rect width="100%" height="100%" fill="#1a1a1a" />\n                              <g stroke="#3a3a3a" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (use as primary guide)</text>\n                            </svg>\n                          </div>\n                        </div>\n                      `;
                       imgWrap.classList.remove("hidden");
                     }
                     // build candidate paths (same as before)
@@ -1982,17 +2045,21 @@
                               const gbtn = document.createElement("button");
                               gbtn.id = toggleId;
                               gbtn.type = "button";
-                              gbtn.className =
-                                "bg-white border text-sm px-2 py-1 rounded mt-2";
+                              gbtn.className = "text-sm px-2 py-1 rounded mt-2";
+                              gbtn.style.background = "var(--bg-secondary)";
+                              gbtn.style.border = "1px solid var(--border-primary)";
+                              gbtn.style.color = "var(--text-primary)";
                               gbtn.textContent = "Show deployment grid";
                               gbtn.addEventListener("click", () => {
                                 // restore the grid SVG
-                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                                        <rect width="100%" height="100%" fill="#ffffff" />\n                                        <g stroke="#e5e7eb" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#374151" font-size="16">Deployment Grid (use as primary guide)</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
+                                imgWrap.innerHTML = `\n                                  <div class="text-center">\n                                    <div style="max-width:100%;">\n                                      <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded" style="border: 2px solid var(--border-primary);">\n                                        <rect width="100%" height="100%" fill="#1a1a1a" />\n                                        <g stroke="#3a3a3a" stroke-width="2">\n                                          <line x1="0" y1="200" x2="800" y2="200" />\n                                          <line x1="0" y1="400" x2="800" y2="400" />\n                                          <line x1="266" y1="0" x2="266" y2="600" />\n                                          <line x1="533" y1="0" x2="533" y2="600" />\n                                        </g>\n                                        <text x="400" y="40" text-anchor="middle" fill="#eff1f6bf" font-size="16">Deployment Grid (use as primary guide)</text>\n                                      </svg>\n                                    </div>\n                                  </div>\n                                `;
                                 // re-append a small button to allow viewing the image again
                                 const viewImg =
                                   document.createElement("button");
-                                viewImg.className =
-                                  "bg-white border text-sm px-2 py-1 rounded mt-2";
+                                viewImg.className = "text-sm px-2 py-1 rounded mt-2";
+                                viewImg.style.background = "var(--bg-secondary)";
+                                viewImg.style.border = "1px solid var(--border-primary)";
+                                viewImg.style.color = "var(--text-primary)";
                                 viewImg.textContent = "Show map image";
                                 viewImg.addEventListener("click", () => {
                                   imgWrap.innerHTML = "";
