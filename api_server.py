@@ -78,6 +78,14 @@ def static_files(filename):
     return send_from_directory('web', filename)
 
 
+# Serve battleplan map images from the repository `battleplans-media/` directory
+@app.route('/assets/battleplan_maps/<path:filename>')
+def battleplan_maps(filename):
+    # Security: avoid directory traversal by normalizing path
+    base = os.path.join(os.path.dirname(__file__), 'battleplans-media')
+    return send_from_directory(base, filename)
+
+
 @app.route('/api/load_roster', methods=['POST'])
 def load_roster():
     if 'file' not in request.files:

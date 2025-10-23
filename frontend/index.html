@@ -601,15 +601,39 @@
                       candidates.push(`/assets/battleplan_maps/${slug}.png`);
                     }
                     // try candidates sequentially; if any loads, show it
+                    // Extend candidates with additional common filename patterns (exact title, title with spaces,
+                    // resolution suffixes, and common extensions) to match files in `battleplans-media/`.
+                    const extraCandidates = [];
+                    const rawTitle = placement.battleplan && placement.battleplan.title ? placement.battleplan.title.toString() : '';
+                    if (rawTitle) {
+                      // original title with spaces preserved
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.png`);
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}.jpg`);
+                      // with a common high-res suffix used in repository
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.png`);
+                      extraCandidates.push(`/assets/battleplan_maps/${rawTitle}-2048x1524.jpg`);
+                      // slugified form
+                      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+                      extraCandidates.push(`/assets/battleplan_maps/${slug}.png`);
+                      extraCandidates.push(`/assets/battleplan_maps/${slug}.jpg`);
+                    }
+                    // Merge and dedupe candidates preserving order
+                    const allCandidates = Array.from(new Set((candidates || []).concat(extraCandidates)));
                     let tried = 0;
                     const tryNext = () => {
-                      if (tried >= candidates.length) {
-                        // none found — hide image wrapper and open modal
-                        if (imgWrap) imgWrap.classList.add('hidden');
+                      if (tried >= allCandidates.length) {
+                        // none found — hide image wrapper and show a lightweight grid fallback
+                        if (imgWrap) {
+                          imgWrap.innerHTML = '';
+                          // simple SVG grid fallback to convey zones
+                          const svg = `\n                            <svg width="100%" height="360" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="rounded border">\n                              <rect width="100%" height="100%" fill="#ffffff" />\n                              <g stroke="#e5e7eb" stroke-width="2">\n                                <line x1="0" y1="200" x2="800" y2="200" />\n                                <line x1="0" y1="400" x2="800" y2="400" />\n                                <line x1="266" y1="0" x2="266" y2="600" />\n                                <line x1="533" y1="0" x2="533" y2="600" />\n                              </g>\n                              <text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-size="18">No map image available — use the grid below as a guide</text>\n                            </svg>\n                          `;
+                          imgWrap.innerHTML = svg;
+                          imgWrap.classList.remove('hidden');
+                        }
                         openModal(mapModal);
                         return;
                       }
-                      const src = candidates[tried++];
+                      const src = allCandidates[tried++];
                       if (!imgEl) { tryNext(); return; }
                       imgEl.onload = () => {
                         if (imgWrap) imgWrap.classList.remove('hidden');
