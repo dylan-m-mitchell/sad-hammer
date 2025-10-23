@@ -25,18 +25,27 @@ def test_aggression_modifier_deterministic():
 
 
 def test_tactic_pool_evolution_and_no_duplicates():
+    """Test that Battle Tactics deck properly manages cards over multiple turns."""
     units = [Unit('A', aggression='Neutral')]
     sim = SoloSimulator(units, seed=1)
-    # initial pool length
-    initial = list(sim.tactic_pool)
-    # run three turns (simulate_turn increments sim.turn) and observe pool/discard
+    
+    # Run three turns
     for _ in range(3):
-        _ = sim.simulate_turn()
-    # Broken Ranks should be in either pool or discard after turn 2
-    assert 'Broken Ranks' in sim.tactic_pool or 'Broken Ranks' in sim.tactic_discard
-    # No tactic should appear twice across pool+discard
-    combined = sim.tactic_pool + sim.tactic_discard
-    assert len(combined) == len(set(combined))
+        sim.simulate_turn()
+    
+    # After turn 2+, Broken Ranks should be available in the deck
+    # Check that the deck manager has Broken Ranks in either deck or discard
+    deck_cards = [c['title'] for c in sim.tactics_deck.deck]
+    discard_cards = [c['title'] for c in sim.tactics_deck.discard_pile]
+    all_cards = deck_cards + discard_cards
+    
+    # Broken Ranks should be present (in deck or discard) after turn 2
+    assert 'Broken Ranks' in all_cards, "Broken Ranks should be present after turn 2"
+    
+    # The total number of unique tactics in deck+discard should be 8 (no duplicates)
+    # Note: deck + discard should always contain all 8 tactics, no duplicates
+    assert len(set(all_cards)) == 8, "Should have exactly 8 unique tactics"
+    assert len(all_cards) == len(set(all_cards)), "No duplicate tactics should exist in deck+discard"
 
 
 def test_action_combat_deterministic():

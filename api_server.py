@@ -439,22 +439,29 @@ def ai_turn(session_id):
     if roll_mode == 'player':
         # Build tactic and action draws similar to SoloSimulator.simulate_turn but stop before resolving
         # We'll replicate the essential parts so we don't advance sim.turn until resolution completes.
-        tactic = sim.choose_battle_tactic()
+        
+        # Advance tactics deck to current turn
+        sim.tactics_deck.advance_turn(sim.turn)
+        
+        # Draw a Battle Tactic card (returns dict with title, description, etc.)
+        tactic_card = sim.choose_battle_tactic()
         events = []
-        if tactic is None:
+        if tactic_card is None:
             events.append({"event": "no_tactic_available"})
             sess['log'].extend(events)
             sess['last_turn'] = sim.turn
             sess['last_turn_events'] = events
             text = 'No AI tactics available.\n\n'
             return (text, 200, {'Content-Type': 'text/plain; charset=utf-8'})
+        
+        tactic_title = tactic_card['title']
 
-        action_deck = sim.build_action_deck(tactic)
-
-        drawn_actions = []
+        # Perform aggression checks for all units
+        aggression_results = {}
         for u in sim.units:
             check = sim.aggression_check(u)
             will_act = check['result']
+            aggression_results[u.name] = will_act
             events.append({
                 "event": "aggression_check",
                 "unit": u.name,
@@ -464,22 +471,27 @@ def ai_turn(session_id):
                 "total": check['total'],
                 "target": check['target'],
             })
-            if will_act:
-                if not action_deck:
-                    action_deck = deepcopy(tactic_to_actions.get(tactic, []))
-                    sim.rng.shuffle(action_deck)
-                card = action_deck.pop(0)
-                # create a pending action request id
-                req_id = f"{sim.turn}-{len(drawn_actions)}"
-                # default dice descriptor: 1 d6 (can be enhanced later per-card)
-                drawn_actions.append({
-                    "request_id": req_id,
-                    "unit": u.name,
-                    "card": card,
-                    "initiative": card.get('initiative', 0),
-                    "behavior": card.get('behavior'),
-                    "dice": {"count": 1, "sides": 6}
-                })
+
+        # Import deck_manager for action assignments
+        from deck_manager import create_turn_action_assignments
+        
+        # Use deck manager to create action assignments sorted by initiative
+        action_assignments = create_turn_action_assignments(
+            tactic_card, sim.units, aggression_results, rng=sim.rng
+        )
+        
+        # Convert assignments to pending actions format for player roll mode
+        drawn_actions = []
+        for idx, assignment in enumerate(action_assignments):
+            req_id = f"{sim.turn}-{idx}"
+            drawn_actions.append({
+                "request_id": req_id,
+                "unit": assignment['unit'],
+                "card": assignment['card'],
+                "initiative": assignment['initiative'],
+                "behavior": assignment['behavior'],
+                "dice": {"count": 1, "sides": 6}
+            })
 
         # If no drawn actions were produced (rare due to RNG), ensure the player
         # path still yields a roll_request by forcing the first unit to have one
@@ -487,21 +499,14 @@ def ai_turn(session_id):
         # for the UI to resolve.
         if not drawn_actions and sim.units:
             u = sim.units[0]
-            # ensure action_deck has at least one card
-            if not action_deck:
-                action_deck = deepcopy(tactic_to_actions.get(tactic, []))
-                sim.rng.shuffle(action_deck)
-            if action_deck:
-                card = action_deck.pop(0)
-            else:
-                card = {'title': 'Default Action', 'initiative': 0, 'behavior': 'action'}
+            card = {'title': 'Default Action', 'initiative': 0, 'behavior': 'action'}
             req_id = f"{sim.turn}-forced-0"
             drawn_actions.append({
                 "request_id": req_id,
                 "unit": u.name,
                 "card": card,
-                "initiative": card.get('initiative', 0),
-                "behavior": card.get('behavior'),
+                "initiative": 0,
+                "behavior": 'action',
                 "dice": {"count": 1, "sides": 6}
             })
             # also append an aggression_check event showing the unit acts
@@ -518,7 +523,7 @@ def ai_turn(session_id):
         # store paused turn info in session so resolve_rolls can continue
         paused = {
             'turn': sim.turn,
-            'tactic': tactic,
+            'tactic': tactic_title,
             'pending_actions': drawn_actions,
         }
         sess['paused_turn'] = paused
@@ -527,7 +532,7 @@ def ai_turn(session_id):
         events.append({
             "event": "roll_request",
             "turn": sim.turn,
-            "tactic": tactic,
+            "tactic": tactic_title,
             "pending_actions": [
                 {
                     "request_id": a['request_id'],
