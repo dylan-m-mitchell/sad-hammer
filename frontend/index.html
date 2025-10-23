@@ -16,801 +16,89 @@
       crossorigin
       src="https://unpkg.com/axios/dist/axios.min.js"
     ></script>
-    <!-- Tailwind CDN for rapid prototyping -->
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
-      .pane { display: inline-block; vertical-align: top; }
-      /* responsive layout handled by Tailwind classes on elements; avoid fixed pixel sizes here */
-      button { margin: 4px; }
-      /* collapse transition helper */
-      .collapse-content { overflow: hidden; transition: max-height 320ms ease; }
-      /* Icon button and chevron color animation
-         - chevrons use stroke="currentColor" so they inherit color from the button
-         - animate color on hover/focus/active and provide a visible focus ring for a11y
-      */
-      .btn-icon {
-        background: transparent;
-        border: none;
-        padding: 4px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        color: #2563EB; /* base blue (Tailwind indigo-600 equivalent) */
-        transition: color 160ms ease, transform 160ms ease;
+      body {
+        font-family: sans-serif;
+        margin: 16px;
       }
-      .btn-icon:hover, .btn-icon:focus {
-        color: #1e40af; /* slightly darker on hover (indigo-800) */
+      .pane {
+        display: inline-block;
+        vertical-align: top;
       }
-      .btn-icon:active { color: #1d4ed8; transform: scale(0.98); }
-      .btn-icon:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); border-radius: 6px; }
-      .toggle-icon { transition: transform 220ms ease, color 160ms ease; display: inline-block; color: inherit; }
-      .rotate-180 { transform: rotate(180deg); }
-      /* action icon color coding */
-      .icon-melee { color: #dc2626; } /* red */
-      .icon-ranged { color: #d97706; } /* amber */
-      .icon-move { color: #059669; } /* emerald */
-      .icon-magic { color: #7c3aed; } /* violet */
-      .icon-default { color: #374151; } /* gray-700 */
-  /* modal for mobile pending-rolls */
-      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 60; }
-      .modal-overlay.open { display: flex; }
-      .modal-content { background: white; border-radius: 8px; max-width: 640px; width: 94%; max-height: 92vh; overflow:auto; padding: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);} 
-      /* Segmented control for small-screen zone selection */
-      .segmented { display:flex; gap:6px; flex-wrap:wrap; }
-      .segmented button { background:#f3f4f6; border:1px solid #e5e7eb; padding:8px 12px; border-radius:8px; font-size:14px; cursor:pointer; }
-      .segmented button.selected { background:#2563EB; color:white; border-color:#1E40AF; }
-      /* larger touch targets on mobile */
-      @media (max-width: 640px) {
-        .segmented button { padding:12px 16px; font-size:16px; border-radius:10px; }
-        .modal-content { padding-bottom:72px; }
+      #units {
+        width: 320px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
       }
-      /* sticky footer inside modal for confirm/cancel */
-      .modal-footer { position: sticky; bottom: 0; background: white; padding: 8px 0 0; margin-top: 12px; }
-      @media (prefers-reduced-motion: reduce) {
-        .modal-content { transition: none !important; }
+      #log {
+        width: 560px;
+        height: 480px;
+        overflow: auto;
+        border: 1px solid #ddd;
+        padding: 8px;
+        margin-left: 12px;
       }
-      /* Clear focus-visible styles inside modal for keyboard users */
-      .modal-content :is(button, a, input, select, textarea, [tabindex]) :where(:focus-visible) {
-        outline: 3px solid rgba(59,130,246,0.9);
-        outline-offset: 2px;
-        box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+      button {
+        margin: 4px;
       }
-      /* Slightly larger focus target for inputs */
-      .modal-content input:focus-visible, .modal-content button:focus-visible {
-        border-color: rgba(59,130,246,0.9);
-      }
-      /* Prevent pre and text areas from causing horizontal scroll; wrap long lines */
-      pre, textarea, .bg-gray-50 pre {
-        white-space: pre-wrap !important;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-        max-width: 100%;
-      }
-      /* Ensure the main log panel uses vertical scrolling only when hidden content overflows */
-      #log, #log-items { overflow-x: hidden; }
-      /* badge pulse animation for unseen logs */
-      @keyframes badge-pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.25); opacity: 0.95; }
-        100% { transform: scale(1); opacity: 1; }
-      }
-      #log-badge.pulse { animation: badge-pulse 420ms cubic-bezier(.2,.9,.2,1); }
     </style>
   </head>
   <body>
-    <header class="max-w-4xl mx-auto p-4">
-      <h1 class="text-2xl font-semibold">Sad Hammer — Frontend</h1>
-      <p class="text-sm text-gray-600">Upload an opponent roster and let the AI take its turn. Choose who resolves AI rolls.</p>
-    </header>
-    <main class="max-w-4xl mx-auto p-4">
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <input id="file" type="file" class="" />
-        <label class="ml-2 inline-flex items-center text-sm">
-          <span class="mr-2">AI roll handling:</span>
-          <select id="roll-mode" class="border rounded px-2 py-1">
-            <option value="ai">AI handles rolls</option>
-            <option value="player">Player handles AI rolls</option>
-          </select>
-        </label>
-        <label class="ml-2 inline-flex items-center text-sm">
-          <span class="mr-2">Battleplan:</span>
-          <select id="battleplan-select" class="border rounded px-2 py-1">
-            <option value="">(Random)</option>
-          </select>
-        </label>
-        <button id="create-session" class="ml-0 sm:ml-3 w-full sm:w-auto bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Upload & Start Session</button>
-        <span class="ml-auto text-sm">Session ID: <span id="session-id" class="font-mono text-sm">(none)</span></span>
-      </div>
-    </main>
-    <!-- Battleplan banner: shows the selected battleplan and a short note -->
-    <div id="battleplan-banner" class="max-w-4xl mx-auto p-2 hidden">
-      <div class="border-l-4 border-blue-500 bg-blue-50 p-3 rounded">
-        <div id="battleplan-title" class="font-semibold">Battleplan: (none)</div>
-        <div id="battleplan-note" class="text-sm text-gray-700 mt-1">No battleplan selected.</div>
-      </div>
-    </div>
-    <!-- Always-visible AI output strip so AI summaries are seen without opening the full log panel -->
-    <div class="max-w-4xl mx-auto p-2">
-      <div id="ai-output" class="w-full bg-white border rounded p-3 mb-2" style="min-height:48px; overflow:auto;"></div>
-    </div>
-    <div style="margin-top:8px" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-      <button id="fetch-state" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer" aria-label="Get current session state">Get Session State</button>
-      <button id="ai-turn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer" aria-label="Run AI Turn">Run AI Turn</button>
-    </div>
-    
-    
-    <!-- Placement UI: appears after session creation and before game start -->
-    <div class="max-w-4xl mx-auto p-4">
-      <div id="placement-panel" class="hidden border rounded p-3 bg-white shadow-sm">
-        <h2 class="font-medium">Placement Suggestions</h2>
-        <div id="placement-info" class="text-sm text-gray-700 mt-2"></div>
-        <div id="placement-list" class="mt-3 space-y-2"></div>
-        <div class="mt-3 flex items-center gap-3">
-          <button id="confirm-placement" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Confirm Placement</button>
-          <button id="cancel-placement" class="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded">Cancel</button>
-          <div id="placement-error" class="text-red-600 text-sm"></div>
-        </div>
-      </div>
-      <div id="placement-summary" class="hidden border rounded p-3 bg-gray-50 shadow-sm">
-        <h2 class="font-medium">AI Auto-Placement — Please place enemy units</h2>
-        <div id="placement-summary-info" class="text-sm text-gray-700 mt-2">The AI has determined unit placement and applied it automatically. Please place the enemy models on your table according to the list below.</div>
-        <div id="placement-summary-list" class="mt-3 space-y-2"></div>
-      </div>
-      <!-- Placement map modal: visual representation of zones and unit placement (read-only) -->
-      <div id="placement-map" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
-        <div class="modal-content" role="document" style="max-width:760px; width:96%;">
-          <button id="placement-map-close" class="btn-icon float-right" aria-label="Close placement map">✕</button>
-          <h2 class="font-medium">AI Suggested Deployment Map</h2>
-          <p id="placement-map-info" class="text-sm text-gray-700 mt-2">This map shows where the AI has chosen to place its units. Use it as a guide to place enemy models on your table.</p>
-          <!-- Optional battleplan image (if present at /assets/battleplan_maps/{id|slug}.png) -->
-          <div id="placement-map-image-wrap" class="mt-3 mb-3 hidden text-center">
-            <img id="placement-map-image" src="" alt="Battleplan map" class="mx-auto rounded border" style="max-width:100%; height:auto; display:block;" />
-          </div>
-          <div id="placement-map-canvas" class="mt-3 p-3 bg-white border rounded" style="display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:auto; gap:8px;">
-            <!-- Row 1: left | center | right -->
-            <div class="zone-column" data-zone="left">
-              <div class="text-xs font-semibold mb-2">Left</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <div class="zone-column" data-zone="center">
-              <div class="text-xs font-semibold mb-2">Center</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <div class="zone-column" data-zone="right">
-              <div class="text-xs font-semibold mb-2">Right</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <!-- Row 2: forward | defensive | reserve -->
-            <div class="zone-column" data-zone="forward">
-              <div class="text-xs font-semibold mb-2">Forward</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <div class="zone-column" data-zone="defensive">
-              <div class="text-xs font-semibold mb-2">Defensive</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <div class="zone-column" data-zone="reserve">
-              <div class="text-xs font-semibold mb-2">Reserve</div>
-              <div class="zone-items" style="min-height:40px"></div>
-            </div>
-            <!-- Scattered / other zone spanning full width -->
-            <div class="zone-column" data-zone="scattered" style="grid-column:1 / -1;">
-              <div class="text-xs font-semibold mb-2">Scattered / Other</div>
-              <div class="zone-items" style="min-height:24px"></div>
-            </div>
-          </div>
-          <div class="mt-3 text-sm text-gray-600">Close this map when you've placed the enemy units on your table.</div>
-        </div>
-      </div>
-    </div>
-    <!-- Placement modal for small screens -->
-    <div id="placement-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
-      <div class="modal-content" role="document">
-        <button id="placement-modal-close" class="btn-icon float-right" aria-label="Close placement">✕</button>
-        <h2 class="font-medium">Placement Suggestions</h2>
-        <div id="placement-modal-info" class="text-sm text-gray-700 mt-2"></div>
-        <div id="placement-modal-list" class="mt-3 space-y-2"></div>
-        <div class="mt-3 flex items-center gap-3">
-          <button id="placement-modal-confirm" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Confirm Placement</button>
-          <button id="placement-modal-cancel" class="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded">Cancel</button>
-          <div id="placement-modal-error" class="text-red-600 text-sm"></div>
-        </div>
-      </div>
-    </div>
-    <div class="max-w-4xl mx-auto p-4">
-      <div id="pending-rolls" class="hidden border-2 border-dashed border-gray-200 rounded p-4 bg-yellow-50">
-        <h2 class="font-medium">Pending roll requests</h2>
-        <div id="pending-summary" class="text-sm text-gray-800 mt-2 mb-2"></div>
-        <p id="pending-instruction" class="text-sm text-gray-700">Enter die values (single number or comma-separated for multiple dice). Valid d6 values: 1–6.</p>
-        <ul id="pending-steps" class="mt-2 text-sm text-gray-700 list-disc list-inside hidden">
-          <li>1) Identify the enemy model that is performing the action (see the unit name above each input).</li>
-          <li>2) Decide which dice to provide for that model's attack/ability (enter one value or a comma-separated list; e.g. "4" or "3,2").</li>
-          <li>3) Submit all requested rolls when ready; the server will resolve the action and continue the turn.</li>
-        </ul>
-          <div id="pending-list" class="mt-3 space-y-2"></div>
-          <div class="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <button id="submit-rolls" class="w-full sm:w-auto bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">Submit Rolls</button>
-          <div id="roll-errors" class="text-red-600 text-sm" role="alert" aria-live="polite"></div>
-        </div>
-      </div>
-      <!-- Modal for mobile pending-rolls -->
-      <div id="pending-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
-        <div class="modal-content" role="document">
-          <button id="modal-close" class="btn-icon float-right" aria-label="Close pending rolls">✕</button>
-          <div id="modal-body"></div>
-        </div>
-      </div>
+    <h1>Sad Hammer — Frontend</h1>
+    <div>
+      <input id="file" type="file" />
+      <button id="create-session">Upload & Start Session</button>
+      <span style="margin-left:12px">Session ID: <span id="session-id">(none)</span></span>
     </div>
     <div style="margin-top:8px">
-    <textarea id="notes" placeholder="Player notes (free-form)" class="w-full h-20"></textarea>
-  <br/>
-  <button id="submit-note" class="w-full sm:w-auto bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400" aria-label="Save player note">Save Note</button>
-  <button id="fetch-notes" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-800 px-3 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Get saved notes">Get Notes</button>
-    <div id="notes-list" class="w-full border p-2 mt-2 max-h-36 overflow-auto"></div>
+      <button id="fetch-state">Get Session State</button>
+      <button id="ai-turn">Run AI Turn</button>
+    </div>
+    <div style="margin-top:8px">
+      <strong>Session Log Viewer:</strong>
+      <div id="log-controls" style="margin-top:6px">
+        Page: <span id="log-page">1</span>
+        <button id="log-prev">Prev</button>
+        <button id="log-next">Next</button>
+        Size: <input id="log-size" type="number" value="20" min="1" style="width:60px" />
+        <button id="fetch-log">View Log</button>
+      </div>
+      <label style="margin-left:12px"><input id="compact-toggle" type="checkbox" checked /> Compact view</label>
+      <div id="log-items" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#fff"></div>
+    </div>
+    <div style="margin-top: 12px">
+      <div id="units" class="pane"></div>
+      <div id="log" class="pane"></div>
+    </div>
+    <div style="margin-top:8px">
+      <textarea id="notes" placeholder="Player notes (free-form)" style="width:920px;height:80px"></textarea>
+      <br/>
+      <button id="submit-note">Save Note</button>
+      <button id="fetch-notes">Get Notes</button>
+      <div id="notes-list" style="width:920px;border:1px solid #eee;padding:8px;margin-top:6px;max-height:140px;overflow:auto"></div>
     </div>
     <script>
-      // Helper: produce a clear human instruction for a pending action
-      function actionHintFor(a) {
-        const behavior = (a.behavior || '').toString().toLowerCase();
-        const title = (a.card_title || '').toString().toLowerCase();
-        // Common behavior heuristics
-        if (/move|advance|walk|march/.test(behavior) || /move|advance/.test(title)) {
-          return 'Movement: move this model now (follow the card for distance/effects). No dice required unless the card specifies an attack.';
-        }
-        if (/charge/.test(behavior) || /charge/.test(title)) {
-          return 'Charge: move into contact and then perform charge or combat attacks as listed on the card; provide attack rolls where requested.';
-        }
-        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
-          return 'Ranged attack: pick a valid target and provide the attack roll(s) for ranged weapons listed on the card.';
-        }
-        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
-          return 'Melee attack: pick a target in range and provide the attack roll(s). Choose weapons/targets according to the card.';
-        }
-        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
-          return 'Ability / spell: follow the card text for targets and effects. Enter any requested dice values for checks (e.g., casting roll) below.';
-        }
-        // fallback
-        return 'Action: follow the card text for this action. Provide any requested d6 roll(s) in the input to the right (e.g. 4 or 3,2).';
-      }
-
-      // Helper: return a small inline SVG for action types
-      function actionIconFor(a) {
-        const behavior = (a.behavior || '').toString().toLowerCase();
-        const title = (a.card_title || '').toString().toLowerCase();
-        // sword = melee
-        if (/attack|fight|melee/.test(behavior) || /attack|fight|melee/.test(title)) {
-          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 22l6-6 4 4 10-10-4-4L14 6 10 10 2 22z" fill="currentColor"/></svg>`;
-        }
-        // arrow = ranged
-        if (/shoot|ranged|shooting|range/.test(behavior) || /shoot|ranged/.test(title)) {
-          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h15M14 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        }
-        // boot = move/charge
-        if (/move|advance|charge|march/.test(behavior) || /move|advance|charge/.test(title)) {
-          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21c0-4 4-6 7-6s6 2 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7h10l2 4H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        }
-        // magic = spell/ability
-        if (/cast|spell|magic|ability/.test(behavior) || /cast|spell|magic|ability/.test(title)) {
-          return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6M12 22v-6M4.2 4.2l4.2 4.2M19.8 19.8l-4.2-4.2M2 12h6M22 12h-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        }
-        // default (include emoji fallback)
-        return `<svg class="inline-block mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v4l2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span aria-hidden="true">⚑</span>`;
-      }
       const api = {
-        createSessionFromFile: (file, rollMode = 'ai', battleplan = '') => {
+        createSessionFromFile: (file) => {
           const fd = new FormData();
           fd.append("file", file);
-          fd.append("roll_mode", rollMode);
-          if (battleplan !== undefined && battleplan !== null && String(battleplan).length > 0) fd.append('battleplan', String(battleplan));
           return axios.post("/api/session", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
         },
-          createSessionFromUnits: (units, rollMode = 'ai', battleplan = '') => {
-            return axios.post("/api/session", { units, roll_mode: rollMode, battleplan }).then((r) => r.data);
+        createSessionFromUnits: (units) => {
+          return axios.post("/api/session", { units }).then((r) => r.data);
         },
   getSession: (id) => axios.get(`/api/session/${id}`).then((r) => r.data),
   postAiTurn: (id) => axios.post(`/api/session/${id}/ai_turn`).then((r) => r.data),
-  postResolveRolls: (id, payload) => axios.post(`/api/session/${id}/resolve_rolls`, payload).then((r) => r.data),
       };
 
-      // Modal helpers
-      // Robust modal focus trap helpers
-      function openModal(modalEl) {
-        if (!modalEl) return;
-        // Respect an explicit user-closed choice: if the user closed this modal, do not reopen
-        // automatically until the code explicitly clears _userClosed (e.g. by a forceOpenModal call).
-        try {
-          if (modalEl._userClosed) return;
-          // If this modal was closed very recently, suppress reopen to avoid race between
-          // backdrop click close and async re-openers (image onload, async callbacks).
-          if (modalEl._suppressUntil && Date.now() < modalEl._suppressUntil) return;
-        } catch (e) {}
-        const previouslyFocused = document.activeElement;
-        modalEl._prevFocus = previouslyFocused;
-        // Hide main content from screen readers while modal open
-        const main = document.querySelector('main') || document.body;
-        main.setAttribute('aria-hidden', 'true');
-        modalEl.classList.add('open');
-        modalEl.setAttribute('aria-hidden', 'false');
-        // Gather focusable elements inside modal
-        const focusableSelector = 'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
-        const focusables = Array.from(modalEl.querySelectorAll(focusableSelector)).filter(el => el.offsetParent !== null);
-        const first = focusables[0] || modalEl;
-        const last = focusables[focusables.length - 1] || modalEl;
-        // focus first element
-        first.focus();
+      const unitsEl = document.getElementById("units");
+      const logEl = document.getElementById("log");
+      const fileInput = document.getElementById("file");
+      const sessionIdEl = document.getElementById("session-id");
 
-        // key handler to trap tab and handle Escape
-        const onKey = (e) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            closeModal(modalEl, { userInitiated: true });
-            return;
-          }
-          if (e.key === 'Tab') {
-            if (focusables.length === 0) {
-              e.preventDefault();
-              return;
-            }
-            if (e.shiftKey) {
-              if (document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-              }
-            } else {
-              if (document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-              }
-            }
-          }
-        };
-        modalEl._onKey = onKey;
-        document.addEventListener('keydown', onKey);
-        // overlay click handler: if the user clicks outside the .modal-content, close modal
-        const onOverlayClick = (ev) => {
-          try {
-            // if the click happened inside the modal content, ignore
-            if (ev.target && ev.target.closest && ev.target.closest('.modal-content')) return;
-            // otherwise close (user clicked backdrop)
-            closeModal(modalEl, { userInitiated: true });
-          } catch (e) {}
-        };
-        modalEl._onOverlay = onOverlayClick;
-        modalEl.addEventListener('click', onOverlayClick);
-      }
-      function closeModal(modalEl) {
-        if (!modalEl) return;
-        modalEl.classList.remove('open');
-        modalEl.setAttribute('aria-hidden', 'true');
-        const main = document.querySelector('main') || document.body;
-        main.removeAttribute('aria-hidden');
-        // remove key handler
-        // accept an options argument in case the caller wants to mark this as user-initiated
-        const opts = (arguments && arguments[1]) || {};
-        const userInitiated = !!opts.userInitiated;
-        if (modalEl._onKey) {
-          document.removeEventListener('keydown', modalEl._onKey);
-          delete modalEl._onKey;
-        }
-        // remove overlay click handler if present
-        if (modalEl._onOverlay) {
-          try { modalEl.removeEventListener('click', modalEl._onOverlay); } catch (e) {}
-          delete modalEl._onOverlay;
-        }
-        // set a short suppression window to prevent immediate re-opening from async events
-        try { modalEl._suppressUntil = Date.now() + 800; } catch (e) {}
-        // if this was closed by the user (click/backdrop/Escape), mark it so we won't auto-reopen
-        try {
-          if (userInitiated) {
-            modalEl._userClosed = true;
-          }
-        } catch (e) {}
-        // restore focus
-        try { if (modalEl._prevFocus) modalEl._prevFocus.focus(); } catch (e) {}
-      }
-
-      // Shared submit handler so modal clone and desktop button use same logic
-      function submitRollsHandler(e) {
-        e?.preventDefault?.();
-        document.getElementById('roll-errors').textContent = '';
-        const modal = document.getElementById('pending-modal');
-        let inputs = [];
-        if (modal && modal.classList.contains('open')) {
-          inputs = Array.from(modal.querySelectorAll('.roll-input'));
-        } else {
-          inputs = Array.from(document.querySelectorAll('.roll-input'));
-        }
-        const payload = { action_results: [] };
-        let hasClientError = false;
-        inputs.forEach(inp => {
-          const rid = inp.getAttribute('data-req');
-          const errElId = (inp.id && (modal && modal.classList.contains('open'))) ? (`err-modal-${inp.id.replace(/^modal-/, '')}`) : `err-${inp.id}`;
-          const errEl = document.getElementById(errElId) || document.getElementById(`err-${inp.id}`) || (inp.nextElementSibling && inp.nextElementSibling.classList && inp.nextElementSibling);
-          if (errEl && errEl.textContent !== undefined) errEl.textContent = '';
-          const raw = inp.value || '';
-          if (!raw.trim()) {
-            if (errEl) errEl.textContent = 'Please enter at least one roll (1-6)';
-            hasClientError = true;
-            return;
-          }
-          const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
-          const nums = parts.map(p => parseInt(p, 10));
-          if (nums.some(n => Number.isNaN(n))) {
-            if (errEl) errEl.textContent = 'Invalid number';
-            hasClientError = true;
-            return;
-          }
-          if (nums.some(n => n < 1 || n > 6)) {
-            if (errEl) errEl.textContent = 'Rolls must be 1-6';
-            hasClientError = true;
-            return;
-          }
-          const resultObj = {};
-          if (nums.length === 1) resultObj.roll = nums[0];
-          else resultObj.roll = nums;
-          payload.action_results.push({ request_id: rid, result: resultObj });
-        });
-        if (hasClientError) {
-          document.getElementById('roll-errors').textContent = 'Fix input errors above before submitting.';
-          return;
-        }
-        api.postResolveRolls(currentSession, payload).then(resp => {
-          // hide pending UI and show returned events
-          document.getElementById('pending-rolls').classList.add('hidden');
-          const modal = document.getElementById('pending-modal');
-          if (modal && modal.classList.contains('open')) closeModal(modal);
-          const evpre = document.createElement('pre');
-          evpre.className = 'bg-green-50 border border-green-200 p-3 rounded mt-3';
-          evpre.textContent = JSON.stringify(resp.events || [], null, 2);
-          // Append resolved events to the AI output strip
-          const aiOutStrip = document.getElementById('ai-output'); if (aiOutStrip) aiOutStrip.appendChild(evpre.cloneNode(true));
-          // Remove any paused banners now that player provided rolls
-          Array.from(document.querySelectorAll('.ai-paused-banner')).forEach(b => b.remove());
-          // no-op: we no longer track unseen badge in-page
-        }).catch(err => {
-          const data = err.response?.data || err.message;
-          document.getElementById('roll-errors').textContent = (data?.error || JSON.stringify(data));
-        });
-      }
-
-      // Hide any placement UI elements (summary, panel, modals, map)
-      function hidePlacementUI() {
-        try {
-          const summ = document.getElementById('placement-summary'); if (summ) summ.classList.add('hidden');
-          const panel = document.getElementById('placement-panel'); if (panel) panel.classList.add('hidden');
-          const modal = document.getElementById('placement-modal'); if (modal && modal.classList.contains('open')) closeModal(modal);
-          const mapModal = document.getElementById('placement-map'); if (mapModal && mapModal.classList.contains('open')) closeModal(mapModal);
-          // ensure no stray overlays remain visible
-          Array.from(document.querySelectorAll('.modal-overlay.open')).forEach(m => { try { closeModal(m); } catch (e) {} });
-          // clear the summary list so it doesn't reappear due to stale DOM
-          const summList = document.getElementById('placement-summary-list'); if (summList) summList.innerHTML = '';
-        } catch (e) { /* non-fatal */ }
-      }
-
-      // Small helper to append status lines to the ai-output strip
-      function appendAiOutput(msg) {
-        try {
-          const aiOut = document.getElementById('ai-output');
-          if (!aiOut) return;
-          const el = document.createElement('div');
-          el.className = 'text-sm text-gray-700 my-1';
-          el.textContent = msg;
-          aiOut.appendChild(el);
-        } catch (e) {}
-      }
-
-        // --- Placement UI helpers ---
-        function showPlacementUI(sessionId) {
-          if (!sessionId) return;
-          axios.get(`/api/session/${sessionId}/placement`).then(r => {
-            const data = r.data || {};
-            const placement = data.placement;
-            if (!placement) {
-              // nothing proposed; hide both panel and modal
-              const panel = document.getElementById('placement-panel'); if (panel) panel.classList.add('hidden');
-              const modal = document.getElementById('placement-modal'); if (modal) closeModal(modal);
-              return;
-            }
-
-            const allowed = placement.allowed_zones || [];
-            const confirmed = data.confirmed;
-            // If server already confirmed placement (truthy), show a read-only summary and do not prompt player
-            if (confirmed) {
-              // hide interactive placement UI if present
-              const panel = document.getElementById('placement-panel'); if (panel) panel.classList.add('hidden');
-              const modal = document.getElementById('placement-modal'); if (modal) closeModal(modal);
-              // render summary
-              const summ = document.getElementById('placement-summary');
-              const summList = document.getElementById('placement-summary-list');
-              const summInfo = document.getElementById('placement-summary-info');
-              if (summ && summList) {
-                summ.classList.remove('hidden');
-                summList.innerHTML = '';
-                // If confirmed is an object with placements, use it; otherwise fall back to suggestions
-                let placements = null;
-                if (typeof confirmed === 'object' && confirmed.placements) placements = confirmed.placements;
-                if (!placements && placement && placement.suggestions) {
-                  placements = placement.suggestions.map(s => ({ unit: s.unit, zone: s.suggested_zone }));
-                }
-                (placements || []).forEach(p => {
-                  const row = document.createElement('div'); row.className = 'flex items-center gap-3 bg-white p-2 rounded border';
-                  const name = document.createElement('div'); name.className = 'w-48 font-medium'; name.textContent = p.unit;
-                  const zone = document.createElement('div'); zone.className = 'text-sm text-gray-700'; zone.textContent = (p.zone || p.suggested_zone || 'unknown');
-                  row.appendChild(name); row.appendChild(zone); summList.appendChild(row);
-                });
-                // Show battleplan banner if placement includes battleplan info
-                if (placement && placement.battleplan) {
-                  const bpBanner = document.getElementById('battleplan-banner');
-                  const t = document.getElementById('battleplan-title');
-                  const n = document.getElementById('battleplan-note');
-                  if (t) t.textContent = `Battleplan: ${placement.battleplan.title || placement.battleplan}`;
-                  if (n) n.textContent = placement.battleplan.deployment || placement.battleplan.note || '';
-                  if (bpBanner) bpBanner.classList.remove('hidden');
-                }
-                // Also populate the visual placement map (left/center/right) using placements or suggestions
-                const mapModal = document.getElementById('placement-map');
-                const mapCanvas = document.getElementById('placement-map-canvas');
-                if (mapCanvas) {
-                  // clear existing
-                  Array.from(mapCanvas.querySelectorAll('.zone-items')).forEach(el => el.innerHTML = '');
-                    // helper: normalize a variety of zone names into our canonical set
-                    const normalizeZone = (raw) => {
-                      if (!raw) return 'scattered';
-                      const s = raw.toString().toLowerCase().trim();
-                      if (['left','l'].includes(s)) return 'left';
-                      if (['center','centre','mid','middle','c'].includes(s)) return 'center';
-                      if (['right','r'].includes(s)) return 'right';
-                      if (['forward','front','fwd','frontline'].includes(s)) return 'forward';
-                      if (['defensive','defence','defend','rear','rearward'].includes(s)) return 'defensive';
-                      if (['reserve','res','reserve_line','reserve-line'].includes(s)) return 'reserve';
-                      if (['scattered','other','misc','mixed'].includes(s)) return 'scattered';
-                      // fallback: if it contains known words, try to map
-                      if (s.includes('front')) return 'forward';
-                      if (s.includes('defen') || s.includes('rear')) return 'defensive';
-                      if (s.includes('res')) return 'reserve';
-                      if (s.includes('left')) return 'left';
-                      if (s.includes('right')) return 'right';
-                      if (s.includes('center') || s.includes('mid')) return 'center';
-                      return 'scattered';
-                    };
-                    (placements || []).forEach(p => {
-                      const raw = (p.zone || p.suggested_zone || 'scattered');
-                      const z = normalizeZone(raw);
-                      const col = mapCanvas.querySelector(`.zone-column[data-zone="${z}"] .zone-items`);
-                      const badge = document.createElement('div'); badge.className = 'px-2 py-1 rounded bg-blue-50 border text-sm mb-1'; badge.textContent = p.unit;
-                      if (col) col.appendChild(badge);
-                      else {
-                        // append to scattered if unknown
-                        const scat = mapCanvas.querySelector(`.zone-column[data-zone="scattered"] .zone-items`);
-                        if (scat) scat.appendChild(badge);
-                      }
-                    });
-                  // attempt to load a battleplan-specific map image, then open the modal so player can review placement visually
-                  if (mapModal) {
-                    const imgWrap = document.getElementById('placement-map-image-wrap');
-                    const imgEl = document.getElementById('placement-map-image');
-                    // build candidate paths: try by id, then slugified title
-                    const bp = placement.battleplan || placement.battleplan_id || placement.battleplan_title || null;
-                    const candidates = [];
-                    if (placement.battleplan && placement.battleplan.id) candidates.push(`/assets/battleplan_maps/${placement.battleplan.id}.png`);
-                    // slugify title fallback
-                    if (placement.battleplan && placement.battleplan.title) {
-                      const slug = placement.battleplan.title.toString().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-                      candidates.push(`/assets/battleplan_maps/${slug}.png`);
-                    }
-                    // try candidates sequentially; if any loads, show it
-                    let tried = 0;
-                    const tryNext = () => {
-                      if (tried >= candidates.length) {
-                        // none found — hide image wrapper and open modal
-                        if (imgWrap) imgWrap.classList.add('hidden');
-                        openModal(mapModal);
-                        return;
-                      }
-                      const src = candidates[tried++];
-                      if (!imgEl) { tryNext(); return; }
-                      imgEl.onload = () => {
-                        if (imgWrap) imgWrap.classList.remove('hidden');
-                        imgEl.style.display = 'block';
-                        openModal(mapModal);
-                      };
-                      imgEl.onerror = () => { imgEl.src = ''; imgEl.style.display = 'none'; tryNext(); };
-                      imgEl.src = src;
-                    };
-                    tryNext();
-                  }
-                }
-              }
-              return;
-            }
-            // Decide whether to use modal (small screens) or inline panel
-            const useModal = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
-            if (useModal) {
-              // render into modal
-              const info = document.getElementById('placement-modal-info');
-              const list = document.getElementById('placement-modal-list');
-              const err = document.getElementById('placement-modal-error'); if (err) err.textContent = '';
-              info.textContent = `Battleplan: ${placement.battleplan?.title || 'unknown'} — allowed zones: ${ allowed.join(', ') }`;
-              list.innerHTML = '';
-              // Add a quick 'use suggestions' action for faster placement
-              const useBtn = document.createElement('button'); useBtn.className = 'bg-gray-50 border px-3 py-1 rounded text-sm'; useBtn.textContent = 'Use suggestions';
-              useBtn.addEventListener('click', () => {
-                // apply suggested_zone into segments if present
-                Array.from(list.querySelectorAll('.placement-row')).forEach(r => {
-                  const sug = r.getAttribute('data-suggest') || '';
-                  if (!sug) return;
-                  // find the button matching the suggestion and select it
-                  const seg = r.querySelector('.segmented'); if (!seg) return;
-                  const btn = Array.from(seg.querySelectorAll('button')).find(b => b.getAttribute('data-zone') === sug);
-                  if (btn) btn.click();
-                });
-              });
-              list.appendChild(useBtn);
-              (placement.suggestions || []).forEach(s => {
-                const row = document.createElement('div');
-                row.className = 'placement-row bg-white p-2 rounded border';
-                row.setAttribute('data-suggest', s.suggested_zone || '');
-                const name = document.createElement('div'); name.className = 'font-medium mb-1'; name.textContent = s.unit;
-                const seg = document.createElement('div'); seg.className = 'segmented mb-1';
-                if (!allowed || allowed.length === 0) {
-                  const note = document.createElement('div'); note.className = 'text-xs text-gray-500'; note.textContent = s.reason || 'No allowed zones';
-                  row.appendChild(name); row.appendChild(note);
-                } else {
-                  allowed.forEach(z => {
-                    const b = document.createElement('button'); b.type = 'button'; b.className = ''; b.setAttribute('data-zone', z); b.textContent = z;
-                    // preselect suggested
-                    if (s.suggested_zone && s.suggested_zone === z) b.classList.add('selected');
-                    b.addEventListener('click', (ev) => {
-                      // toggle selection: only one selected at a time
-                      Array.from(seg.querySelectorAll('button')).forEach(bb => bb.classList.remove('selected'));
-                      b.classList.add('selected');
-                    });
-                    seg.appendChild(b);
-                  });
-                  const reason = document.createElement('div'); reason.className = 'text-xs text-gray-500'; reason.textContent = s.reason || '';
-                  row.appendChild(name); row.appendChild(seg); row.appendChild(reason);
-                }
-                list.appendChild(row);
-              });
-              const modal = document.getElementById('placement-modal');
-              if (modal) openModal(modal);
-            } else {
-              // render inline panel as before
-              const panel = document.getElementById('placement-panel');
-              const info = document.getElementById('placement-info');
-              const list = document.getElementById('placement-list');
-              const err = document.getElementById('placement-error'); if (err) err.textContent = '';
-              if (panel) panel.classList.remove('hidden');
-              info.textContent = `Battleplan: ${placement.battleplan?.title || 'unknown'} — allowed zones: ${ allowed.join(', ') }`;
-              list.innerHTML = '';
-              (placement.suggestions || []).forEach(s => {
-                const row = document.createElement('div');
-                row.className = 'flex items-center gap-3 bg-white p-2 rounded border';
-                const name = document.createElement('div'); name.className = 'w-48'; name.textContent = s.unit;
-                const select = document.createElement('select'); select.className = 'border rounded px-2 py-1'; select.setAttribute('data-unit', s.unit);
-                if (!allowed || allowed.length === 0) {
-                  const opt = document.createElement('option'); opt.value = ''; opt.textContent = s.reason || 'No allowed zones defined'; select.appendChild(opt); select.disabled = true;
-                } else {
-                  allowed.forEach(z => { const opt = document.createElement('option'); opt.value = z; opt.textContent = z; select.appendChild(opt); });
-                  if (s.suggested_zone) select.value = s.suggested_zone;
-                }
-                const reason = document.createElement('div'); reason.className = 'text-xs text-gray-500'; reason.textContent = s.reason || '';
-                row.appendChild(name); row.appendChild(select); row.appendChild(reason);
-                list.appendChild(row);
-              });
-            }
-
-          }).catch(e => { console.warn('Failed to fetch placement', e); });
-        }
-
-        document.getElementById('confirm-placement').addEventListener('click', () => {
-          const list = document.getElementById('placement-list');
-          const rows = Array.from(list.querySelectorAll('select[data-unit]'));
-          const placements = rows.map(s => ({ unit: s.getAttribute('data-unit'), zone: s.value }));
-          const err = document.getElementById('placement-error'); err.textContent = '';
-          axios.post(`/api/session/${currentSession}/placement`, { placements }).then(r => {
-            // hide placement panel and note success
-            const panel = document.getElementById('placement-panel'); if (panel) panel.classList.add('hidden');
-            appendAiOutput(`Placement confirmed for session ${currentSession}`);
-          }).catch(e => {
-            const data = e.response?.data || e.message;
-            err.textContent = (data?.error || JSON.stringify(data));
-          });
-        });
-
-        document.getElementById('cancel-placement').addEventListener('click', () => {
-          const panel = document.getElementById('placement-panel'); if (panel) panel.classList.add('hidden');
-        });
-
-        // Modal placement confirm/cancel handlers
-        const modalConfirmBtn = document.getElementById('placement-modal-confirm');
-        if (modalConfirmBtn) modalConfirmBtn.addEventListener('click', () => {
-        const list = document.getElementById('placement-modal-list');
-        // collect placements from segmented controls when present
-        const rows = Array.from(list.querySelectorAll('.placement-row'));
-        const placements = rows.map(r => {
-          const unit = r.querySelector('.font-medium')?.textContent || r.getAttribute('data-unit') || '';
-          const sel = r.querySelector('.segmented button.selected');
-          const zone = sel ? sel.getAttribute('data-zone') : null;
-          return { unit, zone };
-        }).filter(p => p.unit);
-          const err = document.getElementById('placement-modal-error'); if (err) err.textContent = '';
-          axios.post(`/api/session/${currentSession}/placement`, { placements }).then(r => {
-            const modal = document.getElementById('placement-modal'); if (modal) closeModal(modal, { userInitiated: true });
-            appendAiOutput(`Placement confirmed for session ${currentSession}`);
-          }).catch(e => {
-            const data = e.response?.data || e.message;
-            if (err) {
-              if (data?.error === 'missing_unit_placements' && data.missing && data.missing.length) {
-                err.textContent = 'Missing placements for some units. Jumping to first missing.';
-                // focus the first missing unit in the modal if visible
-                const list = document.getElementById('placement-modal-list');
-                const firstMissing = data.missing[0];
-                const row = Array.from(list.querySelectorAll('.placement-row')).find(r => (r.querySelector('.font-medium')?.textContent || '') === firstMissing);
-                if (row) {
-                  const btn = row.querySelector('.segmented button');
-                  try { btn && btn.focus(); } catch (e) {}
-                }
-              } else {
-                err.textContent = (data?.error || JSON.stringify(data));
-              }
-            }
-          });
-        });
-        const modalCancelBtn = document.getElementById('placement-modal-cancel');
-        if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => {
-          const modal = document.getElementById('placement-modal'); if (modal) closeModal(modal, { userInitiated: true });
-        });
-        const modalCloseX = document.getElementById('placement-modal-close');
-        if (modalCloseX) modalCloseX.addEventListener('click', () => { const modal = document.getElementById('placement-modal'); if (modal) closeModal(modal, { userInitiated: true }); });
-
-    // wire placement map close (button)
-    const mapClose = document.getElementById('placement-map-close');
-    if (mapClose) mapClose.addEventListener('click', () => {
-      const mm = document.getElementById('placement-map');
-      if (mm) {
-        // hide the placement summary as user acknowledged placement
-        try { const summ = document.getElementById('placement-summary'); if (summ) summ.classList.add('hidden'); } catch (e) {}
-        closeModal(mm, { userInitiated: true });
-      }
-    });
-    // allow clicking the backdrop to close the placement map
-    const placementMapOverlay = document.getElementById('placement-map');
-    if (placementMapOverlay) {
-  placementMapOverlay.addEventListener('click', (e) => { if (e.target === placementMapOverlay) closeModal(placementMapOverlay, { userInitiated: true }); });
-    }
-    // allow clicking backdrop to close the placement modal (small screens)
-    const placementModalOverlay = document.getElementById('placement-modal');
-    if (placementModalOverlay) {
-  placementModalOverlay.addEventListener('click', (e) => { if (e.target === placementModalOverlay) closeModal(placementModalOverlay, { userInitiated: true }); });
-    }
-    // allow clicking backdrop to close pending-rolls modal
-    const pendingModalOverlay = document.getElementById('pending-modal');
-    if (pendingModalOverlay) {
-  pendingModalOverlay.addEventListener('click', (e) => { if (e.target === pendingModalOverlay) closeModal(pendingModalOverlay, { userInitiated: true }); });
-    }
-
-    const fileInput = document.getElementById('file');
-    const sessionIdEl = document.getElementById('session-id');
-    let currentSession = null;
-
-      // Load available battleplans into the selector on startup
-      (function loadBattleplans() {
-        const sel = document.getElementById('battleplan-select');
-        if (!sel) return;
-        axios.get('/api/battleplans').then(r => {
-          const plans = r.data.battleplans || [];
-          plans.forEach(p => {
-            const opt = document.createElement('option'); opt.value = p.id || p.title; opt.textContent = `${p.title} ${p.deployment? '- ' + p.deployment : ''}`;
-            sel.appendChild(opt);
-          });
-        }).catch(e => {
-          // silent failure; leave only the Random option
-          console.warn('Failed to load battleplans', e);
-        });
-      })();
+      let currentSession = null;
 
       document.getElementById("create-session").addEventListener("click", () => {
         const f = fileInput.files[0];
@@ -818,29 +106,12 @@
           alert("Choose an HTML roster first");
           return;
         }
-        const rollMode = document.getElementById('roll-mode')?.value || 'ai';
-        const bp = document.getElementById('battleplan-select')?.value || '';
         api
-          .createSessionFromFile(f, rollMode, bp)
+          .createSessionFromFile(f)
           .then((data) => {
             currentSession = data.session_id;
             sessionIdEl.textContent = currentSession;
-            appendAiOutput(`Created session ${currentSession}`);
-            // show selected roll mode in UI
-            const mode = data.state?.roll_mode || rollMode || 'ai';
-            appendAiOutput(`Roll handling: ${mode}`);
-            // show selected battleplan if provided by server state or the request
-            const bpInfo = data.state?.battleplan || data.battleplan || (bp ? { title: bp } : null);
-            if (bpInfo) {
-              const bpBanner = document.getElementById('battleplan-banner');
-              const t = document.getElementById('battleplan-title');
-              const n = document.getElementById('battleplan-note');
-              if (t) t.textContent = `Battleplan: ${bpInfo.title || bpInfo}`;
-              if (n) n.textContent = bpInfo.deployment || bpInfo.note || '';
-              if (bpBanner) bpBanner.classList.remove('hidden');
-            }
-              // Immediately show placement UI if the server has proposed placement
-              try { showPlacementUI(currentSession); } catch (e) { console.warn('placement UI error', e); }
+            logEl.innerHTML += `Created session ${currentSession}\n`;
           })
           .catch((e) => alert("Failed to create session: " + (e.response?.data?.error || e.message)));
       });
@@ -871,20 +142,14 @@
                 unitsEl.appendChild(d);
               });
           }
-          appendAiOutput(`Fetched session state (turn ${data.turn})`);
-          if (data.roll_mode) {
-            appendAiOutput(`Roll handling: ${data.roll_mode}`);
-          }
-          // append any short text events to the ai-output strip for visibility
-          (data.log || []).forEach(e => appendAiOutput(e.text || JSON.stringify(e)));
+          logEl.innerHTML += `Fetched session state (turn ${data.turn})\n`;
+          (data.log || []).forEach(e => logEl.innerHTML += (e.text || JSON.stringify(e)) + '\n');
         }).catch(e => alert('Failed to fetch session: ' + (e.response?.data?.error || e.message)));
       });
 
       document.getElementById('ai-turn').addEventListener('click', () => {
         if (!currentSession) return alert('No session. Create one first.');
-  // Player is running a turn — assume they have seen the placement and remove the placement UI overlays
-  hidePlacementUI();
-  api.postAiTurn(currentSession).then(resp => {
+        api.postAiTurn(currentSession).then(resp => {
             // server returns plain text summary; render it as a separate pre block
             const text = resp.data || resp;
             const pre = document.createElement('pre');
@@ -893,214 +158,22 @@
             pre.style.padding = '8px';
             pre.style.marginTop = '8px';
             pre.style.whiteSpace = 'pre-wrap';
-            // If server returned a human-readable string, insert blank lines between model entries
-            if (typeof text === 'string') {
-              const lines = text.split('\n');
-              const out = [];
-              for (let i = 0; i < lines.length; i++) {
-                const ln = lines[i];
-                out.push(ln);
-                // heuristics: add a blank line after aggression checks, action lines, or pending action list items
-                const trim = ln.trim();
-                if (trim.startsWith('AI check:') || trim.startsWith('AI action:') || trim.startsWith('- ') || trim.startsWith('ACTION:')) {
-                  out.push('');
-                }
-              }
-              pre.textContent = out.join('\n');
-            } else {
-              pre.textContent = JSON.stringify(text, null, 2);
-            }
-            // Wrap the pre block in a collapsible container with a toggle
-            const wrapper = document.createElement('div');
-            wrapper.className = 'mb-3';
-            const header = document.createElement('div');
-            header.className = 'flex items-center justify-between gap-3';
-            const title = document.createElement('div');
-            title.className = 'text-sm font-medium';
-            title.textContent = `AI Turn Summary`;
-            const toggle = document.createElement('button');
-            toggle.className = 'btn-icon';
-            toggle.type = 'button';
-            toggle.setAttribute('aria-label','Collapse or expand AI summary');
-            const chev = document.createElement('span'); chev.className = 'toggle-icon';
-            chev.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-            toggle.appendChild(chev);
-            const content = document.createElement('div');
-            content.appendChild(pre);
-            // smooth collapse using max-height with helper to centralize behavior and optionally persist state
-            content.classList.add('collapse-content');
-            content.style.maxHeight = content.scrollHeight + 'px';
-            // rAF-based expand/collapse for smoother animation
-            const animateCollapse = (el, collapse, chevron, onComplete) => {
-              // collapse: true => collapse, false => expand
-              // Cancel any ongoing animation by clearing transition and forcing layout
-              el.style.transition = 'none';
-              const startHeight = el.getBoundingClientRect().height;
-              const targetHeight = collapse ? 0 : el.scrollHeight;
-              // set explicit start height
-              el.style.maxHeight = startHeight + 'px';
-              // force layout
-              void el.offsetHeight;
-              // enable transition
-              el.style.transition = 'max-height 360ms ease';
-              requestAnimationFrame(() => {
-                el.style.maxHeight = targetHeight + 'px';
-                if (collapse) chevron.classList.add('rotate-180'); else chevron.classList.remove('rotate-180');
-              });
-              // After transition, clear maxHeight for expanded state so content can grow naturally
-              const onEnd = (ev) => {
-                if (!collapse) {
-                  el.style.maxHeight = '';
-                }
-                el.removeEventListener('transitionend', onEnd);
-                try { if (onComplete) onComplete(!!collapse); } catch (e) {}
-              };
-              el.addEventListener('transitionend', onEnd);
-            };
-            // Helper: produce a reasonably stable event key for storage
-            const makeEventId = (it, idx, page) => {
-              if (!it) return `p${page}-i${idx}`;
-              return it.id || it.event_id || it.timestamp || (`p${page}-i${idx}-${it.event || 'evt'}`);
-            };
-            const getEventKey = (eventId) => `collapse:${eventId}`;
-            const saveCollapseState = (eventId, collapsed) => {
-              try { sessionStorage.setItem(getEventKey(eventId), collapsed ? '1' : '0'); } catch (e) {}
-            };
-            const readCollapseState = (eventId) => {
-              try { return sessionStorage.getItem(getEventKey(eventId)) === '1'; } catch (e) { return false; }
-            };
-            const toggleCollapse = (btn, el, chevron, toState) => {
-              const isCollapsed = el.style.maxHeight === '0px' || el.getBoundingClientRect().height === 0;
-              const wantCollapse = toState === 'collapse' ? true : (toState === 'expand' ? false : !isCollapsed);
-              animateCollapse(el, wantCollapse, chevron);
-            };
-            toggle.addEventListener('click', () => toggleCollapse(toggle, content, chev));
-            header.appendChild(title);
-            header.appendChild(toggle);
-            wrapper.appendChild(header);
-            wrapper.appendChild(content);
-            // Append AI summary to the always-visible AI output strip
-            const aiOut = document.getElementById('ai-output');
-            if (aiOut) aiOut.appendChild(wrapper);
-            // No side log panel in the UI; we've appended the summary once above (no clone needed)
-            // Ensure the summary is expanded by default (measure after append)
-            requestAnimationFrame(() => {
-              content.style.maxHeight = content.scrollHeight + 'px';
-              chev.classList.remove('rotate-180');
-            });
-            // Try to fetch last_turn structured events to detect roll_request
-            axios.get(`/api/session/${currentSession}/last_turn`).then(r => {
-              const events = r.data.events || [];
-              const rr = events.find(e => e.event === 'roll_request');
-              if (rr) {
-                  const renderPendingActions = (rr) => {
-                    const list = document.getElementById('pending-list');
-                    list.innerHTML = '';
-                    // Show step checklist to the player
-                    document.getElementById('pending-steps').classList.remove('hidden');
-                    // Append a prominent instruction banner to the main log area so it's visible in console
-                    const banner = document.createElement('div');
-                    banner.className = 'w-full p-3 rounded border-l-4 border-yellow-400 bg-yellow-100 text-gray-800 mb-3 ai-paused-banner';
-                    banner.innerHTML = `<div class="font-semibold">Player action required — AI paused for roll resolution</div>
-                      <div class="text-sm mt-1">The AI has paused to request specific dice for enemy models' actions. For each listed enemy model:</div>
-                      <ol class="mt-2 text-sm list-decimal list-inside">
-                        <li>Locate the enemy model name above the input field in the <strong>Pending roll requests</strong> box.</li>
-                        <li>Enter the die value(s) the model should use (d6 values, comma-separated for multiple dice).</li>
-                        <li>When all requested rolls are entered, click <strong>Submit Rolls</strong> to continue the turn.</li>
-                      </ol>
-                      <div class="text-xs text-gray-600 mt-2">Tip: use the model's unit name and card title to match the action to the model on the table.</div>`;
-                    // Append banner to the AI output strip so player sees the prompt
-                    const aiOut = document.getElementById('ai-output'); if (aiOut) aiOut.appendChild(banner.cloneNode(true));
-                    // compute aggregate dice summary
-                    const byDice = {};
-                    let totalDice = 0;
-                    rr.pending_actions.forEach((a, idx) => {
-                      const row = document.createElement('div');
-                      row.className = 'flex items-center gap-3 bg-white p-2 rounded shadow-sm';
-                      const id = `req-${a.request_id}`;
-                      const hint = actionHintFor(a);
-                      // dice descriptor from server (defaulted to 1d6)
-                      const dice = (a.dice && a.dice.count) ? a.dice : {count:1, sides:6};
-                      const diceBadge = `<span class="ml-2 text-xs bg-gray-100 border px-2 py-0.5 rounded">${dice.count}d${dice.sides}</span>`;
-                      // aggregate
-                      const k = `${dice.count}d${dice.sides}`;
-                      byDice[k] = (byDice[k] || 0) + 1;
-                      totalDice += dice.count;
-                      row.innerHTML = `
-                          <div class="flex-1">
-                            <div class="font-medium">${a.unit}</div>
-                            <div class="text-sm text-gray-600">${a.card_title} <span class="ml-2 text-xs">(req=${a.request_id})</span>${diceBadge}</div>
-                            <div class="text-xs text-gray-700 mt-1">${actionIconFor(a)}<span class="align-middle">${hint}</span></div>
-                          </div>
-                          <div class="w-48">
-                            <label for="${id}" class="sr-only">Enter rolls for ${a.unit}</label>
-                          <input id="${id}" data-req="${a.request_id}" data-dice-count="${dice.count}" class="roll-input border rounded px-2 py-1 w-full" placeholder="e.g. ${dice.count===1? '4' : '3,2'}" aria-describedby="err-${id}" />
-                            <div id="err-${id}" class="text-red-600 text-xs mt-1" aria-live="polite"></div>
-                          </div>
-                        `;
-                      list.appendChild(row);
-                    });
-                    // render aggregate summary text
-                    const renderPendingSummary = (byDiceObj, total) => {
-                      const parts = [];
-                      Object.keys(byDiceObj).forEach(k => parts.push(`${byDiceObj[k]}×${k}`));
-                      const summary = `Total dice: ${total} — ${parts.join(', ')}`;
-                      const el = document.getElementById('pending-summary');
-                      if (el) el.textContent = summary;
-                      return summary;
-                    };
-                    const summary = renderPendingSummary(byDice, totalDice);
-                    document.getElementById('pending-rolls').classList.remove('hidden');
-                    // If small screen, move content into modal for easier input
-                    const isMobile = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
-                    if (isMobile) {
-                      const modal = document.getElementById('pending-modal');
-                      const body = document.getElementById('modal-body');
-                      body.innerHTML = '';
-                      // clone the pending-rolls content into modal body and prefix IDs to avoid duplicates
-                      const original = document.getElementById('pending-rolls');
-                      const clone = original.cloneNode(true);
-                      // prefix ids inside clone with 'modal-'
-                      Array.from(clone.querySelectorAll('[id]')).forEach(el => {
-                        const old = el.id;
-                        el.id = 'modal-' + old;
-                      });
-                      clone.id = 'pending-rolls-modal-clone';
-                      body.appendChild(clone);
-                      // copy summary into modal clone (id was prefixed to modal-pending-summary)
-                      const modalSummary = body.querySelector('#modal-pending-summary');
-                      if (modalSummary) modalSummary.textContent = summary;
-                      // open modal
-                      openModal(modal);
-                      // auto-focus first input after render
-                      setTimeout(() => { const first = modal.querySelector('.roll-input'); if (first) first.focus(); }, 60);
-                      // wire close button
-                      document.getElementById('modal-close').onclick = () => closeModal(modal, { userInitiated: true });
-                      // wire cloned submit button to shared handler
-                      const clonedSubmit = clone.querySelector('#modal-submit-rolls');
-                      if (clonedSubmit) {
-                        clonedSubmit.addEventListener('click', submitRollsHandler);
-                      }
-                    }
-                    // show the desktop panel as well so user on larger screens sees it
-                  };
-                  renderPendingActions(rr);
-                }
-            }).catch(() => {});
+            pre.textContent = (typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+            logEl.appendChild(pre);
+            // keep scroll at bottom
+            logEl.scrollTop = logEl.scrollHeight;
           }).catch(e => {
             const msg = e.response?.data || e.message;
             alert('AI turn failed: ' + (typeof msg === 'string' ? msg : (msg?.error || JSON.stringify(msg))));
           });
       });
 
-        document.getElementById('submit-rolls').addEventListener('click', submitRollsHandler);
-
         document.getElementById('submit-note').addEventListener('click', () => {
           if (!currentSession) return alert('No session');
           const txt = document.getElementById('notes').value || '';
           if (!txt) return alert('Note empty');
           axios.post(`/api/session/${currentSession}/notes`, { text: txt }).then(r => {
-            appendAiOutput('Saved note');
+            logEl.innerHTML += `Saved note\n`;
             document.getElementById('notes').value = '';
           }).catch(e => alert('Failed to save note: ' + (e.response?.data?.error || e.message)));
         });
@@ -1112,6 +185,62 @@
             list.innerHTML = '';
             (r.data.notes || []).forEach(n => { const d = document.createElement('div'); d.textContent = n.text; list.appendChild(d); });
           }).catch(e => alert('Failed to fetch notes: ' + (e.response?.data?.error || e.message)));
+        });
+
+        // Session log viewer state
+        let logPage = 1;
+
+        document.getElementById('fetch-log').addEventListener('click', () => {
+          if (!currentSession) return alert('No session');
+          const size = parseInt(document.getElementById('log-size').value) || 20;
+          axios.get(`/api/session/${currentSession}/log?page=${logPage}&size=${size}`).then(r => {
+            const items = r.data.items || [];
+            const container = document.getElementById('log-items');
+            container.innerHTML = '';
+              const compact = document.getElementById('compact-toggle')?.checked;
+              items.forEach(it => {
+                if (compact) {
+                  // compact, human readable rendering
+                  if (it.event === 'no_tactic_available') {
+                    const d = document.createElement('div'); d.textContent = 'No tactic available'; d.style.opacity = '0.8'; d.style.margin='6px 0'; container.appendChild(d); return;
+                  }
+                  if (it.aggression_check !== undefined) {
+                    const act = it.aggression_check ? 'ACT' : 'HOLD';
+                    const line = `${it.unit}: ${act} (d6=${it.roll} + mod=${it.modifier} => ${it.total} vs ${it.target})`;
+                    const d = document.createElement('div'); d.textContent = line; d.style.margin='4px 0'; container.appendChild(d); return;
+                  }
+                  if (it.action_resolved) {
+                    const a = it.action_resolved;
+                    const line = `ACTION: ${a.unit} -> ${a.card_title} (init=${a.initiative}) ${a.behavior || ''}`;
+                    const d = document.createElement('div'); d.textContent = line; d.style.fontWeight='600'; d.style.margin='4px 0'; container.appendChild(d); return;
+                  }
+                  // fallback JSON
+                  const pre = document.createElement('pre');
+                  pre.style.margin = '4px 0';
+                  pre.style.background = '#fafafa';
+                  pre.style.border = '1px solid #eee';
+                  pre.style.padding = '6px';
+                  pre.textContent = JSON.stringify(it, null, 2);
+                  container.appendChild(pre);
+                } else {
+                  const pre = document.createElement('pre');
+                  pre.style.margin = '4px 0';
+                  pre.style.background = '#fafafa';
+                  pre.style.border = '1px solid #eee';
+                  pre.style.padding = '6px';
+                  pre.textContent = JSON.stringify(it, null, 2);
+                  container.appendChild(pre);
+                }
+              });
+            document.getElementById('log-page').textContent = r.data.page || logPage;
+          }).catch(e => alert('Failed to fetch log: ' + (e.response?.data?.error || e.message)));
+        });
+
+        document.getElementById('log-prev').addEventListener('click', () => {
+          if (logPage > 1) { logPage -= 1; document.getElementById('fetch-log').click(); }
+        });
+        document.getElementById('log-next').addEventListener('click', () => {
+          logPage += 1; document.getElementById('fetch-log').click();
         });
 
       // Composer removed — UI focuses on AI units and AI-turn stepping only.
