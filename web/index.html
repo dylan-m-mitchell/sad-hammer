@@ -16,34 +16,7 @@
       crossorigin
       src="https://unpkg.com/axios/dist/axios.min.js"
     ></script>
-    <style>
-      body {
-        font-family: sans-serif;
-        margin: 16px;
-      }
-      .pane {
-        display: inline-block;
-        vertical-align: top;
-      }
-      #units {
-        width: 320px;
-        height: 480px;
-        overflow: auto;
-        border: 1px solid #ddd;
-        padding: 8px;
-      }
-      #log {
-        width: 560px;
-        height: 480px;
-        overflow: auto;
-        border: 1px solid #ddd;
-        padding: 8px;
-        margin-left: 12px;
-      }
-      button {
-        margin: 4px;
-      }
-    </style>
+    <style></style>
   </head>
   <body>
     <h1>Sad Hammer — Web Frontend</h1>
@@ -52,9 +25,9 @@
       <button id="load">Upload & Parse</button>
       <button id="run">Run Simulation</button>
     </div>
-    <div style="margin-top: 12px">
-      <div id="units" class="pane"></div>
-      <div id="log" class="pane"></div>
+    <div>
+      <div id="units"></div>
+      <div id="log"></div>
     </div>
     <script>
       const api = {

@@ -1,4 +1,5 @@
 const { defineConfig, devices } = require("@playwright/test");
+const baseURL = process.env.BASE_URL || "http://localhost:8080";
 
 module.exports = defineConfig({
   testDir: "./tests/ui",
@@ -8,7 +9,7 @@ module.exports = defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL,
     trace: "on-first-retry",
   },
 

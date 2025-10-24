@@ -45,17 +45,25 @@ pytest -q
 ./scripts/start_backend.sh
 ```
 
-5. Start the frontend (local static preview):
+5. Start the frontend (Vite dev server):
 
 ```bash
 ./scripts/start_frontend.sh
 ```
+
+The app will open on http://localhost:5173 and proxy API calls to http://localhost:5000.
 
 Or use Docker Compose to run everything:
 
 ```bash
 docker compose up --build
 ```
+
+Frontend framework and styling
+
+- The frontend has been migrated to React + Vite in `frontend/`.
+- Baseline styles are intentionally minimal; Tailwind is configured via PostCSS and will be used to (re)introduce accessible, framework-safe styles.
+- Build output is served by Nginx in the frontend container and proxied under `/` with API at `/api/`.
 
 High-level usage
 

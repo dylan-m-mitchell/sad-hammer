@@ -28,18 +28,18 @@ import random
 # The blog mentions a 'cover card' that explains deployment and a number of
 # deployment cards. We provide 12 cards with deployment hints.
 battleplan_deck = [
-    {"id": 1, "title": "Border War (2016)", "deployment": "4 objectives: hold your own=1, border objectives=2, opponent's objective=5; cap 6 points plus tactic. Play prudently; don't overextend.", "twist": "Underdog +1 to hit if they charged this turn."},
-    {"id": 2, "title": "Focal Points (2018)", "deployment": "Capture objectives across the central cross: Home and Flank objectives with one/two/more scoring and extra for holding a cross. Choose between wide flank grabs or pushing into opponent Home.", "twist": "Underdog can change the central objective to Home or Flank to consolidate scoring."},
-    {"id": 3, "title": "Starstrike (2019)", "deployment": "Fewer landing lanes; objectives that would be on terrain become that terrain piece. Simpler scoring: 3 points per objective and 3 for holding more than opponent.", "twist": "—"},
-    {"id": 4, "title": "Shifting Objectives (2020)", "deployment": "Large open map; each round the active player sets which objective is worth 2 points, others worth 1; controlling more objectives gives +2. Suggested terrain: obscuring and place of power per side.", "twist": "Underdog can force the active player to reroll the die that selects the primary objective."},
-    {"id": 5, "title": "Feral Foray (2021)", "deployment": "Six objectives, straightforward scoring. Incentivizes raiding and scouting; the twist rewards attacking and clever play.", "twist": "At start of round players may raid an enemy objective they control; underdog may raid a contested enemy objective."},
-    {"id": 6, "title": "The Jaws of Gallet", "deployment": "Five objectives, Hold One/Two/More scoring. After turn 1 objectives begin to collapse (one removed each turn).", "twist": "Starting on round 2 the Underdog may pick an objective to pull if they wish."},
-    {"id": 7, "title": "Battle for the Pass (2017)", "deployment": "Similar scoring to Border War (hold your own=1, border=2, opponent's=5) but uses a short-edge deployment so armies hike sooner into the field.", "twist": "+2 to control score for non-hero units (encourages smaller forces to push up)."},
-    {"id": 8, "title": "Scorched Earth (2019)", "deployment": "Standard Hold One/Two/More scoring with a modified deployment (long/short edges may differ); focuses on denying opponent opportunities.", "twist": "Underdog can pick one objective in their territory and treat enemy control score as 5 less for that objective."},
-    {"id": 9, "title": "The Better Part of Valour (2020)", "deployment": "Six objectives, scoring similar to other six-objective maps. Unique mechanic: non-hero kills on objectives can gain Dominant status and boost control score.", "twist": "Underdog gains +1 to hit against Dominant units."},
-    {"id": 10, "title": "The Vice (2021)", "deployment": "Long-edge deployment drawing players to the centre; objectives shift through the game with new objectives appearing on later rounds.", "twist": "Underdog can inflict D3 mortal damage on units contesting a selected objective at end of their turn; objectives are moved/removed on later rounds."},
-    {"id": 11, "title": "Close to the Chest (2022-2023 S2)", "deployment": "Small neutral territory; hold 1/2 scoring with a designated primary objective worth more. The none-active player picks the primary objective each round.", "twist": "Underdog can roll to force the opponent to pick a different primary objective on a 5+."},
-    {"id": 12, "title": "Limited Resources (2023)", "deployment": "Hold One/Two/More scoring; extracting resources can prevent a player from controlling an objective on later turns.", "twist": "Underdog can add +3 to control scores for friendly units contesting an objective from which they are extracting resources."},
+    {"id": 1, "title": "First Blood (2021)", "deployment": "Early engagement across the line; pressure forward and threaten enemy-half objectives.", "twist": "—"},
+    {"id": 2, "title": "Power Struggle (2021)", "deployment": "Objectives form a central axis; contest center and paired flanks.", "twist": "—"},
+    {"id": 3, "title": "Savage Gains (2021)", "deployment": "Reward for taking enemy territory; push forward early to score.", "twist": "—"},
+    {"id": 4, "title": "Apex Predators (2021)", "deployment": "Leaders capture; protect heroes while anchoring the center.", "twist": "—"},
+    {"id": 5, "title": "Survival of the Fittest (2021)", "deployment": "Predator/prey mechanics influence scoring; stay flexible across the board.", "twist": "—"},
+    {"id": 6, "title": "Marking Territory (2021)", "deployment": "Consolidate and hold key objectives; defensive posture rewarded.", "twist": "—"},
+    {"id": 7, "title": "Feral Foray (2021)", "deployment": "Raiding mechanics; aggressive objective tagging and retreats.", "twist": "—"},
+    {"id": 8, "title": "The Vice (2021)", "deployment": "Objectives collapse toward center later; set up to pivot.", "twist": "—"},
+    {"id": 9, "title": "Tectonic Interference (2021)", "deployment": "Shifting primaries; adapt and reallocate swiftly.", "twist": "—"},
+    {"id": 10, "title": "Tooth and Nail (2021)", "deployment": "Straight fight, limited reserves; press the line.", "twist": "—"},
+    {"id": 11, "title": "Power in Numbers (2021)", "deployment": "Model count/holding emphasis; spread to control.", "twist": "—"},
+    {"id": 12, "title": "Veins of Ghur (2021)", "deployment": "Falling objectives; be ready to flex to new drops.", "twist": "—"},
 ]
 
 
