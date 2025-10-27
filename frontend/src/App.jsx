@@ -4,6 +4,7 @@ import SessionControls from "./components/SessionControls";
 import UnitsList from "./components/UnitsList";
 import PlacementModal from "./components/PlacementModal";
 import RollModal from "./components/RollModal";
+import Log from "./components/Log";
 
 // Module-level cache to prevent duplicate /api/battleplans requests
 // (React StrictMode in development may mount/unmount/mount components which
@@ -83,6 +84,15 @@ const api = {
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
+  removeUnit: async (sessionId, unitName) => {
+    const res = await fetch(`/api/session/${sessionId}/remove_unit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unit_name: unitName }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
 };
 
 export default function App() {
@@ -104,6 +114,7 @@ export default function App() {
   const [rollInputs, setRollInputs] = useState({});
   const [rollModalOpen, setRollModalOpen] = useState(false);
   const [rollValidationErrors, setRollValidationErrors] = useState({});
+  const [collapsedTurns, setCollapsedTurns] = useState({});
 
   const classifyLine = (text) => {
     if (!text) return "info";
@@ -135,7 +146,42 @@ export default function App() {
 
   // Append a typed log entry directly (bypass classification)
   const appendTyped = (kind, text) => {
-    setLog((l) => [...l, { kind, text }]);
+    setLog((l) => {
+      const idx = l.length; // index of the new entry
+      const out = [...l, { kind, text }];
+      // If we're appending a new 'turn' header, auto-collapse previous turns and
+      // ensure the new turn is expanded by default.
+      if (kind === "turn") {
+        setCollapsedTurns((prev) => {
+          const next = { ...(prev || {}) };
+          // mark any previously-seen turn indices as collapsed
+          out.forEach((e, i) => {
+            if (i === idx) return; // skip the new turn we want expanded
+            if (e && e.kind === "turn") next[i] = true;
+          });
+          // ensure the new turn index is explicitly expanded
+          next[idx] = false;
+          return next;
+        });
+      }
+      return out;
+    });
+  };
+
+  // Allow player to remove an enemy unit (call server endpoint and update UI)
+  const handleRemoveUnit = async (unitName) => {
+    if (!sessionId) return alert("No active session");
+    if (!confirm(`Remove unit ${unitName} from the battle?`)) return;
+    setBusy(true);
+    try {
+      await api.removeUnit(sessionId, unitName);
+      setUnits((u) => u.filter((x) => x.name !== unitName));
+      appendTyped("note", `Player removed unit: ${unitName}`);
+    } catch (err) {
+      appendLog(`Warn: failed to remove unit: ${String(err)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Append a block of text to the log with spacing and line splitting for readability.
@@ -720,169 +766,18 @@ export default function App() {
         />
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <UnitsList units={units} />
+          <UnitsList units={units} onRemove={handleRemoveUnit} />
 
           <div className="card md:col-span-2">
             <div className="card-header">
               <h2 className="card-title">Log</h2>
             </div>
             <div className="px-4 py-3">
-              <div className="max-h-[480px] overflow-auto text-sm font-mono">
-                {log.map((entry, i) => {
-                  const key = `log-${i}`;
-                  if (!entry) return null;
-                  const { kind, text } = entry;
-                  // small condensed style for checks
-                  if (kind === "check") {
-                    // support structured check entries: { unit, needed, actual, raw_roll, modifier }
-                    if (text && typeof text === "object") {
-                      const needed = text.needed ?? null;
-                      const actual = text.actual ?? null;
-                      const passed =
-                        typeof needed === "number" && typeof actual === "number"
-                          ? actual >= needed
-                          : null;
-                      const cls =
-                        passed === null
-                          ? "text-slate-300"
-                          : passed
-                          ? "text-emerald-400"
-                          : "text-rose-400";
-                      const unitLabel = text.unit ? `${text.unit} — ` : "";
-                      return (
-                        <div key={key} className="text-center my-1">
-                          <div className="text-xs text-slate-400">
-                            Aggression check
-                          </div>
-                          <div className={`${cls} text-sm font-semibold`}>
-                            {unitLabel}Need: {needed ?? "?"} &nbsp; Roll:{" "}
-                            {actual ?? "?"}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div
-                        key={key}
-                        className="text-slate-100 leading-tight text-sm mb-0.5"
-                      >
-                        {text}
-                      </div>
-                    );
-                  }
-                  if (kind === "roll") {
-                    // structured roll object is handled similarly to checks
-                    if (text && typeof text === "object") {
-                      const needed = text.needed ?? null;
-                      const actual = text.actual ?? null;
-                      const passed =
-                        typeof needed === "number" && typeof actual === "number"
-                          ? actual >= needed
-                          : null;
-                      const cls =
-                        passed === null
-                          ? "text-slate-300"
-                          : passed
-                          ? "text-emerald-400"
-                          : "text-rose-400";
-                      const unitLabel = text.unit ? `${text.unit} — ` : "";
-                      return (
-                        <div key={key} className="text-center my-1">
-                          <div className="text-xs text-slate-400">
-                            Roll result
-                          </div>
-                          <div className={`${cls} text-sm font-semibold`}>
-                            {unitLabel}Need: {needed ?? "?"} &nbsp; Roll:{" "}
-                            {actual ?? "?"}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={key} className="text-rose-400 text-xs my-1">
-                        {text}
-                      </div>
-                    );
-                  }
-                  if (kind === "turn") {
-                    return (
-                      <div
-                        key={key}
-                        className="text-slate-200 text-sm font-semibold text-center my-2"
-                      >
-                        {text}
-                      </div>
-                    );
-                  }
-                  // roll results (player-entered or resolved dice)
-                  if (kind === "roll") {
-                    // support structured roll entries: { unit, card, needed, actual }
-                    if (text && typeof text === "object") {
-                      const needed = text.needed ?? null;
-                      const actual = text.actual ?? null;
-                      const passed =
-                        typeof needed === "number" && typeof actual === "number"
-                          ? actual >= needed
-                          : null;
-                      const cls =
-                        passed === null
-                          ? "text-slate-300"
-                          : passed
-                          ? "text-emerald-400"
-                          : "text-rose-400";
-                      const unitLabel = text.unit ? `${text.unit} — ` : "";
-                      const targetLabel = `Target: ${needed ?? "?"}`;
-                      const rollLabel = `Roll: ${actual ?? "?"}`;
-                      return (
-                        <div key={key} className={`${cls} text-xs my-1`}>
-                          {unitLabel}
-                          {targetLabel} {rollLabel}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={key} className="text-rose-400 text-xs my-1">
-                        {text}
-                      </div>
-                    );
-                  }
-                  if (kind === "action") {
-                    return (
-                      <div
-                        key={key}
-                        className="text-amber-300 font-semibold my-2"
-                      >
-                        {text}
-                      </div>
-                    );
-                  }
-                  if (kind === "request") {
-                    return (
-                      <div
-                        key={key}
-                        className="text-cyan-300 font-semibold my-3"
-                      >
-                        {text}
-                      </div>
-                    );
-                  }
-                  if (kind === "sep") {
-                    return <div key={key} className="h-2" />;
-                  }
-                  if (kind === "note") {
-                    return (
-                      <div key={key} className="text-slate-300 italic my-1">
-                        {text}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={key} className="text-slate-200 my-1">
-                      {text}
-                    </div>
-                  );
-                })}
-              </div>
+              <Log
+                log={log}
+                collapsedTurns={collapsedTurns}
+                setCollapsedTurns={setCollapsedTurns}
+              />
             </div>
           </div>
         </section>
