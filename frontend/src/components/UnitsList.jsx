@@ -2,11 +2,11 @@ import React from "react";
 
 export default function UnitsList({ units, onRemove }) {
   return (
-    <div className="card md:col-span-1 flex flex-col min-h-[160px]">
+    <div className="card md:col-span-1">
       <div className="card-header">
         <h2 className="card-title">Units</h2>
       </div>
-      <div className="max-h-[480px] overflow-auto px-4 py-3 flex-1 min-h-0">
+      <div className="max-h-[30vh] sm:max-h-[480px] overflow-auto px-4 py-3">
         {units.length === 0 ? (
           <p className="text-sm text-slate-300">No units loaded yet.</p>
         ) : (

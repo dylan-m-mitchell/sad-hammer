@@ -109,7 +109,7 @@ export default function Log({ log, collapsedTurns, setCollapsedTurns }) {
     groups.push(current);
 
   return (
-    <div className="max-h-[480px] overflow-auto text-sm font-mono">
+    <div className="max-h-[50vh] sm:max-h-[480px] overflow-auto text-sm font-mono">
       {groups.map((g) => {
         const gid = g.startIdx;
         const collapsed = (collapsedTurns && collapsedTurns[gid]) ?? false;

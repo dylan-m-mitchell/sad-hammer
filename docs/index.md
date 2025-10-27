@@ -12,9 +12,9 @@ Core docs
 
 Recent changes
 
-- Added `roll_mode` per-session setting to let players decide whether the AI or the player handles AI dice rolls.
-- Implemented `POST /api/session/<id>/resolve_rolls` server endpoint to accept player-provided roll results and complete paused AI turns.
-- Added frontend UI to display pending roll requests and submit roll results.
+- Added `roll_mode` concept to allow clients to select who handles AI dice rolls. In the stateless flow clients provide the `roll_mode` when calling `/api/session_stateless` and `POST /api/ai_turn_stateless`.
+- Implemented stateless roll resolution endpoints (`/api/ai_turn_stateless`, `/api/resolve_rolls_stateless`) to support both server-resolved and client-resolved flows without persisting server-side session state.
+- Added frontend UI to display pending roll requests and submit roll results (client-side handling recommended when `roll_mode == 'player'`).
 - Added server-side validation for die roll values and tests covering accept/reject cases.
 
 How to contribute
@@ -22,4 +22,4 @@ How to contribute
 - Edit docs in `docs/` and open a PR on the feature branch `feature/rule-mapping-accurate`.
 - Run `pytest -q` to ensure tests pass before committing.
 
-*** End of file
+\*\*\* End of file

@@ -11,16 +11,11 @@ from api_server import app
 
 def test_placement_schema_basic_shape():
     client = app.test_client()
-    # create session with a tiny roster
-    resp = client.post('/api/session', json={'units': [{'name': 'P1'},{'name': 'P2'}], 'roll_mode': 'ai'})
+    # create stateless session with a tiny roster and request proposed placement
+    resp = client.post('/api/session_stateless', json={'units': [{'name': 'P1'},{'name': 'P2'}], 'roll_mode': 'ai'})
     assert resp.status_code == 200
-    sid = resp.get_json().get('session_id')
-    assert sid
-
-    r = client.get(f'/api/session/{sid}/placement')
-    assert r.status_code == 200
-    j = r.get_json() or {}
-    placement = j.get('placement')
+    j = resp.get_json() or {}
+    placement = j.get('proposed_placement')
     assert placement is not None
     # top-level required keys
     for k in ('event', 'turn', 'allowed_zones', 'suggestions'):

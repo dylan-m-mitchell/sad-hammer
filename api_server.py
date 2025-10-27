@@ -18,16 +18,28 @@ from full_simulator import SoloSimulator, Unit as AIUnit
 from copy import deepcopy
 from reference_card_decks import tactic_to_actions, battleplan_deck
 from backend import placement as placement_module
-import uuid
-from threading import Lock
 import json
+import hashlib
+import random as _random
 
 app = Flask(__name__)
 CORS(app)
 
-# In-memory sessions: session_id -> {'sim': SoloSimulator, 'ai_units': [AIUnit], 'ai_profiles': [...], 'log': []}
-SESSIONS = {}
-SESSIONS_LOCK = Lock()
+# Legacy sessionful endpoints were removed. Add explicit stubs that return 404
+# so clients POSTing to old `/api/session` paths receive a clear 404 instead
+# of a 405 caused by the generic static-file route below.
+@app.route('/api/session', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+def legacy_session_root():
+    return jsonify({'error': 'session endpoints removed'}), 404
+
+
+@app.route('/api/session/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+def legacy_session_sub(subpath):
+    return jsonify({'error': 'session endpoints removed'}), 404
+
+# NOTE: server is now stateless for simulation flows. All sessionful server-side
+# state (previously in SESSIONS) has been removed. Clients must provide the
+# initial seed, current turn, and AI unit list for stateless endpoints.
 
 # Load optional battleplan -> zone bias mapping (allows controlling which deployment
 # zones are permitted/weighted for each battleplan). This file is authored under
@@ -197,209 +209,6 @@ def run_simulation_api():
     return jsonify({'events': events})
 
 
-@app.route('/api/session', methods=['POST'])
-def create_session():
-    """Create a new session from an uploaded roster file (multipart 'file') or from JSON 'units'.
-    Returns: { session_id, state }
-    """
-    # Accept file upload or JSON body
-    units_payload = None
-    if request.files and 'file' in request.files:
-        f = request.files['file']
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
-            tmp.write(f.read())
-            tmp_path = tmp.name
-        try:
-            units_payload = parse_battlescribe_html(tmp_path)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
-    else:
-        data = request.get_json(silent=True) or {}
-        units_payload = data.get('units')
-
-    # Previously we treated an uploaded roster as the player's army.
-    # Invert that: uploaded rosters become the AI-controlled army. The player's army will be managed via separate endpoints.
-    ai_units = []
-    ai_profiles = []  # full parsed AI unit profiles (for frontend display)
-    if units_payload:
-        for u in units_payload:
-            # Richer aggression modifier heuristic combining multiple factors.
-            # Robust to missing or malformed fields.
-            def _int(v, default=0):
-                try:
-                    return int(v)
-                except Exception:
-                    return default
-
-            models = _int(u.get('models'))
-            wounds = _int(u.get('wounds_per_model'))
-            attacks = _int(u.get('attacks'))
-            keywords = [k.lower() for k in (u.get('keywords') or []) if isinstance(k, str)]
-
-            # Model-based modifier: +1 per 5 models, -1 for single-model skirmish units
-            if models <= 1:
-                model_mod = -1
-            else:
-                model_mod = models // 5
-
-            # Wounds-based modifier: bigger models are tougher; modest weighting
-            if wounds >= 6:
-                wounds_mod = 2
-            elif wounds >= 3:
-                wounds_mod = 1
-            else:
-                wounds_mod = 0
-
-            # Attacks-based modifier: more attacks increases chance to act
-            if attacks >= 3:
-                attacks_mod = 2
-            elif attacks >= 2:
-                attacks_mod = 1
-            else:
-                attacks_mod = 0
-
-            # Keyword bonuses (Hero/Monster are stronger)
-            keyword_mod = 0
-            if any('monster' in k for k in keywords):
-                keyword_mod += 2
-            if any('hero' in k for k in keywords):
-                keyword_mod += 1
-
-            raw_mod = model_mod + wounds_mod + attacks_mod + keyword_mod
-            # Cap modifier so it's sane across many rosters
-            mod = max(-2, min(5, raw_mod))
-
-            # create AIUnit skeleton for SoloSimulator with aggression modifier
-            ai_units.append(AIUnit(u.get('name', 'Unit'), aggression=u.get('aggression', 'Neutral'), aggression_modifier=mod))
-            ai_profiles.append(u)
-    else:
-        # fallback sample AI units
-        ai_units = [AIUnit('Mournfang Pack A', aggression='Aggressive'), AIUnit('Huskard on Stonehorn', aggression='Aggressive')]
-
-    # Accept optional roll handling selection from JSON payload: 'roll_mode' with values 'ai' or 'player'
-    # If provided via multipart/form-data (file upload) the client should include a form field 'roll_mode'
-    roll_mode = None
-    # Check JSON body first
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
-    if data and 'roll_mode' in data:
-        roll_mode = data.get('roll_mode')
-    else:
-        # check form data (multipart)
-        if 'roll_mode' in request.form:
-            roll_mode = request.form.get('roll_mode')
-
-    # Normalize roll_mode; default to 'ai' (AI handles its own rolls)
-    if roll_mode not in ('ai', 'player'):
-        roll_mode = 'ai'
-
-    # Accept optional battleplan selection (by id or title) from JSON/form
-    chosen_bp = None
-    # check JSON body first
-    if data and 'battleplan' in data:
-        chosen_bp = data.get('battleplan')
-    else:
-        if 'battleplan' in request.form:
-            chosen_bp = request.form.get('battleplan')
-
-    # Resolve chosen_bp to a battleplan card dict if possible; otherwise draw one randomly
-    selected_battleplan = None
-    try:
-        if chosen_bp is not None:
-            # allow numeric id or title
-            try:
-                cid = int(chosen_bp)
-                selected_battleplan = next((b for b in battleplan_deck if b.get('id') == cid), None)
-            except Exception:
-                # treat as title match
-                selected_battleplan = next((b for b in battleplan_deck if str(b.get('title')).lower() == str(chosen_bp).lower()), None)
-        if not selected_battleplan:
-            # choose one deterministically from sim.rng if possible, else from python random
-            try:
-                selected_battleplan = sim.rng.choice(battleplan_deck)
-            except Exception:
-                import random as _rnd
-                selected_battleplan = _rnd.choice(battleplan_deck)
-    except Exception:
-        selected_battleplan = battleplan_deck[0] if battleplan_deck else None
-
-    # Create SoloSimulator instance for AI units
-    sim = SoloSimulator(ai_units)
-
-    session_id = str(uuid.uuid4())
-    with SESSIONS_LOCK:
-        SESSIONS[session_id] = {
-            'sim': sim,
-            'ai_units': ai_units,
-            'ai_profiles': ai_profiles,
-            'log': [],
-            'roll_mode': roll_mode
-            , 'battleplan': selected_battleplan, 'placement_done': False
-        }
-
-    # Immediately build and persist a proposed placement for the chosen battleplan
-    # so clients can show a deployment UI before the first AI turn.
-    try:
-        if selected_battleplan:
-            placement = placement_module.build_proposed_placement(sim.turn, sim.rng, selected_battleplan, ai_profiles)
-            with SESSIONS_LOCK:
-                sess = SESSIONS.get(session_id)
-                if sess is not None:
-                    sess['proposed_placement'] = placement
-                    sess['log'].append(placement)
-                    # mark placement emitted so we don't duplicate on the first ai_turn
-                    sess['placement_done'] = True
-                    # Auto-apply placement: server chooses final zones so client is not prompted
-                    try:
-                        placements = []
-                        allowed = placement.get('allowed_zones') or []
-                        for s in placement.get('suggestions', []):
-                            unit = s.get('unit')
-                            zone = s.get('suggested_zone') or (allowed[0] if allowed else None)
-                            placements.append({'unit': unit, 'zone': zone})
-                        sess['placement_confirmed'] = {'placements': placements, 'by': 'server'}
-                        evt = {'event': 'placement_confirmed', 'turn': placement.get('turn'), 'placements': placements}
-                        sess['log'].append(evt)
-                    except Exception:
-                        # don't block session creation on placement persistence
-                        pass
-    except Exception:
-        # don't block session creation on placement building failures
-        pass
-
-    # If a battleplan was selected, attempt to find and include its map URL
-    bp_info = None
-    if selected_battleplan:
-        try:
-            bp_info = {'id': selected_battleplan.get('id'), 'title': selected_battleplan.get('title'), 'deployment': selected_battleplan.get('deployment')}
-            m = _find_map_for_bp(selected_battleplan)
-            if m:
-                bp_info['map'] = m
-        except Exception:
-            bp_info = {'id': selected_battleplan.get('id'), 'title': selected_battleplan.get('title'), 'deployment': selected_battleplan.get('deployment')}
-
-    return jsonify({'session_id': session_id, 'battleplan': bp_info, 'state': {'turn': sim.turn, 'ai_count': len(ai_units), 'roll_mode': roll_mode}})
-
-
-@app.route('/api/session/<session_id>', methods=['GET'])
-def get_session_state(session_id):
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-
-    sim = sess['sim']
-    # return simple state: turn, player units list summary, ai units list summary, log
-    ai = [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in sess['ai_units']]
-    # include AI parsed profiles (if available) for richer frontend display
-    ai_profiles = sess.get('ai_profiles', [])
-    return jsonify({'turn': sim.turn, 'ai_units': ai, 'ai_profiles': ai_profiles, 'log': sess['log'], 'roll_mode': sess.get('roll_mode', 'ai')})
-
 
 @app.route('/api/battleplans', methods=['GET'])
 def list_battleplans():
@@ -424,502 +233,279 @@ def list_battleplans():
 # based on uploaded rosters and the card decks.
 
 
-@app.route('/api/session/<session_id>/ai_turn', methods=['POST'])
-def ai_turn(session_id):
-    """Run a single AI turn for the session and return the events produced."""
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
 
-    sim = sess['sim']
-    roll_mode = sess.get('roll_mode', 'ai')
 
-    # Server-mediated 'player' roll mode: pause before resolving actions and record pending actions
+
+def _derive_seed(initial_seed, turn):
+    """Derive a 32-bit integer seed from an initial seed and a turn number.
+
+    This uses SHA-256(initial_seed:turn) and returns the first 32 bits as an int.
+    """
+    if initial_seed is None:
+        # fallback to random seed
+        return _random.getrandbits(32)
+    s = f"{initial_seed}:{turn}"
+    h = hashlib.sha256(s.encode('utf-8')).digest()
+    return int.from_bytes(h[:4], 'big')
+
+
+@app.route('/api/session_stateless', methods=['POST'])
+def create_session_stateless():
+    """Create a stateless session response. Returns an initial seed and AI unit/profile data.
+
+    Accepts the same payload as POST /api/session (multipart file upload 'file' or JSON 'units'),
+    but does NOT persist any server-side session. Returns: { seed, battleplan, state: { turn, ai_units, ai_profiles, roll_mode }, proposed_placement }
+    """
+    # Accept file upload or JSON body
+    units_payload = None
+    if request.files and 'file' in request.files:
+        f = request.files['file']
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
+            tmp.write(f.read())
+            tmp_path = tmp.name
+        try:
+            units_payload = parse_battlescribe_html(tmp_path)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+    else:
+        data = request.get_json(silent=True) or {}
+        units_payload = data.get('units')
+
+    ai_units = []
+    ai_profiles = []
+    if units_payload:
+        for u in units_payload:
+            ai_units.append(AIUnit(u.get('name', 'Unit'), aggression=u.get('aggression', 'Neutral'), aggression_modifier=u.get('aggression_modifier', 0)))
+            ai_profiles.append(u)
+    else:
+        ai_units = [AIUnit('Mournfang Pack A', aggression='Aggressive'), AIUnit('Huskard on Stonehorn', aggression='Aggressive')]
+
+    # roll_mode and chosen_battleplan same handling as create_session
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    roll_mode = data.get('roll_mode') if data else None
+    if roll_mode not in ('ai', 'player'):
+        # check form
+        roll_mode = request.form.get('roll_mode') if 'roll_mode' in request.form else 'ai'
+
+    chosen_bp = None
+    if data and 'battleplan' in data:
+        chosen_bp = data.get('battleplan')
+    else:
+        if 'battleplan' in request.form:
+            chosen_bp = request.form.get('battleplan')
+
+    selected_battleplan = None
+    try:
+        if chosen_bp is not None:
+            try:
+                cid = int(chosen_bp)
+                selected_battleplan = next((b for b in battleplan_deck if b.get('id') == cid), None)
+            except Exception:
+                selected_battleplan = next((b for b in battleplan_deck if str(b.get('title')).lower() == str(chosen_bp).lower()), None)
+        if not selected_battleplan:
+            try:
+                rng = _random.Random()
+                selected_battleplan = rng.choice(battleplan_deck)
+            except Exception:
+                import random as _rnd
+                selected_battleplan = _rnd.choice(battleplan_deck)
+    except Exception:
+        selected_battleplan = battleplan_deck[0] if battleplan_deck else None
+
+    # Generate an initial seed to return to the client; client will send this seed for subsequent calls
+    seed = _random.getrandbits(32)
+
+    # Build a SoloSimulator locally to compute an initial proposed placement (statelessly)
+    sim = SoloSimulator(ai_units, seed=seed)
+    placement = None
+    try:
+        if selected_battleplan:
+            placement = placement_module.build_proposed_placement(sim.turn, sim.rng, selected_battleplan, ai_profiles)
+    except Exception:
+        placement = None
+
+    # Return a minimal state object
+    state = {'turn': sim.turn, 'ai_units': [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in ai_units], 'ai_profiles': ai_profiles, 'roll_mode': roll_mode}
+    bp_info = None
+    if selected_battleplan:
+        bp_info = {'id': selected_battleplan.get('id'), 'title': selected_battleplan.get('title'), 'deployment': selected_battleplan.get('deployment')}
+        try:
+            m = _find_map_for_bp(selected_battleplan)
+            if m:
+                bp_info['map'] = m
+        except Exception:
+            pass
+
+    return jsonify({'seed': seed, 'battleplan': bp_info, 'state': state, 'proposed_placement': placement})
+
+
+@app.route('/api/ai_turn_stateless', methods=['POST'])
+def ai_turn_stateless():
+    """Run a single AI turn deterministically from an initial seed and turn index.
+
+    Expected JSON: { seed: <int|string>, turn: <int>, ai_units: [...], roll_mode: 'ai'|'player', battleplan: <optional> }
+    Returns: { turn: <int>, events: [...], pending_actions: [...](if player mode) }
+    """
+    data = request.get_json(force=True) or {}
+    seed = data.get('seed')
+    turn = int(data.get('turn', 1))
+    roll_mode = data.get('roll_mode', 'ai')
+    ai_units_payload = data.get('ai_units') or []
+    battleplan = data.get('battleplan')
+
+    # Reconstruct Unit objects
+    units = []
+    for u in ai_units_payload:
+        name = u.get('name') if isinstance(u, dict) else str(u)
+        agg = u.get('aggression') if isinstance(u, dict) else None
+        agg_mod = u.get('aggression_modifier', 0) if isinstance(u, dict) else 0
+        units.append(AIUnit(name, aggression=agg or 'Neutral', aggression_modifier=agg_mod))
+
+    # Derive a per-turn seed and instantiate a SoloSimulator seeded with it
+    derived = _derive_seed(seed, turn)
+    sim = SoloSimulator(units, seed=derived)
+    # Force simulator to the requested turn so internal deck managers consider the correct turn
+    sim.turn = turn
+
+    events = []
+    pending_actions = []
+
     if roll_mode == 'player':
-        # Build tactic and action draws similar to SoloSimulator.simulate_turn but stop before resolving
-        # We'll replicate the essential parts so we don't advance sim.turn until resolution completes.
-        
-        # Advance tactics deck to current turn
+        # advance tactic deck and draw tactic
         sim.tactics_deck.advance_turn(sim.turn)
-        
-        # Draw a Battle Tactic card (returns dict with title, description, etc.)
         tactic_card = sim.choose_battle_tactic()
-        events = []
         if tactic_card is None:
-            events.append({"event": "no_tactic_available"})
-            sess['log'].extend(events)
-            sess['last_turn'] = sim.turn
-            sess['last_turn_events'] = events
-            text = 'No AI tactics available.\n\n'
-            return (text, 200, {'Content-Type': 'text/plain; charset=utf-8'})
-        
-        tactic_title = tactic_card['title']
+            return jsonify({'turn': sim.turn, 'events': [{'event': 'no_tactic_available'}]})
 
-        # Perform aggression checks for all units
-        aggression_results = {}
+        tactic_title = tactic_card.get('title')
+
+        # aggression checks
         for u in sim.units:
             check = sim.aggression_check(u)
             will_act = check['result']
-            aggression_results[u.name] = will_act
             events.append({
-                "event": "aggression_check",
-                "unit": u.name,
-                "aggression_check": will_act,
-                "roll": check['roll'],
-                "modifier": check['modifier'],
-                "total": check['total'],
-                "target": check['target'],
+                'event': 'aggression_check',
+                'unit': u.name,
+                'aggression_check': will_act,
+                'roll': check['roll'],
+                'modifier': check['modifier'],
+                'total': check['total'],
+                'target': check['target'],
             })
 
-        # Import deck_manager for action assignments
+        # Use deck_manager to create action assignments
         from deck_manager import create_turn_action_assignments
-        
-        # Use deck manager to create action assignments sorted by initiative
-        action_assignments = create_turn_action_assignments(
-            tactic_card, sim.units, aggression_results, rng=sim.rng
-        )
-        
-        # Convert assignments to pending actions format for player roll mode
+        action_assignments = create_turn_action_assignments(tactic_card, sim.units, {u.name: True for u in sim.units if True}, rng=sim.rng)
+
+        # Build pending_actions in the same format the frontend expects
         drawn_actions = []
         for idx, assignment in enumerate(action_assignments):
             req_id = f"{sim.turn}-{idx}"
             drawn_actions.append({
-                "request_id": req_id,
-                "unit": assignment['unit'],
-                "card": assignment['card'],
-                "initiative": assignment['initiative'],
-                "behavior": assignment['behavior'],
-                "dice": {"count": 1, "sides": 6}
+                'request_id': req_id,
+                'unit': assignment['unit'],
+                'card': assignment['card'],
+                'initiative': assignment['initiative'],
+                'behavior': assignment['behavior'],
+                'dice': {'count': 1, 'sides': 6}
             })
 
-        # If no drawn actions were produced (rare due to RNG), ensure the player
-        # path still yields a roll_request by forcing the first unit to have one
-        # pending action. This prevents flaky tests and surfaces a roll request
-        # for the UI to resolve.
-        if not drawn_actions and sim.units:
-            u = sim.units[0]
-            card = {'title': 'Default Action', 'initiative': 0, 'behavior': 'action'}
-            req_id = f"{sim.turn}-forced-0"
-            drawn_actions.append({
-                "request_id": req_id,
-                "unit": u.name,
-                "card": card,
-                "initiative": 0,
-                "behavior": 'action',
-                "dice": {"count": 1, "sides": 6}
-            })
-            # also append an aggression_check event showing the unit acts
-            events.append({
-                "event": "aggression_check",
-                "unit": u.name,
-                "aggression_check": True,
-                "roll": None,
-                "modifier": getattr(u, 'aggression_modifier', 0),
-                "total": None,
-                "target": None,
-            })
-
-        # store paused turn info in session so resolve_rolls can continue
-        paused = {
+        pending_actions = drawn_actions
+        events.append({
+            'event': 'roll_request',
             'turn': sim.turn,
             'tactic': tactic_title,
-            'pending_actions': drawn_actions,
-        }
-        sess['paused_turn'] = paused
-
-        # Add a roll_request-like event so clients know what to resolve
-        events.append({
-            "event": "roll_request",
-            "turn": sim.turn,
-            "tactic": tactic_title,
-            "pending_actions": [
+            'pending_actions': [
                 {
-                    "request_id": a['request_id'],
-                    "unit": a['unit'],
-                    "card_title": a['card'].get('title'),
-                    "initiative": a['initiative'],
-                    "behavior": a['behavior'],
-                    "dice": a.get('dice', {"count": 1, "sides": 6})
+                    'request_id': a['request_id'],
+                    'unit': a['unit'],
+                    'card_title': a['card'].get('title') if isinstance(a.get('card'), dict) else None,
+                    'initiative': a['initiative'],
+                    'behavior': a['behavior'],
+                    'dice': a.get('dice', {'count': 1, 'sides': 6})
                 } for a in drawn_actions
             ]
         })
 
-        # append to log and set last turn events (paused)
-        sess['log'].extend(events)
-        sess['last_turn'] = sim.turn
-        sess['last_turn_events'] = events
+        return jsonify({'turn': sim.turn, 'events': events, 'pending_actions': pending_actions})
 
-        # Return a human-readable summary that instructs the player to provide roll results
-        lines = [f"=== AI Turn {sim.turn} (awaiting player rolls) ==="]
-        for e in events:
-            if e.get('event') == 'aggression_check':
-                act = 'ACT' if e['aggression_check'] else 'HOLD'
-                lines.append(f"AI check: {e['unit']} -> {act} (d6={e['roll']} + mod={e['modifier']} => total={e['total']} vs target={e['target']})")
-        lines.append('\nPending actions:')
-        for a in drawn_actions:
-            lines.append(f"- {a['unit']} -> {a['card'].get('title')} (req={a['request_id']}) init={a['initiative']} behavior={a['behavior']}")
-
-        text = '\n'.join(lines) + '\n\n'
-        # If this is the initial turn, include placement suggestions based on chosen battleplan
-        try:
-            if sim.turn == 1 and sess.get('battleplan') and not sess.get('placement_done'):
-                bp = sess.get('battleplan')
-                # Build the proposed placement via the placement module (centralized logic)
-                try:
-                    placement = placement_module.build_proposed_placement(sim.turn, sim.rng, bp, sess.get('ai_profiles', []))
-                except Exception:
-                    # fallback to a minimal placement structure if the module fails
-                    placement = {'event': 'placement', 'turn': sim.turn, 'battleplan': bp, 'allowed_zones': [], 'suggestions': []}
-
-                sess['proposed_placement'] = placement
-                sess['log'].append(placement)
-                sess['placement_done'] = True
-        except Exception:
-            pass
-
-        return (text, 200, {'Content-Type': 'text/plain; charset=utf-8'})
-
-    # default 'ai' roll mode: run the full simulate_turn() and advance the turn
-    events = sim.simulate_turn()
-    # Append to session log
-    sess['log'].extend(events)
-    # store the last turn number and structured events so clients can fetch them
-    sess['last_turn'] = sim.turn - 1
-    sess['last_turn_events'] = events
-
-    # Build a human-readable summary for players with a clear turn header
-    lines = []
-    lines.append(f"=== AI Turn {sim.turn - 1} ===")
-    for entry in events:
-        if 'unit' in entry and 'aggression_check' in entry:
-            act = 'ACT' if entry['aggression_check'] else 'HOLD'
-            # include roll and modifier debug info when available
-            roll = entry.get('roll')
-            mod = entry.get('modifier')
-            total = entry.get('total')
-            target = entry.get('target')
-            if roll is not None:
-                lines.append(f"AI check: {entry['unit']} -> {act} (d6={roll} + mod={mod} => total={total} vs target={target})")
-            else:
-                lines.append(f"AI check: {entry['unit']} -> {act}")
-        elif 'action_resolved' in entry:
-            ar = entry['action_resolved']
-            title = ar.get('card_title') or ar.get('card', {}).get('title', '')
-            beh = ar.get('behavior', '')
-            lines.append(f"AI action: {ar.get('unit')} -> {title} ({ar.get('initiative', '')}) {beh}")
-        else:
-            # fallback: present the entry as JSON-ish text
-            try:
-                import json as _json
-                lines.append(_json.dumps(entry))
-            except Exception:
-                lines.append(str(entry))
-
-    # Add a trailing blank line to separate turns clearly
-    text = '\n'.join(lines) + '\n\n' if lines else 'No AI actions this turn.\n\n'
-    return (text, 200, {'Content-Type': 'text/plain; charset=utf-8'})
+    # default AI mode: run the turn fully
+    resolved = sim.simulate_turn()
+    # ensure events are JSON-serializable
+    return jsonify({'turn': turn, 'events': resolved})
 
 
-@app.route('/api/session/<session_id>/last_turn', methods=['GET'])
-def get_last_turn_events(session_id):
-    """Return the structured events produced by the last AI turn for this session.
+@app.route('/api/resolve_rolls_stateless', methods=['POST'])
+def resolve_rolls_stateless():
+    """Resolve player-provided roll results for a paused turn in a stateless way.
 
-    This is intended for debugging or programmatic consumption (JSON).
-    """
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-
-    return jsonify({'turn': sess.get('last_turn'), 'events': sess.get('last_turn_events', [])})
-
-
-@app.route('/api/session/<session_id>/placement', methods=['GET'])
-def get_session_placement(session_id):
-    """Return the proposed placement for the session, if any."""
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-
-    prop = sess.get('proposed_placement')
-    confirmed = sess.get('placement_confirmed', False)
-    if not prop:
-        return jsonify({'placement': None, 'confirmed': False}), 200
-    return jsonify({'placement': prop, 'confirmed': confirmed}), 200
-
-
-@app.route('/api/session/<session_id>/placement', methods=['POST'])
-def post_session_placement(session_id):
-    """Accept a placement confirmation from the client and strictly validate zones.
-
-    Expected JSON: { placements: [ { unit: <name>, zone: <zone_name> }, ... ] }
-    Validation rules:
-      - There must be a proposed placement on the session.
-      - The client must provide a placement for every AI unit in the session.
-      - Each provided zone must be one of the `allowed_zones` from the proposed placement.
-    On success: stores `placement_confirmed` with the provided placements and appends a
-    `placement_confirmed` event to the session log.
+    Expected JSON: { seed, turn, pending_actions: [...], action_results: [...] }
+    Returns: { ok: true, events: [action_resolved, ...] }
     """
     data = request.get_json(force=True) or {}
-    placements = data.get('placements')
-    if placements is None:
-        return jsonify({'error': 'placements required'}), 400
-
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-        if not sess:
-            return jsonify({'error': 'session not found'}), 404
-
-        prop = sess.get('proposed_placement')
-        if not prop:
-            return jsonify({'error': 'no proposed placement to confirm'}), 400
-
-        # If server already auto-confirmed placement, disallow client confirmation
-        if sess.get('placement_confirmed') and sess.get('placement_confirmed', {}).get('by') == 'server':
-            return jsonify({'error': 'placement_already_auto_confirmed'}), 400
-
-        # Use the placement module to validate submitted placements
-        ok, err = placement_module.validate_placements(prop, placements)
-        if not ok:
-            return jsonify(err), 400
-
-        # Persist confirmed placements
-        sess['placement_confirmed'] = {'placements': placements, 'by': 'client'}
-        # Append confirmation event to the log
-        evt = {'event': 'placement_confirmed', 'turn': prop.get('turn'), 'placements': placements}
-        sess['log'].append(evt)
-
-    return jsonify({'ok': True, 'placements': placements}), 200
-
-
-@app.route('/api/session/<session_id>/resolve_rolls', methods=['POST'])
-def resolve_rolls(session_id):
-    """Accept player-provided roll/action results to finish a paused AI turn.
-
-    Expected JSON: { "action_results": [ { "request_id": "<id>", "result": { ... } }, ... ] }
-    The server will match request_id to paused pending_actions and produce final action_resolved events.
-    """
-    data = request.get_json(force=True) or {}
+    seed = data.get('seed')
+    turn = int(data.get('turn', 1))
+    pending = {p['request_id']: p for p in (data.get('pending_actions') or [])}
     action_results = data.get('action_results', [])
 
-    # Validate incoming roll values: known d6-like keys must be integers in 1..6
-    D6_KEYS = {'roll', 'to_hit', 'to_wound', 'save', 'value'}
-
-    def _is_int_like(v):
-        try:
-            if isinstance(v, bool):
-                return False
-            int(v)
-            return True
-        except Exception:
-            return False
-
-    for ar in action_results:
-        rid = ar.get('request_id')
-        res = ar.get('result', {}) or {}
-        if not isinstance(res, dict):
-            continue
-        # Walk top-level result fields and validate numeric die-like entries
-        for k, v in res.items():
-            # if key indicates a die roll or ends with _roll, treat as d6 unless specified otherwise
-            if k in D6_KEYS or (isinstance(k, str) and k.endswith('_roll')):
-                # allow a single int or a list of ints
-                if isinstance(v, (list, tuple)):
-                    for item in v:
-                        if not _is_int_like(item):
-                            return jsonify({'error': 'invalid_roll_value', 'request_id': rid, 'field': k, 'value': item}), 400
-                        iv = int(item)
-                        if iv < 1 or iv > 6:
-                            return jsonify({'error': 'roll_out_of_range', 'request_id': rid, 'field': k, 'value': iv}), 400
-                else:
-                    if not _is_int_like(v):
-                        return jsonify({'error': 'invalid_roll_value', 'request_id': rid, 'field': k, 'value': v}), 400
-                    iv = int(v)
-                    if iv < 1 or iv > 6:
-                        return jsonify({'error': 'roll_out_of_range', 'request_id': rid, 'field': k, 'value': iv}), 400
-
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-
-    paused = sess.get('paused_turn')
-    if not paused:
-        return jsonify({'error': 'no paused turn to resolve'}), 400
-
-    sim = sess['sim']
-    pending = {p['request_id']: p for p in paused.get('pending_actions', [])}
-
     events = []
-    # Build resolved events using provided results when available
     for ar in action_results:
         rid = ar.get('request_id')
         res = ar.get('result', {})
-        pending_action = pending.get(rid)
-        if not pending_action:
+        p = pending.get(rid)
+        if not p:
             continue
         rec = {
-            'turn': paused.get('turn'),
-            'tactic': paused.get('tactic'),
-            'unit': pending_action.get('unit'),
-            'card_title': pending_action.get('card', {}).get('title'),
-            'initiative': pending_action.get('initiative'),
-            'behavior': pending_action.get('behavior'),
+            'turn': turn,
+            'tactic': None,
+            'unit': p.get('unit'),
+            'card_title': p.get('card', {}).get('title') if isinstance(p.get('card'), dict) else None,
+            'initiative': p.get('initiative'),
+            'behavior': p.get('behavior'),
             'details': res,
         }
         events.append({'event': 'action_resolved', 'action_resolved': rec})
 
-    # For any pending actions not provided in action_results, mark as client-resolved with no details
+    # Any pending actions not provided: mark resolved_by_client_without_details
     for rid, p in pending.items():
         if not any(r.get('request_id') == rid for r in action_results):
             rec = {
-                'turn': paused.get('turn'),
-                'tactic': paused.get('tactic'),
+                'turn': turn,
+                'tactic': None,
                 'unit': p.get('unit'),
-                'card_title': p.get('card', {}).get('title'),
+                'card_title': p.get('card', {}).get('title') if isinstance(p.get('card'), dict) else None,
                 'initiative': p.get('initiative'),
                 'behavior': p.get('behavior'),
                 'details': {'note': 'resolved_by_client_without_details'}
             }
             events.append({'event': 'action_resolved', 'action_resolved': rec})
 
-    # Append events to session log and mark last_turn
-    sess['log'].extend(events)
-    sess['last_turn'] = paused.get('turn')
-    sess['last_turn_events'] = events
-
-    # Clear paused_turn and advance simulator turn counter
-    sess.pop('paused_turn', None)
-    sim.turn = sim.turn + 1
-
     return jsonify({'ok': True, 'events': events})
 
 
-@app.route('/api/session/<session_id>/log', methods=['GET'])
-def get_session_log(session_id):
-    """Return the session log with pagination.
+@app.route('/api/remove_unit_stateless', methods=['POST'])
+def remove_unit_stateless():
+    """Stateless removal of an AI unit from a provided ai_units list.
 
-    Query params:
-      - page (1-based, default 1)
-      - size (items per page, default 50)
-
-    Response: { turn, page, size, total, items: [...] }
-    """
-    # parse query params defensively
-    try:
-        page = int(request.args.get('page', 1))
-    except Exception:
-        page = 1
-    try:
-        size = int(request.args.get('size', 50))
-    except Exception:
-        size = 50
-    if page < 1:
-        page = 1
-    if size < 1:
-        size = 50
-
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-
-    log = sess.get('log', [])
-    total = len(log)
-    start = (page - 1) * size
-    end = start + size
-    items = log[start:end]
-
-    sim_turn = None
-    if 'sim' in sess and getattr(sess.get('sim'), 'turn', None) is not None:
-        sim_turn = sess['sim'].turn
-
-    return jsonify({'turn': sim_turn, 'page': page, 'size': size, 'total': total, 'items': items})
-
-
-@app.route('/api/session/<session_id>/notes', methods=['POST'])
-def post_session_note(session_id):
-    """Record a free-form player note for the session. JSON: { text: str }"""
-    data = request.get_json(force=True) or {}
-    text = data.get('text')
-    if not text:
-        return jsonify({'error': 'text required'}), 400
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-        if not sess:
-            return jsonify({'error': 'session not found'}), 404
-        notes = sess.setdefault('notes', [])
-        note = {'text': text}
-        notes.append(note)
-    return jsonify({'ok': True, 'note': note})
-
-
-@app.route('/api/session/<session_id>/notes', methods=['GET'])
-def get_session_notes(session_id):
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-    if not sess:
-        return jsonify({'error': 'session not found'}), 404
-    return jsonify({'notes': sess.get('notes', [])})
-
-
-@app.route('/api/session/<session_id>/remove_unit', methods=['POST'])
-def remove_unit(session_id):
-    """Remove an AI unit from the session (e.g., when killed by the player).
-    
-    JSON payload: { "unit_name": str }
-    
-    Returns:
-        - 200: Unit successfully removed
-        - 400: Missing or invalid unit_name
-        - 404: Session not found or unit not found
+    Expected JSON: { ai_units: [{name, aggression, ...}], unit_name }
+    Returns: { ok: true, removed_unit, remaining_units }
     """
     data = request.get_json(force=True) or {}
+    ai_units_payload = data.get('ai_units') or []
     unit_name = data.get('unit_name')
-    
     if not unit_name:
         return jsonify({'error': 'unit_name required'}), 400
-    
-    with SESSIONS_LOCK:
-        sess = SESSIONS.get(session_id)
-        if not sess:
-            return jsonify({'error': 'session not found'}), 404
-        
-        sim = sess['sim']
-        
-        # Remove from simulator's units list
-        removed = sim.remove_unit(unit_name)
-        
-        if not removed:
-            return jsonify({'error': 'unit not found', 'unit_name': unit_name}), 404
-        
-        # Also remove from session's ai_units list (for consistency)
-        sess['ai_units'] = [u for u in sess['ai_units'] if u.name != unit_name]
-        
-        # Remove from ai_profiles if present
-        if 'ai_profiles' in sess:
-            sess['ai_profiles'] = [p for p in sess['ai_profiles'] if p.get('name') != unit_name]
-        
-        # Log the removal event
-        removal_event = {
-            'event': 'unit_removed',
-            'turn': sim.turn,
-            'unit_name': unit_name,
-            'reason': 'killed_by_player'
-        }
-        sess['log'].append(removal_event)
-        
-        # Return updated state
-        remaining_units = [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in sess['ai_units']]
-        
-    return jsonify({
-        'ok': True,
-        'removed_unit': unit_name,
-        'remaining_units': remaining_units,
-        'remaining_count': len(remaining_units)
-    })
+
+    remaining = [u for u in ai_units_payload if (u.get('name') if isinstance(u, dict) else str(u)) != unit_name]
+    remaining_units = [{'name': u.get('name') if isinstance(u, dict) else str(u), 'aggression': u.get('aggression') if isinstance(u, dict) else None} for u in remaining]
+    evt = {'event': 'unit_removed', 'turn': data.get('turn'), 'unit_name': unit_name, 'reason': 'killed_by_player'}
+    return jsonify({'ok': True, 'removed_unit': unit_name, 'remaining_units': remaining_units, 'event': evt})
 
 
 if __name__ == '__main__':

@@ -77,35 +77,18 @@ def test_integration_session_placement_flow():
     from api_server import app
     client = app.test_client()
 
-    # create a session with simple unit profiles and request battleplan id 1
+    # create a stateless session with simple unit profiles and request battleplan id 1
     units = [{'name': 'Alpha'}, {'name': 'Bravo'}]
-    resp = client.post('/api/session', json={'units': units, 'roll_mode': 'player', 'battleplan': 1})
+    resp = client.post('/api/session_stateless', json={'units': units, 'roll_mode': 'player', 'battleplan': 1})
     assert resp.status_code == 200
-    data = resp.get_json()
-    session_id = data.get('session_id')
-    assert session_id
-
-    # trigger ai_turn (player mode) which should attach a proposed_placement
-    r2 = client.post(f'/api/session/{session_id}/ai_turn')
-    assert r2.status_code == 200
-
-    # fetch placement
-    r3 = client.get(f'/api/session/{session_id}/placement')
-    assert r3.status_code == 200
-    pinfo = r3.get_json()
-    placement = pinfo.get('placement')
+    data = resp.get_json() or {}
+    placement = data.get('proposed_placement')
+    # placement should be present and contain allowed_zones
     assert placement and 'allowed_zones' in placement
-    # Server auto-confirms placements at session creation; confirm info should be present
-    confirmed = pinfo.get('confirmed')
-    # confirmed may be a boolean or a dict containing the persisted placements; accept either
-    assert confirmed, f"expected placement to be confirmed but got: {confirmed}"
-    if isinstance(confirmed, dict):
-        assert confirmed.get('by') == 'server'
-    # check session log contains placement_confirmed event
-    rlog = client.get(f'/api/session/{session_id}/log')
-    logj = rlog.get_json()
-    items = logj.get('items', [])
-    assert any(it.get('event') == 'placement_confirmed' for it in items)
+
+    # Because the server is stateless it will not persist a confirmed placement; clients should
+    # persist placement locally. We assert the response contains either a placement or guidance.
+    # There is no server-side placement_confirmed event in the stateless model.
 
 
 def test_unit_zoning_scores_and_tiebreak():
@@ -136,51 +119,21 @@ def test_unit_zoning_scores_and_tiebreak():
 
 
 def test_post_placement_confirmation_api_behavior():
-    from api_server import app, SESSIONS
+    # In the stateless server model, placement is returned as part of the stateless
+    # session creation response. There is no server-side persistence of placements.
+    from api_server import app
     client = app.test_client()
 
     units = [{'name': 'Alpha'}, {'name': 'Bravo'}]
-    resp = client.post('/api/session', json={'units': units, 'roll_mode': 'player', 'battleplan': 1})
+    resp = client.post('/api/session_stateless', json={'units': units, 'roll_mode': 'player', 'battleplan': 1})
     assert resp.status_code == 200
-    session_id = resp.get_json().get('session_id')
-    assert session_id
+    data = resp.get_json() or {}
+    placement = data.get('proposed_placement')
+    assert placement and 'allowed_zones' in placement
 
-    # By default the server auto-applies placement at session creation. Posting placements should be rejected.
-    rpost = client.post(f'/api/session/{session_id}/placement', json={'placements': [{'unit': 'Alpha', 'zone': 'left'}, {'unit': 'Bravo', 'zone': 'center'}]})
-    assert rpost.status_code == 400
-    j = rpost.get_json() or {}
-    assert j.get('error') == 'placement_already_auto_confirmed'
-
-    # Now simulate a session where the server did not auto-confirm: remove placement_confirmed and ensure POST succeeds
-    with app.app_context():
-        sess = SESSIONS.get(session_id)
-        assert sess is not None
-        # remove auto-confirm and ensure proposed_placement exists
-        sess.pop('placement_confirmed', None)
-        prop = sess.get('proposed_placement')
-        assert prop and 'suggestions' in prop
-        # build valid placements using suggested zones
-        placements = []
-        for s in prop.get('suggestions', []):
-            placements.append({'unit': s.get('unit'), 'zone': s.get('suggested_zone') or (prop.get('allowed_zones') or [None])[0]})
-
-    rpost2 = client.post(f'/api/session/{session_id}/placement', json={'placements': placements})
-    assert rpost2.status_code == 200
-    okj = rpost2.get_json() or {}
-    assert okj.get('ok') is True
-
-    # invalid zone should be rejected — provide placements for all units but make one invalid
-    if len(placements) >= 2:
-        bad = [
-            {'unit': placements[0]['unit'], 'zone': 'invalid-zone'},
-            {'unit': placements[1]['unit'], 'zone': placements[1]['zone']}
-        ]
-    else:
-        bad = [{'unit': placements[0]['unit'], 'zone': 'invalid-zone'}]
-    rbad = client.post(f'/api/session/{session_id}/placement', json={'placements': bad})
-    assert rbad.status_code == 400
-    rbj = rbad.get_json() or {}
-    assert rbj.get('error') == 'invalid_zones'
+    # Legacy sessionful placement endpoints have been removed; ensure they return 404
+    legacy_post = client.post('/api/session/some-id/placement', json={'placements': []})
+    assert legacy_post.status_code == 404
 
 
 def test_build_proposed_placement_with_empty_profiles_and_no_bp():

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
-import SessionControls from "./components/SessionControls";
+import ClientControls from "./components/ClientControls";
 import UnitsList from "./components/UnitsList";
 import PlacementModal from "./components/PlacementModal";
 import RollModal from "./components/RollModal";
@@ -16,28 +16,6 @@ const api = {
   getBattleplans: async () => {
     const res = await fetch("/api/battleplans");
     if (!res.ok) throw new Error(`Failed to load battleplans: ${res.status}`);
-    return res.json();
-  },
-  runAiTurn: async (sessionId) => {
-    const res = await fetch(`/api/session/${sessionId}/ai_turn`, {
-      method: "POST",
-    });
-    if (!res.ok) throw new Error(`Failed to run AI turn: ${res.status}`);
-    // return text (server returns human-readable summary) but structured events are available via last_turn
-    return res.text();
-  },
-  getLastTurn: async (sessionId) => {
-    const res = await fetch(`/api/session/${sessionId}/last_turn`);
-    if (!res.ok) throw new Error(`Failed to get last turn: ${res.status}`);
-    return res.json();
-  },
-  resolveRolls: async (sessionId, actionResults) => {
-    const res = await fetch(`/api/session/${sessionId}/resolve_rolls`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action_results: actionResults }),
-    });
-    if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
   loadRoster: async (file) => {
@@ -56,39 +34,55 @@ const api = {
     if (!res.ok) throw new Error(`Failed to run simulation: ${res.status}`);
     return res.json();
   },
-  createSession: async (file, rollMode = "ai", battleplan = "") => {
+  // (sessionful APIs removed — stateless endpoints below are used)
+  // Stateless endpoints (derived-seed per-turn)
+  createSessionStateless: async (file, rollMode = "ai", battleplan = "") => {
     const fd = new FormData();
-    fd.append("file", file);
+    if (file) fd.append("file", file);
     fd.append("roll_mode", rollMode);
     if (battleplan) fd.append("battleplan", String(battleplan));
-    const res = await fetch("/api/session", { method: "POST", body: fd });
-    if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
+    const res = await fetch(`/api/session_stateless`, {
+      method: "POST",
+      body: fd,
+    });
+    if (!res.ok)
+      throw new Error(`Failed to create stateless session: ${res.status}`);
     return res.json();
   },
-  getSession: async (sessionId) => {
-    const res = await fetch(`/api/session/${sessionId}`);
-    if (!res.ok) throw new Error(`Failed to fetch session: ${res.status}`);
-    return res.json();
-  },
-  getPlacement: async (sessionId) => {
-    const res = await fetch(`/api/session/${sessionId}/placement`);
-    if (!res.ok) throw new Error(`Failed to fetch placement: ${res.status}`);
-    return res.json();
-  },
-  confirmPlacement: async (sessionId, placements) => {
-    const res = await fetch(`/api/session/${sessionId}/placement`, {
+  aiTurnStateless: async ({
+    seed,
+    turn,
+    ai_units,
+    roll_mode = "ai",
+    battleplan = null,
+  }) => {
+    const res = await fetch(`/api/ai_turn_stateless`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ placements }),
+      body: JSON.stringify({ seed, turn, ai_units, roll_mode, battleplan }),
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
-  removeUnit: async (sessionId, unitName) => {
-    const res = await fetch(`/api/session/${sessionId}/remove_unit`, {
+  resolveRollsStateless: async ({
+    seed,
+    turn,
+    pending_actions,
+    action_results,
+  }) => {
+    const res = await fetch(`/api/resolve_rolls_stateless`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unit_name: unitName }),
+      body: JSON.stringify({ seed, turn, pending_actions, action_results }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  removeUnitStateless: async ({ ai_units, unit_name, turn = null }) => {
+    const res = await fetch(`/api/remove_unit_stateless`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ai_units, unit_name, turn }),
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
@@ -102,7 +96,7 @@ export default function App() {
   const [file, setFile] = useState(null);
   const [isValidFile, setIsValidFile] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
+  // client-run controls — app is stateless and uses derived seed/turn
   const [battleplan, setBattleplan] = useState(null);
   const [battleplans, setBattleplans] = useState([]);
   const [selectedBattleplan, setSelectedBattleplan] = useState("");
@@ -110,6 +104,8 @@ export default function App() {
   const [placement, setPlacement] = useState(null);
   const [placementOpen, setPlacementOpen] = useState(false);
   const [chosenZones, setChosenZones] = useState({});
+  const [seed, setSeed] = useState(null);
+  const [turn, setTurn] = useState(1);
   const [pausedActions, setPausedActions] = useState(null);
   const [rollInputs, setRollInputs] = useState({});
   const [rollModalOpen, setRollModalOpen] = useState(false);
@@ -168,14 +164,51 @@ export default function App() {
     });
   };
 
+  // Ensure a turn header exists in the log for the given turn number.
+  // This appends the header only if the most recent 'turn' header isn't
+  // already the same, avoiding duplicates when both aiTurn and resolve
+  // paths may attempt to add the header.
+  const ensureTurnHeader = (turnNumber) => {
+    if (turnNumber === undefined || turnNumber === null) return;
+    const header = `=== AI Turn ${turnNumber} ===`;
+    // find the most recent 'turn' entry in the log
+    if (Array.isArray(log)) {
+      for (let i = log.length - 1; i >= 0; i--) {
+        const e = log[i];
+        if (!e) continue;
+        if (e.kind === "turn") {
+          if (e.text === header) return; // already present
+          break; // different turn header found, fall through to append
+        }
+      }
+    }
+    appendTyped("turn", header);
+  };
+
   // Allow player to remove an enemy unit (call server endpoint and update UI)
   const handleRemoveUnit = async (unitName) => {
-    if (!sessionId) return alert("No active session");
     if (!confirm(`Remove unit ${unitName} from the battle?`)) return;
     setBusy(true);
     try {
-      await api.removeUnit(sessionId, unitName);
-      setUnits((u) => u.filter((x) => x.name !== unitName));
+      // Use stateless removal: send current AI units to server to compute remaining list
+      const ai_payload = (units || []).map((u) => ({
+        name: u.name,
+        aggression: u.aggression,
+      }));
+      const res = await api.removeUnitStateless({
+        ai_units: ai_payload,
+        unit_name: unitName,
+        turn,
+      });
+      // Update UI from returned remaining_units
+      const rem = res.remaining_units || [];
+      setUnits(
+        rem.map((r) => ({
+          name: r.name,
+          models: r.models || 1,
+          aggression: r.aggression,
+        }))
+      );
       appendTyped("note", `Player removed unit: ${unitName}`);
     } catch (err) {
       appendLog(`Warn: failed to remove unit: ${String(err)}`);
@@ -453,84 +486,59 @@ export default function App() {
     }
     setBusy(true);
     try {
-      // Create a session so we can drive placement via backend
-      const created = await api.createSession(
+      // Create a stateless session and receive a seed and initial AI units/profiles
+      const created = await api.createSessionStateless(
         file,
         rollMode,
         selectedBattleplan ? String(selectedBattleplan) : ""
       );
-      const sid = created.session_id;
-      setSessionId(sid);
+      const s = created.seed;
+      setSeed(s);
       if (created.battleplan) setBattleplan(created.battleplan);
-      appendLog(`Created session ${sid}`);
+      appendLog(`Created stateless session with seed ${s}`);
 
-      // Fetch session to get profiles/units
-      try {
-        const state = await api.getSession(sid);
-        const profiles = state.ai_profiles || [];
-        setUnits(
-          profiles.map((p) => ({
-            name: p.name,
-            models: p.models,
-            wounds_per_model: p.wounds_per_model,
-          }))
-        );
-        appendLog(`Loaded ${profiles.length} AI units`);
-      } catch (e) {
-        // Non-fatal if session fetch fails
-        appendLog(`Warn: could not fetch session: ${e.message}`);
-      }
+      // set units from ai_profiles
+      const profiles = created.state?.ai_profiles || [];
+      setUnits(
+        profiles.map((p) => ({
+          name: p.name,
+          models: p.models,
+          wounds_per_model: p.wounds_per_model,
+          aggression: p.aggression,
+        }))
+      );
+      appendLog(`Loaded ${profiles.length} AI units`);
 
-      // Try to get placement and have AI auto-pick deployment
+      // If placement proposed, show and auto-confirm locally (stateless)
       try {
-        const pl = await api.getPlacement(sid);
-        const proposed = pl.placement;
-        const confirmed = pl.confirmed;
+        const proposed = created.proposed_placement;
         if (proposed) {
           setPlacement(proposed);
-          // Build AI-chosen zones from suggestions (fallback to first allowed)
           const aiChosen = {};
-          const placements = (proposed.suggestions || []).map((s) => {
+          const placements = (proposed.suggestions || []).map((sug) => {
             const zone =
-              s.suggested_zone || (proposed.allowed_zones?.[0] ?? "");
-            if (s.unit) aiChosen[s.unit] = zone;
-            return { unit: s.unit, zone };
+              sug.suggested_zone || (proposed.allowed_zones?.[0] ?? "");
+            if (sug.unit) aiChosen[sug.unit] = zone;
+            return { unit: sug.unit, zone };
           });
           setChosenZones(aiChosen);
-          // If server hasn't already confirmed, confirm automatically
-          if (!confirmed) {
-            try {
-              await api.confirmPlacement(sid, placements);
-              appendLog(
-                `AI deployment auto-confirmed for session ${sid} based on battleplan.`
-              );
-            } catch (err) {
-              const msg = String(err);
-              if (msg.includes("placement_already_auto_confirmed")) {
-                appendLog("Placement already confirmed by server.");
-              } else {
-                appendLog("Warn: failed to auto-confirm placement: " + msg);
-              }
-            }
-          } else {
-            appendLog("Placement was auto-confirmed by server.");
-          }
-          // Show a read-only summary modal of the AI's deployment
           setPlacementOpen(true);
-          if (created.battleplan) setBattleplan(created.battleplan);
-          if (confirmed && confirmed.by === "server") {
-            appendLog(
-              "Note: placement auto-confirmed by server; showing summary."
-            );
-          }
-        } else {
-          appendLog("No placement proposed by server.");
+          appendLog("Placement proposed by server (stateless);");
         }
       } catch (e) {
-        appendLog(`Warn: could not fetch placement: ${e.message}`);
+        appendLog(`Warn: could not process proposed placement: ${e.message}`);
       }
     } catch (e) {
-      alert(e.message);
+      // Stateless endpoint failed — surface a clear error and abort. Sessions are removed.
+      alert(
+        `Failed to initialize stateless session: ${
+          e.message || String(e)
+        }.\nThis client requires the stateless API. Ensure the backend exposes /api/session_stateless.`
+      );
+      appendLog(`Error: failed to create stateless session: ${e.message}`);
+      setBusy(false);
+      setIsValidFile(false);
+      return;
     } finally {
       setBusy(false);
       // Keep file selection but reset validity after upload to require re-validation
@@ -538,6 +546,13 @@ export default function App() {
     }
   };
 
+  // Trigger the hidden file input to open the OS file picker
+  const handleChoose = () => {
+    const el = document.getElementById("upload-file");
+    if (el) el.click();
+  };
+
+  // Handle file selection (validate HTML extension/type)
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] ?? null;
     setFile(f);
@@ -591,38 +606,162 @@ export default function App() {
 
   const handleRunAiTurn = async () => {
     setBusy(true);
-    // Ensure we have a session id to operate on; if not, create one inline
-    let sidToUse = sessionId;
-    if (!sidToUse) {
-      try {
-        const created = await api.createSession(
-          file,
-          rollMode,
-          selectedBattleplan ? String(selectedBattleplan) : ""
+    try {
+      // Require stateless seed — the app is stateless-only now
+      if (!seed) {
+        alert(
+          "No seed available: upload a roster first to initialize a stateless session."
         );
-        sidToUse = created.session_id;
-        setSessionId(sidToUse);
-        if (created.battleplan) setBattleplan(created.battleplan);
-        appendLog(`Created session ${sidToUse}`);
-      } catch (e) {
-        alert(e.message);
         setBusy(false);
         return;
       }
-    }
 
-    if (!sidToUse) {
-      alert("No session available to run AI turn");
-      setBusy(false);
-      return;
-    }
+      // Call the stateless ai_turn endpoint
+      {
+        const ai_payload = (units || []).map((u) => ({
+          name: u.name,
+          aggression: u.aggression,
+        }));
+        const resp = await api.aiTurnStateless({
+          seed,
+          turn,
+          ai_units: ai_payload,
+          roll_mode: rollMode,
+          battleplan: selectedBattleplan,
+        });
+        const events = resp.events || [];
+        const pending = resp.pending_actions || [];
 
-    // Run the AI turn via the API. Server may set paused turn state (roll_request)
-    try {
-      await api.runAiTurn(sidToUse);
-      // fetch structured last_turn events to show the turn details
-      const last = await api.getLastTurn(sidToUse);
-      const events = last.events || [];
+        const rr =
+          events.find((ev) => ev.event === "roll_request") ||
+          (pending.length
+            ? {
+                event: "roll_request",
+                pending_actions: pending,
+                turn: resp.turn,
+              }
+            : null);
+
+        const inferredTurn =
+          resp.turn ?? events.find((e) => e && e.turn !== undefined)?.turn;
+        // Always ensure the turn header is present immediately so the UI
+        // looks identical between AI-controlled and player-controlled
+        // roll modes. Only advance the local turn counter when there are
+        // no pending player actions; if there are pending actions the
+        // header stays visible and the remainder of the events will be
+        // printed after the player resolves their rolls.
+        if (inferredTurn !== undefined) {
+          ensureTurnHeader(inferredTurn);
+          if (!(rr && rr.pending_actions && rr.pending_actions.length > 0)) {
+            setTurn(inferredTurn + 1);
+          }
+        }
+        if (rr && rr.pending_actions && rr.pending_actions.length > 0) {
+          // Append any aggression checks first
+          events
+            .filter((ev) => ev.event === "aggression_check")
+            .forEach((ac) =>
+              appendTyped("check", {
+                unit: ac.unit,
+                needed: ac.target ?? null,
+                actual: ac.total ?? ac.roll ?? null,
+                raw: ac,
+              })
+            );
+
+          const pendingActions = rr.pending_actions || [];
+          setPausedActions(pendingActions);
+          setRollModalOpen(true);
+          appendLog("");
+          appendLog("=== PLAYER ROLL REQUEST ===");
+          appendLog(
+            "Please roll the required dice physically and enter each result in the dialog:"
+          );
+          pendingActions.forEach((p) => {
+            const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
+            const card = p.card_title || (p.card && p.card.title) || "(action)";
+            appendLog(
+              `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
+            );
+          });
+          appendLog("");
+        } else {
+          // No pause: present the events in ordered groups: checks -> rolls -> actions
+          const checks = [];
+          const rolls = [];
+          const actions = [];
+          const others = [];
+          events.forEach((ev) => {
+            if (ev.event === "aggression_check") checks.push(ev);
+            else if (ev.event === "roll_result" || ev.event === "roll")
+              rolls.push(ev);
+            else if (ev.event === "action_resolved" && ev.action_resolved)
+              actions.push(ev);
+            else others.push(ev);
+          });
+
+          checks.forEach((ac) =>
+            appendTyped("check", {
+              unit: ac.unit,
+              needed: ac.target ?? null,
+              actual: ac.total ?? ac.roll ?? null,
+              raw: ac,
+            })
+          );
+
+          rolls.forEach((r) => {
+            appendTyped("roll", {
+              unit: r.unit || null,
+              card: r.card_title || (r.card && r.card.title) || null,
+              needed: r.target ?? r.required ?? null,
+              actual: r.roll ?? r.value ?? null,
+              request_id: r.request_id ?? null,
+              raw: r,
+            });
+          });
+
+          actions.forEach((ev) => {
+            const ar = ev.action_resolved;
+            const details = ar.details || {};
+            const detailLines = Object.keys(details || {}).map(
+              (k) => `    ${k}: ${JSON.stringify(details[k])}`
+            );
+            const block = [
+              `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
+              `  initiative: ${ar.initiative || ""}`,
+              `  behavior: ${ar.behavior || ""}`,
+              ...(detailLines.length ? ["  details:", ...detailLines] : []),
+            ].join("\n");
+            appendBlock(block);
+          });
+
+          others.forEach((ev) => {
+            const n = normalizeEvent(ev) || ev;
+            if (n && n.event === "aggression_check") {
+              appendTyped("check", {
+                unit: n.unit || null,
+                needed: n.target ?? null,
+                actual: n.total ?? n.roll ?? null,
+                raw: n,
+              });
+            } else if (n && (n.event === "roll_result" || n.event === "roll")) {
+              appendTyped("roll", {
+                unit: n.unit || null,
+                card: n.card_title || (n.card && n.card.title) || null,
+                needed: n.target ?? n.required ?? null,
+                actual: n.roll ?? n.value ?? null,
+                request_id: n.request_id ?? null,
+                raw: n,
+              });
+            } else {
+              appendBlock(formatEvent(n));
+            }
+          });
+        }
+
+        setBusy(false);
+        return;
+      }
 
       // Determine the turn number (if present) and append header so player knows which turn.
       const inferredTurn =
@@ -748,12 +887,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 antialiased">
-      <Header sessionId={sessionId} />
+      <Header />
 
       <main className="container-max py-6">
-        <SessionControls
+        <ClientControls
           file={file}
           onFileChange={handleFileChange}
+          onChoose={handleChoose}
           onUpload={onUpload}
           battleplans={battleplans}
           selectedBattleplan={selectedBattleplan}
@@ -765,7 +905,7 @@ export default function App() {
           busy={busy}
         />
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
           <UnitsList units={units} onRemove={handleRemoveUnit} />
 
           <div className="card md:col-span-2">
@@ -811,7 +951,19 @@ export default function App() {
             result: { roll: Number(rollInputs[a.request_id] || 0) },
           }));
           try {
-            const res = await api.resolveRolls(sessionId, results);
+            if (!seed) {
+              alert(
+                "No seed available: upload a roster first to initialize a stateless session."
+              );
+              return;
+            }
+            // stateless resolve only
+            const res = await api.resolveRollsStateless({
+              seed,
+              turn: turn - 1,
+              pending_actions: pausedActions,
+              action_results: results,
+            });
             // Prefer to present checks first (white), then rolls (red small), then actions (yellow)
             if (res && Array.isArray(res.events)) {
               const inferredTurn =
@@ -819,8 +971,7 @@ export default function App() {
                 res.events.find(
                   (e) => e && e.action_resolved && e.action_resolved.turn
                 )?.action_resolved.turn;
-              if (inferredTurn !== undefined)
-                appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
+              if (inferredTurn !== undefined) ensureTurnHeader(inferredTurn);
               // normalize incoming events so shapes are consistent
               const norm = res.events.map((e) => normalizeEvent(e) || e);
               // collect ordered lists
@@ -884,37 +1035,8 @@ export default function App() {
               appendBlock("Resolved rolls (no events returned)");
             }
 
-            // After resolving rolls, fetch the last turn to run remaining server logic and show events
-            try {
-              const last = await api.getLastTurn(sessionId);
-              (last.events || []).forEach((ev) => {
-                const n = normalizeEvent(ev) || ev;
-                if (n && n.event === "aggression_check") {
-                  appendTyped("check", {
-                    unit: n.unit || null,
-                    needed: n.target ?? null,
-                    actual: n.total ?? n.roll ?? null,
-                    raw: n,
-                  });
-                } else if (
-                  n &&
-                  (n.event === "roll_result" || n.event === "roll")
-                ) {
-                  appendTyped("roll", {
-                    unit: n.unit || null,
-                    card: n.card_title || (n.card && n.card.title) || null,
-                    needed: n.target ?? n.required ?? null,
-                    actual: n.roll ?? n.value ?? null,
-                    request_id: n.request_id ?? null,
-                    raw: n,
-                  });
-                } else {
-                  appendBlock(formatEvent(n));
-                }
-              });
-            } catch (err) {
-              appendBlock("Warn: could not fetch last turn: " + String(err));
-            }
+            // advance local turn counter (we presented roll_request for turn-1 earlier)
+            setTurn((t) => t + 1);
             // Clear paused state and inputs
             setPausedActions(null);
             setRollInputs({});

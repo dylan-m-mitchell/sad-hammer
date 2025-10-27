@@ -9,7 +9,7 @@ experimenting with different rule-fidelity modes (MVP, Accurate, Automated).
 
 Contents
 
-- `api_server.py` — Flask backend and session manager.
+- `api_server.py` — Flask backend exposing stateless simulation endpoints (client holds seed/state).
 - `frontend/` — single-file static frontend used for local play/testing.
 - `battlescribe_parser.py` — parser for BattleScribe HTML roster exports.
 - `full_simulator.py` — Solo AI (tactic pool, aggression checks, action draws).
@@ -65,23 +65,23 @@ Frontend framework and styling
 - Baseline styles are intentionally minimal; Tailwind is configured via PostCSS and will be used to (re)introduce accessible, framework-safe styles.
 - Build output is served by Nginx in the frontend container and proxied under `/` with API at `/api/`.
 
-High-level usage
+High-level usage (stateless)
 
 - Upload a BattleScribe HTML roster (the uploaded roster becomes the AI's army).
-- Create a session; the server returns a session ID and persists session state in-memory.
-- Use "Run AI Turn" to have the server draw tactics/actions and return a human-readable
-  text summary plus structured JSON events. The human player resolves those events
-  at the table against their physical units.
+- Initialize stateless state with `POST /api/session_stateless`; the server returns an
+  initial `seed` and a minimal `state` object. The client is responsible for
+  persisting the seed, current `turn`, and the `ai_units` list.
+- Use "Run AI Turn" to call `POST /api/ai_turn_stateless` with `{ seed, turn, ai_units, roll_mode }`.
+  The server computes deterministic AI behavior for that turn and returns structured
+  events (and `pending_actions` when `roll_mode=="player"`).
 
 Rule fidelity and roll handling
 
 Sad Hammer supports different fidelity modes; see `docs/rule_mapping.md` for details.
-Sessions also support a `roll_mode` (per-session) that controls who provides the AI's
-dice rolls:
+Clients provide a `roll_mode` when initializing stateless state or when calling `/api/ai_turn_stateless`:
 
 - `ai` (default): server executes rolls and returns resolved events.
-- `player`: player resolves AI rolls locally; the server persists the flag and clients
-  can opt to use a server-mediated roll-request flow (planned) or resolve locally.
+- `player`: the server will return `pending_actions` for client resolution; the client should resolve and post results to `/api/resolve_rolls_stateless`.
 
 API and developer notes
 

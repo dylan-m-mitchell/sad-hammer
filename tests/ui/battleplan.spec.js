@@ -29,18 +29,13 @@ test.describe("Battleplan and Placement Flow", () => {
       await page.selectOption("#battleplan-select", { index: 1 });
     }
 
-    // 3. Click create session
-    await page.click("#create-session");
+    // 3. Trigger upload & parse (create stateless run)
+    await page.click("#create-run");
 
-    // 4. Verify session was created (wait for session ID to appear and not be "(none)")
-    await expect(page.locator("#session-id")).not.toHaveText("(none)", {
-      timeout: 10000,
-    });
-
-    // Get the session ID for verification
-    const sessionId = await page.locator("#session-id").textContent();
-    expect(sessionId).not.toBe("(none)");
-    expect(sessionId?.length).toBeGreaterThan(0);
+    // 4. Verify a stateless session was created by looking for the seed log entry
+    // The frontend logs: "Created stateless session with seed <number>"
+    const seedLog = page.locator("text=Created stateless session with seed");
+    await expect(seedLog).toHaveCount(1, { timeout: 10000 });
 
     // 5. Verify some form of placement UI is shown (check each individually)
     // At least one of these should be visible
@@ -73,29 +68,21 @@ test.describe("Battleplan and Placement Flow", () => {
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
 
-    // 2. Click create session without selecting a battleplan
-    await page.click("#create-session");
+    // 2. Click create-run without selecting a battleplan
+    await page.click("#create-run");
 
-    // 3. Verify session was created
-    await expect(page.locator("#session-id")).not.toHaveText("(none)", {
+    // 3. Verify stateless session was created (look for seed log entry)
+    await expect(
+      page.locator("text=Created stateless session with seed")
+    ).toHaveCount(1, {
       timeout: 10000,
     });
-
-    const sessionId = await page.locator("#session-id").textContent();
-    expect(sessionId).not.toBe("(none)");
-    expect(sessionId?.length).toBeGreaterThan(0);
   });
 
   test("should show error when no file is selected", async ({ page }) => {
-    // Set up dialog handler to capture the alert
-    page.on("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Choose an HTML roster first");
-      await dialog.accept();
-    });
-
-    // Try to create session without selecting a file
-    await page.click("#create-session");
-
-    // The alert should have been triggered (handled by the dialog handler above)
+    // When no file is selected the create button should be disabled. Ensure that
+    // state rather than attempting to click a disabled control.
+    const createBtn = page.locator("#create-run");
+    await expect(createBtn).toBeDisabled();
   });
 });

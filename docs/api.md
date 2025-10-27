@@ -4,7 +4,7 @@ This document lists the HTTP API exposed by the Flask backend (`api_server.py`).
 
 Base URL: `http://<host>:5000` (backend) or proxied behind nginx in docker compose.
 
-Authentication: none (local dev only). Sessions are identified by UUIDs returned on creation.
+Authentication: none (local dev only). The server is stateless for simulation flows; clients are expected to hold the initial `seed`, current `turn`, and `ai_units` when interacting with the stateless endpoints.
 
 Endpoints
 
@@ -21,44 +21,32 @@ Endpoints
 - Units follow the same simplified shape used throughout the app (see architecture doc).
 - Response: 200 JSON `{ "events": [ ... ] }` — a concatenation of events from each simulated AI turn.
 
-3. POST /api/session
+3. Stateless simulation endpoints (recommended)
 
-- Purpose: create a new AI session. Accepts a BattleScribe file upload or a JSON body with `units`.
-- Request options:
-  - multipart/form-data with `file` and optional form field `roll_mode` ("ai" or "player").
-  - application/json with `{ "units": [...], "roll_mode": "ai"|"player" }`.
-- Response: 200 JSON `{ "session_id": "<uuid>", "state": { "turn": <int>, "ai_count": <int>, "roll_mode": "ai"|"player" } }`.
+- POST `/api/session_stateless`
 
-4. GET /api/session/<session_id>
+  - Purpose: initialize a client-managed stateless run. Accepts the same payload as the old `POST /api/session` (file upload or JSON `units`) but does NOT persist state. The server returns an initial `seed`, `state` (turn, ai_units, ai_profiles, roll_mode), and a `proposed_placement` when available.
 
-- Purpose: return current session state.
-- Response: 200 JSON `{ "turn": <int>, "ai_units": [{ name, aggression }], "ai_profiles": [...parsed units...], "log": [...events...], "roll_mode": "ai"|"player" }`.
+  - Response: 200 JSON `{ "seed": <int>, "state": { "turn": <int>, "ai_units": [...], "ai_profiles": [...] , "roll_mode": "ai"|"player" }, "proposed_placement": ... }`.
 
-5. POST /api/session/<session_id>/ai_turn
+- POST `/api/ai_turn_stateless`
 
-- Purpose: run a single AI turn for the session.
-- Behavior: uses the session's `SoloSimulator` instance and returns a plain-text human-readable summary. It also appends structured events to the session `log` and sets `last_turn_events`.
-- Response: 200 text/plain with a readable summary. Use GET `/api/session/<id>/last_turn` to obtain structured JSON events.
+  - Purpose: run a single deterministic AI turn derived from the provided `seed` and `turn` (client must provide `{ seed, turn, ai_units, roll_mode }`).
 
-6. GET /api/session/<session_id>/last_turn
+  - Response (AI mode): 200 JSON `{ "turn": <int>, "events": [...] }`.
+  - Response (player roll_mode): 200 JSON `{ "turn": <int>, "events": [...], "pending_actions": [...] }`.
 
-- Purpose: return structured events from the last AI turn.
-- Response: 200 JSON `{ "turn": <int>, "events": [...] }`.
+- POST `/api/resolve_rolls_stateless`
 
-7. POST /api/session/<session_id>/remove_unit
+  - Purpose: Resolve player-provided roll results for a paused turn. Accepts `{ seed, turn, pending_actions, action_results }` and returns resolved `events`.
 
-- Purpose: remove an AI unit from the session (e.g., when killed by the player).
-- Request (JSON): `{ "unit_name": "<exact unit name>" }`.
-- Response: 
-  - 200 JSON `{ "ok": true, "removed_unit": "<name>", "remaining_units": [{name, aggression}], "remaining_count": <int> }`.
-  - 400 JSON `{ "error": "unit_name required" }` if unit_name is missing.
-  - 404 JSON `{ "error": "session not found" }` if session doesn't exist.
-  - 404 JSON `{ "error": "unit not found", "unit_name": "<name>" }` if unit doesn't exist in the session.
-- Behavior: 
-  - Removes the unit from the simulator's active units list.
-  - Updates session's ai_units and ai_profiles.
-  - Creates a log entry: `{ "event": "unit_removed", "turn": <int>, "unit_name": "<name>", "reason": "killed_by_player" }`.
-  - Future AI turns will not include actions for the removed unit.
+- POST `/api/remove_unit_stateless`
+
+  - Purpose: remove a unit from the provided `ai_units` list. Accepts `{ ai_units, unit_name, turn? }` and returns `{ ok: true, removed_unit, remaining_units, event }`.
+
+Legacy sessionful endpoints removed
+
+The older `/api/session`-based endpoints have been removed from the server. Clients should use the stateless endpoints described above (`/api/session_stateless`, `/api/ai_turn_stateless`, etc.). Requests to the legacy paths will return 404 Not Found.
 
 8. GET /api/session/<session_id>/log
 
