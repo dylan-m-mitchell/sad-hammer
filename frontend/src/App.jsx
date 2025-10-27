@@ -1,4 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Header from "./components/Header";
+import SessionControls from "./components/SessionControls";
+import UnitsList from "./components/UnitsList";
+import PlacementModal from "./components/PlacementModal";
+import RollModal from "./components/RollModal";
 
 // Module-level cache to prevent duplicate /api/battleplans requests
 // (React StrictMode in development may mount/unmount/mount components which
@@ -538,288 +543,184 @@ export default function App() {
     }
   };
 
+  const handleRunAiTurn = async () => {
+    setBusy(true);
+    // Ensure we have a session id to operate on; if not, create one inline
+    let sidToUse = sessionId;
+    if (!sidToUse) {
+      try {
+        const created = await api.createSession(
+          file,
+          rollMode,
+          selectedBattleplan ? String(selectedBattleplan) : ""
+        );
+        sidToUse = created.session_id;
+        setSessionId(sidToUse);
+        if (created.battleplan) setBattleplan(created.battleplan);
+        appendLog(`Created session ${sidToUse}`);
+      } catch (e) {
+        alert(e.message);
+        setBusy(false);
+        return;
+      }
+    }
+
+    if (!sidToUse) {
+      alert("No session available to run AI turn");
+      setBusy(false);
+      return;
+    }
+
+    // Run the AI turn via the API. Server may set paused turn state (roll_request)
+    try {
+      await api.runAiTurn(sidToUse);
+      // fetch structured last_turn events to show the turn details
+      const last = await api.getLastTurn(sidToUse);
+      const events = last.events || [];
+
+      // Determine the turn number (if present) and append header so player knows which turn.
+      const inferredTurn =
+        events.find((e) => e && e.turn !== undefined)?.turn ??
+        events.find((e) => e && e.action_resolved && e.action_resolved.turn)
+          ?.action_resolved.turn;
+      if (inferredTurn !== undefined) {
+        appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
+      }
+
+      // If there's a roll_request present (player-mode), show a request block.
+      const rr = events.find((ev) => ev.event === "roll_request");
+      if (rr && rr.pending_actions && rr.pending_actions.length > 0) {
+        // Append any aggression checks first
+        events
+          .filter((ev) => ev.event === "aggression_check")
+          .forEach((ac) =>
+            appendTyped("check", {
+              unit: ac.unit,
+              needed: ac.target ?? null,
+              actual: ac.total ?? ac.roll ?? null,
+              raw: ac,
+            })
+          );
+
+        // Show the player roll request instructions (keeps previous behavior)
+        const pending = rr.pending_actions || [];
+        setPausedActions(pending);
+        setRollModalOpen(true);
+        appendLog("");
+        appendLog("=== PLAYER ROLL REQUEST ===");
+        appendLog(
+          "Please roll the required dice physically and enter each result in the dialog:"
+        );
+        pending.forEach((p) => {
+          const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
+          const card = p.card_title || (p.card && p.card.title) || "(action)";
+          appendLog(
+            `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
+          );
+        });
+        appendLog("");
+      } else {
+        // No pause: present the events in ordered groups: checks -> rolls -> actions
+        const checks = [];
+        const rolls = [];
+        const actions = [];
+        const others = [];
+        events.forEach((ev) => {
+          if (ev.event === "aggression_check") checks.push(ev);
+          else if (ev.event === "roll_result" || ev.event === "roll")
+            rolls.push(ev);
+          else if (ev.event === "action_resolved" && ev.action_resolved)
+            actions.push(ev);
+          else others.push(ev);
+        });
+
+        checks.forEach((ac) =>
+          appendTyped("check", {
+            unit: ac.unit,
+            needed: ac.target ?? null,
+            actual: ac.total ?? ac.roll ?? null,
+            raw: ac,
+          })
+        );
+
+        rolls.forEach((r) => {
+          appendTyped("roll", {
+            unit: r.unit || null,
+            card: r.card_title || (r.card && r.card.title) || null,
+            needed: r.target ?? r.required ?? null,
+            actual: r.roll ?? r.value ?? null,
+            request_id: r.request_id ?? null,
+            raw: r,
+          });
+        });
+
+        actions.forEach((ev) => {
+          const ar = ev.action_resolved;
+          const details = ar.details || {};
+          const detailLines = Object.keys(details || {}).map(
+            (k) => `    ${k}: ${JSON.stringify(details[k])}`
+          );
+          const block = [
+            `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
+            `  initiative: ${ar.initiative || ""}`,
+            `  behavior: ${ar.behavior || ""}`,
+            ...(detailLines.length ? ["  details:", ...detailLines] : []),
+          ].join("\n");
+          appendBlock(block);
+        });
+
+        // Anything else: render via formatEvent, but normalize checks/rolls to structured entries first
+        others.forEach((ev) => {
+          const n = normalizeEvent(ev) || ev;
+          if (n && n.event === "aggression_check") {
+            appendTyped("check", {
+              unit: n.unit || null,
+              needed: n.target ?? null,
+              actual: n.total ?? n.roll ?? null,
+              raw: n,
+            });
+          } else if (n && (n.event === "roll_result" || n.event === "roll")) {
+            appendTyped("roll", {
+              unit: n.unit || null,
+              card: n.card_title || (n.card && n.card.title) || null,
+              needed: n.target ?? n.required ?? null,
+              actual: n.roll ?? n.value ?? null,
+              request_id: n.request_id ?? null,
+              raw: n,
+            });
+          } else {
+            appendBlock(formatEvent(n));
+          }
+        });
+      }
+    } catch (e) {
+      appendLog(`Warn: failed to run AI turn: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 antialiased">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="container-max py-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Sad Hammer — Frontend
-          </h1>
-          <p className="text-slate-300 text-sm">
-            Upload a BattleScribe HTML roster and run a simulated AI turn.
-          </p>
-          <div className="mt-2 text-xs text-slate-400">
-            Session: <span id="session-id">{sessionId || "(none)"}</span>
-          </div>
-        </div>
-      </header>
+      <Header sessionId={sessionId} />
 
       <main className="container-max py-6">
-        <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="inline-flex items-center gap-3">
-            <input
-              id="roster-file"
-              aria-label="Roster HTML"
-              type="file"
-              accept=".html,.htm,text/html"
-              className="input"
-              onChange={handleFileChange}
-            />
-          </label>
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="battleplan-select"
-              className="text-sm text-slate-300"
-            >
-              Battleplan:
-            </label>
-            <select
-              id="battleplan-select"
-              className="input"
-              value={selectedBattleplan}
-              onChange={(e) => setSelectedBattleplan(e.target.value)}
-            >
-              <option value="">Random</option>
-              {battleplans.map((bp) => (
-                <option key={bp.id} value={bp.id}>
-                  {bp.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="roll-mode" className="text-sm text-slate-300">
-              Roll mode:
-            </label>
-            <select
-              id="roll-mode"
-              className="input"
-              value={rollMode}
-              onChange={(e) => setRollMode(e.target.value)}
-            >
-              <option value="ai">AI handles rolls</option>
-              <option value="player">Player rolls (enter dice)</option>
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              id="create-session"
-              onClick={onUpload}
-              disabled={busy || !isValidFile}
-              className="btn-primary"
-            >
-              Upload & Parse
-            </button>
-            <button
-              id="run-ai-turn"
-              onClick={async () => {
-                setBusy(true);
-                // Ensure we have a session id to operate on; if not, create one inline
-                let sidToUse = sessionId;
-                if (!sidToUse) {
-                  try {
-                    const created = await api.createSession(
-                      file,
-                      rollMode,
-                      selectedBattleplan ? String(selectedBattleplan) : ""
-                    );
-                    sidToUse = created.session_id;
-                    setSessionId(sidToUse);
-                    if (created.battleplan) setBattleplan(created.battleplan);
-                    appendLog(`Created session ${sidToUse}`);
-                  } catch (e) {
-                    alert(e.message);
-                    setBusy(false);
-                    return;
-                  }
-                }
-
-                if (!sidToUse) {
-                  alert("No session available to run AI turn");
-                  setBusy(false);
-                  return;
-                }
-
-                // Run the AI turn via the API. Server may set paused turn state (roll_request)
-                try {
-                  await api.runAiTurn(sidToUse);
-                  // fetch structured last_turn events to show the turn details
-                  const last = await api.getLastTurn(sidToUse);
-                  const events = last.events || [];
-
-                  // Determine the turn number (if present) and append header so player knows which turn.
-                  const inferredTurn =
-                    events.find((e) => e && e.turn !== undefined)?.turn ??
-                    events.find(
-                      (e) => e && e.action_resolved && e.action_resolved.turn
-                    )?.action_resolved.turn;
-                  if (inferredTurn !== undefined) {
-                    appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
-                  }
-
-                  // If there's a roll_request present (player-mode), show a request block.
-                  const rr = events.find((ev) => ev.event === "roll_request");
-                  if (
-                    rr &&
-                    rr.pending_actions &&
-                    rr.pending_actions.length > 0
-                  ) {
-                    // Append any aggression checks first
-                    events
-                      .filter((ev) => ev.event === "aggression_check")
-                      .forEach((ac) =>
-                        appendTyped("check", {
-                          unit: ac.unit,
-                          needed: ac.target ?? null,
-                          actual: ac.total ?? ac.roll ?? null,
-                          raw: ac,
-                        })
-                      );
-
-                    // Show the player roll request instructions (keeps previous behavior)
-                    const pending = rr.pending_actions || [];
-                    setPausedActions(pending);
-                    setRollModalOpen(true);
-                    appendLog("");
-                    appendLog("=== PLAYER ROLL REQUEST ===");
-                    appendLog(
-                      "Please roll the required dice physically and enter each result in the dialog:"
-                    );
-                    pending.forEach((p) => {
-                      const dice = p.dice
-                        ? `${p.dice.count}d${p.dice.sides}`
-                        : "1d6";
-                      const card =
-                        p.card_title || (p.card && p.card.title) || "(action)";
-                      appendLog(
-                        `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
-                      );
-                    });
-                    appendLog("");
-                  } else {
-                    // No pause: present the events in ordered groups: checks -> rolls -> actions
-                    const checks = [];
-                    const rolls = [];
-                    const actions = [];
-                    const others = [];
-                    events.forEach((ev) => {
-                      if (ev.event === "aggression_check") checks.push(ev);
-                      else if (
-                        ev.event === "roll_result" ||
-                        ev.event === "roll"
-                      )
-                        rolls.push(ev);
-                      else if (
-                        ev.event === "action_resolved" &&
-                        ev.action_resolved
-                      )
-                        actions.push(ev);
-                      else others.push(ev);
-                    });
-
-                    checks.forEach((ac) =>
-                      appendTyped("check", {
-                        unit: ac.unit,
-                        needed: ac.target ?? null,
-                        actual: ac.total ?? ac.roll ?? null,
-                        raw: ac,
-                      })
-                    );
-
-                    rolls.forEach((r) => {
-                      appendTyped("roll", {
-                        unit: r.unit || null,
-                        card: r.card_title || (r.card && r.card.title) || null,
-                        needed: r.target ?? r.required ?? null,
-                        actual: r.roll ?? r.value ?? null,
-                        request_id: r.request_id ?? null,
-                        raw: r,
-                      });
-                    });
-
-                    actions.forEach((ev) => {
-                      const ar = ev.action_resolved;
-                      const details = ar.details || {};
-                      const detailLines = Object.keys(details || {}).map(
-                        (k) => `    ${k}: ${JSON.stringify(details[k])}`
-                      );
-                      const block = [
-                        `AI action: ${ar.unit} -> ${
-                          ar.card_title || "(action)"
-                        }`,
-                        `  initiative: ${ar.initiative || ""}`,
-                        `  behavior: ${ar.behavior || ""}`,
-                        ...(detailLines.length
-                          ? ["  details:", ...detailLines]
-                          : []),
-                      ].join("\n");
-                      appendBlock(block);
-                    });
-
-                    // Anything else: render via formatEvent, but normalize checks/rolls to structured entries first
-                    others.forEach((ev) => {
-                      const n = normalizeEvent(ev) || ev;
-                      if (n && n.event === "aggression_check") {
-                        appendTyped("check", {
-                          unit: n.unit || null,
-                          needed: n.target ?? null,
-                          actual: n.total ?? n.roll ?? null,
-                          raw: n,
-                        });
-                      } else if (
-                        n &&
-                        (n.event === "roll_result" || n.event === "roll")
-                      ) {
-                        appendTyped("roll", {
-                          unit: n.unit || null,
-                          card:
-                            n.card_title || (n.card && n.card.title) || null,
-                          needed: n.target ?? n.required ?? null,
-                          actual: n.roll ?? n.value ?? null,
-                          request_id: n.request_id ?? null,
-                          raw: n,
-                        });
-                      } else {
-                        appendBlock(formatEvent(n));
-                      }
-                    });
-                  }
-                } catch (e) {
-                  appendLog(`Warn: failed to run AI turn: ${e.message}`);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={busy || units.length === 0}
-              className="btn-success"
-            >
-              Run AI Turn
-            </button>
-          </div>
-        </section>
+        <SessionControls
+          file={file}
+          onFileChange={handleFileChange}
+          onUpload={onUpload}
+          battleplans={battleplans}
+          selectedBattleplan={selectedBattleplan}
+          setSelectedBattleplan={setSelectedBattleplan}
+          rollMode={rollMode}
+          setRollMode={setRollMode}
+          onRunAiTurn={handleRunAiTurn}
+          units={units}
+          busy={busy}
+        />
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="card md:col-span-1">
-            <div className="card-header">
-              <h2 className="card-title">Units</h2>
-            </div>
-            <div className="max-h-[480px] overflow-auto px-4 py-3">
-              {units.length === 0 ? (
-                <p className="text-sm text-slate-300">No units loaded yet.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {units.map((u, i) => (
-                    <li key={i}>
-                      {u.name} — {u.models} models
-                      {u.wounds_per_model
-                        ? `, ${u.wounds_per_model} wpmodel`
-                        : ""}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          <UnitsList units={units} />
 
           <div className="card md:col-span-2">
             <div className="card-header">
@@ -987,409 +888,169 @@ export default function App() {
         </section>
       </main>
 
-      {placementOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"
-            onClick={() => setPlacementOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-4xl max-h-[85vh] rounded-lg border border-slate-800 bg-slate-800 shadow-lg flex flex-col">
-            <div className="flex items-start justify-between px-4 py-3 border-b border-slate-700 shrink-0">
-              <div>
-                <h3 className="text-lg font-semibold">AI Deployment</h3>
-                <p className="text-sm text-slate-300">
-                  The uploaded roster is the enemy AI. Deployment has been
-                  auto-picked based on the battleplan:{" "}
-                  {battleplan?.title || "Unknown"}
-                </p>
-              </div>
-            </div>
-            <div
-              id="placement-modal-body"
-              className="flex-1 min-h-0 overflow-y-auto p-4"
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-3" id="placement-summary">
-                  <div className="rounded border border-slate-700 p-3">
-                    <div className="text-sm text-slate-300">Allowed zones</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(placement?.allowed_zones || []).map((z) => (
-                        <span
-                          key={z}
-                          className="rounded bg-slate-700 px-2 py-1 text-xs uppercase tracking-wide"
-                        >
-                          {z}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="max-h-[420px] overflow-auto rounded border border-slate-700">
-                    <table className="w-full text-sm" id="placement-panel">
-                      <thead className="sticky top-0 bg-slate-700/60">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold">
-                            Unit
-                          </th>
-                          <th className="px-3 py-2 text-left font-semibold">
-                            Zone (AI-chosen)
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(placement?.suggestions || []).map((s) => (
-                          <tr
-                            key={s.unit}
-                            className="border-t border-slate-700"
-                          >
-                            <td className="px-3 py-2">{s.unit}</td>
-                            <td className="px-3 py-2 text-slate-300">
-                              {chosenZones[s.unit] || s.suggested_zone || "-"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div
-                    className="rounded border border-slate-700 p-3"
-                    id="placement-map"
-                  >
-                    <div className="mb-2 text-sm font-semibold">
-                      Deployment map
-                    </div>
-                    {bpImgSrc ? (
-                      <img
-                        src={bpImgSrc}
-                        alt="Battleplan map"
-                        className="max-h-[360px] w-full rounded object-contain"
-                      />
-                    ) : (
-                      <div className="text-sm text-slate-300">
-                        No map image found. Use the grid below as a guide.
-                      </div>
-                    )}
-                  </div>
-                  <div className="rounded border border-slate-700 p-3">
-                    <div className="mb-2 text-sm font-semibold">
-                      Placement instructions
-                    </div>
-                    <div className="space-y-3">
-                      {(placement?.suggestions || []).map((s) => {
-                        const zone = (
-                          chosenZones[s.unit] ||
-                          s.suggested_zone ||
-                          ""
-                        ).toLowerCase();
-                        const zoneLabel =
-                          zone || placement?.allowed_zones?.[0] || "—";
-                        const zoneHint =
-                          s.zone_hint || (zone ? `Place in ${zone}` : "");
-                        const coord = s.coordinate_hint || "";
-                        const dist = s.distance_range || "";
-                        const prio = s.priority || "";
-                        const reason = s.reason || "";
-                        return (
-                          <div
-                            key={`inst-${s.unit}`}
-                            className="rounded border border-slate-700 bg-slate-900/40 p-3"
-                          >
-                            <div className="flex items-baseline justify-between gap-2">
-                              <div className="text-base font-semibold">
-                                {s.unit}
-                              </div>
-                              <div className="text-xs uppercase tracking-wide text-slate-300">
-                                Zone: {zoneLabel}
-                              </div>
-                            </div>
-                            <div className="mt-1 text-sm text-slate-200">
-                              {zoneHint}
-                            </div>
-                            {coord ? (
-                              <div className="mt-1 text-xs text-slate-300">
-                                {coord}
-                              </div>
-                            ) : null}
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                              {dist ? (
-                                <span className="rounded bg-slate-800 px-2 py-1">
-                                  Distance: {dist}
-                                </span>
-                              ) : null}
-                              {prio ? (
-                                <span className="rounded bg-slate-800 px-2 py-1">
-                                  Priority: {prio}
-                                </span>
-                              ) : null}
-                              {reason ? (
-                                <span className="rounded bg-slate-800 px-2 py-1">
-                                  {reason}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-700 px-4 py-3 shrink-0">
-              <button
-                className="btn-primary"
-                onClick={() => setPlacementOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {rollModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setRollModalOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-2xl rounded-lg border border-slate-800 bg-slate-800 p-4">
-            <h3 className="text-lg font-semibold">Enter Dice Results</h3>
-            <p className="text-sm text-slate-300">
-              Enter physical dice rolls for the AI pending actions.
-            </p>
-            <div className="mt-3 space-y-3 max-h-[60vh] overflow-auto">
-              {(pausedActions || []).map((a) => {
-                const err = rollValidationErrors[a.request_id];
-                return (
-                  <div
-                    key={a.request_id}
-                    className="rounded border border-slate-700 p-3"
-                  >
-                    <div className="font-semibold">
-                      {a.unit} —{" "}
-                      {a.card_title || (a.card && a.card.title) || "Action"}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <label className="text-xs text-slate-300">
-                        Roll (d6):
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={6}
-                        className="input w-24"
-                        value={rollInputs[a.request_id] ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRollInputs((r) => ({ ...r, [a.request_id]: val }));
-                          const n = Number(val);
-                          setRollValidationErrors((errs) => ({
-                            ...errs,
-                            [a.request_id]:
-                              !Number.isInteger(n) || n < 1 || n > 6,
-                          }));
-                        }}
-                      />
-                      {err ? (
-                        <div className="text-xs text-rose-400 ml-2">
-                          Enter a whole number between 1 and 6
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="btn-secondary"
-                onClick={() => setRollModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  // Build action results array from rollInputs
-                  const results = (pausedActions || []).map((a) => ({
-                    request_id: a.request_id,
-                    result: { roll: Number(rollInputs[a.request_id] || 0) },
-                  }));
-                  try {
-                    const res = await api.resolveRolls(sessionId, results);
-                    // Prefer to present checks first (white), then rolls (red small), then actions (yellow)
-                    if (res && Array.isArray(res.events)) {
-                      const inferredTurn =
-                        res.events.find((e) => e && e.turn !== undefined)
-                          ?.turn ??
-                        res.events.find(
-                          (e) =>
-                            e && e.action_resolved && e.action_resolved.turn
-                        )?.action_resolved.turn;
-                      if (inferredTurn !== undefined)
-                        appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
-                      // normalize incoming events so shapes are consistent
-                      const norm = res.events.map(
-                        (e) => normalizeEvent(e) || e
-                      );
-                      // collect ordered lists
-                      const checks = [];
-                      const rolls = [];
-                      const actions = [];
-                      norm.forEach((ev) => {
-                        if (ev.event === "aggression_check") checks.push(ev);
-                        else if (
-                          ev.event === "roll_result" ||
-                          ev.event === "roll"
-                        )
-                          rolls.push(ev);
-                        else if (
-                          ev.event === "action_resolved" &&
-                          ev.action_resolved
-                        )
-                          actions.push(ev);
-                        else actions.push(ev);
-                      });
+      <PlacementModal
+        open={placementOpen}
+        placement={placement}
+        chosenZones={chosenZones}
+        bpImgSrc={bpImgSrc}
+        onClose={() => setPlacementOpen(false)}
+      />
+      <RollModal
+        open={rollModalOpen}
+        pausedActions={pausedActions}
+        rollInputs={rollInputs}
+        rollValidationErrors={rollValidationErrors}
+        onChangeInput={(rid, val) => {
+          setRollInputs((r) => ({ ...r, [rid]: val }));
+          const n = Number(val);
+          setRollValidationErrors((errs) => ({
+            ...errs,
+            [rid]: !Number.isInteger(n) || n < 1 || n > 6,
+          }));
+        }}
+        onCancel={() => setRollModalOpen(false)}
+        onSubmit={async () => {
+          // Build action results array from rollInputs
+          const results = (pausedActions || []).map((a) => ({
+            request_id: a.request_id,
+            result: { roll: Number(rollInputs[a.request_id] || 0) },
+          }));
+          try {
+            const res = await api.resolveRolls(sessionId, results);
+            // Prefer to present checks first (white), then rolls (red small), then actions (yellow)
+            if (res && Array.isArray(res.events)) {
+              const inferredTurn =
+                res.events.find((e) => e && e.turn !== undefined)?.turn ??
+                res.events.find(
+                  (e) => e && e.action_resolved && e.action_resolved.turn
+                )?.action_resolved.turn;
+              if (inferredTurn !== undefined)
+                appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
+              // normalize incoming events so shapes are consistent
+              const norm = res.events.map((e) => normalizeEvent(e) || e);
+              // collect ordered lists
+              const checks = [];
+              const rolls = [];
+              const actions = [];
+              norm.forEach((ev) => {
+                if (ev.event === "aggression_check") checks.push(ev);
+                else if (ev.event === "roll_result" || ev.event === "roll")
+                  rolls.push(ev);
+                else if (ev.event === "action_resolved" && ev.action_resolved)
+                  actions.push(ev);
+                else actions.push(ev);
+              });
 
-                      // Append checks (white, compact)
-                      checks.forEach((ac) => {
-                        const line = `Aggression: ${ac.unit} -> ${
-                          ac.aggression_check ? "ACT" : "HOLD"
-                        }  (d6=${ac.roll ?? "?"} + mod=${
-                          ac.modifier ?? 0
-                        } => total=${ac.total ?? "?"} vs target=${
-                          ac.target ?? "?"
-                        })`;
-                        appendTyped("check", line);
-                      });
+              // Append checks (white, compact)
+              checks.forEach((ac) => {
+                const line = `Aggression: ${ac.unit} -> ${
+                  ac.aggression_check ? "ACT" : "HOLD"
+                }  (d6=${ac.roll ?? "?"} + mod=${ac.modifier ?? 0} => total=${
+                  ac.total ?? "?"
+                } vs target=${ac.target ?? "?"})`;
+                appendTyped("check", line);
+              });
 
-                      // Append explicit per-request roll results (red, small)
-                      rolls.forEach((r) => {
-                        appendTyped("roll", {
-                          unit: r.unit || null,
-                          card:
-                            r.card_title || (r.card && r.card.title) || null,
-                          needed: r.target ?? r.required ?? null,
-                          actual: r.roll ?? r.value ?? null,
-                          request_id: r.request_id ?? null,
-                          raw: r,
-                        });
-                      });
+              // Append explicit per-request roll results (red, small)
+              rolls.forEach((r) => {
+                appendTyped("roll", {
+                  unit: r.unit || null,
+                  card: r.card_title || (r.card && r.card.title) || null,
+                  needed: r.target ?? r.required ?? null,
+                  actual: r.roll ?? r.value ?? null,
+                  request_id: r.request_id ?? null,
+                  raw: r,
+                });
+              });
 
-                      // Append actions (yellow)
-                      actions.forEach((ev) => {
-                        if (
-                          ev.event === "action_resolved" &&
-                          ev.action_resolved
-                        ) {
-                          const ar = ev.action_resolved;
-                          const details = ar.details || {};
-                          const detailLines = Object.keys(details || {}).map(
-                            (k) => `    ${k}: ${JSON.stringify(details[k])}`
-                          );
-                          const block = [
-                            `AI action: ${ar.unit} -> ${
-                              ar.card_title || "(action)"
-                            }`,
-                            `  initiative: ${ar.initiative || ""}`,
-                            `  behavior: ${ar.behavior || ""}`,
-                            ...(detailLines.length
-                              ? ["  details:", ...detailLines]
-                              : []),
-                          ].join("\n");
-                          // append as a block so classification picks it up as 'action'
-                          appendBlock(block);
-                        } else {
-                          appendBlock(formatEvent(ev));
-                        }
-                      });
-                    } else {
-                      appendBlock("Resolved rolls (no events returned)");
-                    }
-
-                    // After resolving rolls, fetch the last turn to run remaining server logic and show events
-                    try {
-                      const last = await api.getLastTurn(sessionId);
-                      (last.events || []).forEach((ev) => {
-                        const n = normalizeEvent(ev) || ev;
-                        if (n && n.event === "aggression_check") {
-                          appendTyped("check", {
-                            unit: n.unit || null,
-                            needed: n.target ?? null,
-                            actual: n.total ?? n.roll ?? null,
-                            raw: n,
-                          });
-                        } else if (
-                          n &&
-                          (n.event === "roll_result" || n.event === "roll")
-                        ) {
-                          appendTyped("roll", {
-                            unit: n.unit || null,
-                            card:
-                              n.card_title || (n.card && n.card.title) || null,
-                            needed: n.target ?? n.required ?? null,
-                            actual: n.roll ?? n.value ?? null,
-                            request_id: n.request_id ?? null,
-                            raw: n,
-                          });
-                        } else {
-                          appendBlock(formatEvent(n));
-                        }
-                      });
-                    } catch (err) {
-                      appendBlock(
-                        "Warn: could not fetch last turn: " + String(err)
-                      );
-                    }
-                    // Clear paused state and inputs
-                    setPausedActions(null);
-                    setRollInputs({});
-                    setRollValidationErrors({});
-                    setRollModalOpen(false);
-                  } catch (err) {
-                    // Try to show a friendly server error if it's JSON
-                    const msg = String(err);
-                    try {
-                      const parsed = JSON.parse(msg);
-                      if (parsed && parsed.error) {
-                        const rid = parsed.request_id
-                          ? ` request=${parsed.request_id}`
-                          : "";
-                        const field = parsed.field
-                          ? ` field=${parsed.field}`
-                          : "";
-                        const val =
-                          parsed.value !== undefined
-                            ? ` value=${parsed.value}`
-                            : "";
-                        appendLog(
-                          `Roll rejected: ${parsed.error}${rid}${field}${val}`
-                        );
-                      } else {
-                        appendLog("Warn: failed to resolve rolls: " + msg);
-                      }
-                    } catch (parseErr) {
-                      // Not JSON, just log the message
-                      appendLog("Warn: failed to resolve rolls: " + msg);
-                    }
-                  }
-                }}
-                disabled={
-                  // disabled if any paused action is missing a valid roll
-                  (pausedActions || []).some(
-                    (a) =>
-                      rollValidationErrors[a.request_id] ||
-                      !rollInputs[a.request_id]
-                  )
+              // Append actions (yellow)
+              actions.forEach((ev) => {
+                if (ev.event === "action_resolved" && ev.action_resolved) {
+                  const ar = ev.action_resolved;
+                  const details = ar.details || {};
+                  const detailLines = Object.keys(details || {}).map(
+                    (k) => `    ${k}: ${JSON.stringify(details[k])}`
+                  );
+                  const block = [
+                    `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
+                    `  initiative: ${ar.initiative || ""}`,
+                    `  behavior: ${ar.behavior || ""}`,
+                    ...(detailLines.length
+                      ? ["  details:", ...detailLines]
+                      : []),
+                  ].join("\n");
+                  // append as a block so classification picks it up as 'action'
+                  appendBlock(block);
+                } else {
+                  appendBlock(formatEvent(ev));
                 }
-              >
-                Submit Rolls
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              });
+            } else {
+              appendBlock("Resolved rolls (no events returned)");
+            }
+
+            // After resolving rolls, fetch the last turn to run remaining server logic and show events
+            try {
+              const last = await api.getLastTurn(sessionId);
+              (last.events || []).forEach((ev) => {
+                const n = normalizeEvent(ev) || ev;
+                if (n && n.event === "aggression_check") {
+                  appendTyped("check", {
+                    unit: n.unit || null,
+                    needed: n.target ?? null,
+                    actual: n.total ?? n.roll ?? null,
+                    raw: n,
+                  });
+                } else if (
+                  n &&
+                  (n.event === "roll_result" || n.event === "roll")
+                ) {
+                  appendTyped("roll", {
+                    unit: n.unit || null,
+                    card: n.card_title || (n.card && n.card.title) || null,
+                    needed: n.target ?? n.required ?? null,
+                    actual: n.roll ?? n.value ?? null,
+                    request_id: n.request_id ?? null,
+                    raw: n,
+                  });
+                } else {
+                  appendBlock(formatEvent(n));
+                }
+              });
+            } catch (err) {
+              appendBlock("Warn: could not fetch last turn: " + String(err));
+            }
+            // Clear paused state and inputs
+            setPausedActions(null);
+            setRollInputs({});
+            setRollValidationErrors({});
+            setRollModalOpen(false);
+          } catch (err) {
+            // Try to show a friendly server error if it's JSON
+            const msg = String(err);
+            try {
+              const parsed = JSON.parse(msg);
+              if (parsed && parsed.error) {
+                const rid = parsed.request_id
+                  ? ` request=${parsed.request_id}`
+                  : "";
+                const field = parsed.field ? ` field=${parsed.field}` : "";
+                const val =
+                  parsed.value !== undefined ? ` value=${parsed.value}` : "";
+                appendLog(`Roll rejected: ${parsed.error}${rid}${field}${val}`);
+              } else {
+                appendLog("Warn: failed to resolve rolls: " + msg);
+              }
+            } catch (parseErr) {
+              // Not JSON, just log the message
+              appendLog("Warn: failed to resolve rolls: " + msg);
+            }
+          }
+        }}
+        disableSubmit={(pausedActions || []).some(
+          (a) => rollValidationErrors[a.request_id] || !rollInputs[a.request_id]
+        )}
+      />
     </div>
   );
 }
