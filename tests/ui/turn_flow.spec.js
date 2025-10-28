@@ -29,9 +29,31 @@ test.describe("AI turn -> player-roll -> resolve flow", () => {
       page.locator("text=Created stateless session with seed")
     ).toHaveCount(1, { timeout: 10000 });
 
-    const runBtn = page.locator('button:has-text("Run AI Turn")');
-    // Wait for the Run AI Turn button to become enabled (units loaded and ready)
-    await expect(runBtn).toBeEnabled({ timeout: 30000 });
+    // Ensure units have been loaded into the UI (the app logs this explicitly)
+    // The frontend logs: "Loaded <n> AI units" — wait for that pattern.
+    await expect(page.locator("text=/Loaded \\d+ AI units/")).toHaveCount(1, {
+      timeout: 10000,
+    });
+
+    // Target the desktop Run AI Turn button by id to avoid matching the mobile
+    // fixed bottom button which exists concurrently in the DOM.
+    const desktop = page.locator("#run-ai-turn");
+    const mobile = page.locator("#run-ai-turn-mobile");
+
+    // Wait up to 30s for either the desktop or mobile Run button to become enabled.
+    let runBtn = null;
+    for (let i = 0; i < 60; i++) {
+      if (await desktop.isEnabled().catch(() => false)) {
+        runBtn = desktop;
+        break;
+      }
+      if (await mobile.isEnabled().catch(() => false)) {
+        runBtn = mobile;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+    if (!runBtn) throw new Error("Run AI Turn button did not become enabled");
     await runBtn.click();
 
     // The turn header should be present immediately

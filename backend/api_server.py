@@ -260,6 +260,33 @@ def create_session_stateless():
     except Exception:
         placement = None
 
+    # Ensure the proposed placement includes explicit, frontend-friendly battleplan info
+    try:
+        if placement is not None and selected_battleplan:
+            # placement['battleplan'] may already contain the bp dict; normalize to include id/title/deployment/map
+            placement.setdefault('battleplan', {})
+            try:
+                placement['battleplan']['id'] = selected_battleplan.get('id')
+            except Exception:
+                pass
+            try:
+                placement['battleplan']['title'] = selected_battleplan.get('title')
+            except Exception:
+                pass
+            try:
+                placement['battleplan']['deployment'] = selected_battleplan.get('deployment')
+            except Exception:
+                pass
+            try:
+                m = _find_map_for_bp(selected_battleplan)
+                if m:
+                    placement['battleplan']['map'] = m
+            except Exception:
+                pass
+    except Exception:
+        # non-fatal: don't break session creation if annotation fails
+        pass
+
     state = {'turn': sim.turn, 'ai_units': [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in ai_units], 'ai_profiles': ai_profiles, 'roll_mode': roll_mode}
     bp_info = None
     if selected_battleplan:

@@ -87,7 +87,7 @@ export default function ClientControls({
             className="btn-success w-full"
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           >
-            Run AI Turn
+            Run AI Turn (mobile)
           </button>
         </div>
       </div>

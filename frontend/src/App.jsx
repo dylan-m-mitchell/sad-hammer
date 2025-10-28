@@ -513,6 +513,11 @@ export default function App() {
       try {
         const proposed = created.proposed_placement;
         if (proposed) {
+          // If the server included battleplan info inside the proposed placement,
+          // ensure our top-level battleplan state is set so the modal can show the name.
+          if (!battleplan && proposed.battleplan) {
+            setBattleplan(proposed.battleplan);
+          }
           setPlacement(proposed);
           const aiChosen = {};
           const placements = (proposed.suggestions || []).map((sug) => {
@@ -928,6 +933,7 @@ export default function App() {
         placement={placement}
         chosenZones={chosenZones}
         bpImgSrc={bpImgSrc}
+        battleplan={battleplan}
         onClose={() => setPlacementOpen(false)}
       />
       <RollModal

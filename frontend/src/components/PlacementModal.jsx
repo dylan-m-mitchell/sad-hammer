@@ -6,8 +6,30 @@ export default function PlacementModal({
   placement,
   chosenZones,
   bpImgSrc,
+  battleplan,
   onClose,
 }) {
+  // Prefer explicit placement title, then top-level battleplan, then derive a
+  // readable fallback from any available map filename. This handles a few
+  // backend/frontend field-name mismatches observed in different code paths.
+  const bpTitle =
+    placement?.battleplan?.title ||
+    battleplan?.title ||
+    (placement?.battleplan?.map
+      ? (() => {
+          try {
+            const parts = String(placement.battleplan.map).split("/");
+            const fname = parts[parts.length - 1] || placement.battleplan.map;
+            return fname
+              .replace(/[-_]/g, " ")
+              .replace(/\.(png|jpg|jpeg|webp)$/i, "");
+          } catch (e) {
+            return null;
+          }
+        })()
+      : null) ||
+    "Unknown";
+
   return (
     <Modal
       open={open}
@@ -17,7 +39,7 @@ export default function PlacementModal({
     >
       <p className="text-sm text-slate-300">
         The uploaded roster is the enemy AI. Deployment has been auto-picked
-        based on the battleplan: {placement?.battleplan?.title || "Unknown"}
+        based on the battleplan: {bpTitle}
       </p>
       <div className="mt-3 flex-1 min-h-0 overflow-y-auto p-2">
         <div className="grid gap-4 md:grid-cols-2">
@@ -64,9 +86,17 @@ export default function PlacementModal({
               id="placement-map"
             >
               <div className="mb-2 text-sm font-semibold">Deployment map</div>
-              {bpImgSrc || placement?.map_src ? (
+              {bpImgSrc ||
+              placement?.map_src ||
+              placement?.battleplan?.map ||
+              battleplan?.map ? (
                 <img
-                  src={bpImgSrc || placement.map_src}
+                  src={
+                    bpImgSrc ||
+                    placement?.map_src ||
+                    placement?.battleplan?.map ||
+                    battleplan?.map
+                  }
                   alt="Battleplan map"
                   className="max-h-[360px] w-full rounded object-contain"
                 />

@@ -36,13 +36,13 @@
       - generic [ref=e22]:
         - heading "Log" [level=2] [ref=e24]
         - generic [ref=e28]:
-          - generic [ref=e29]: Created stateless session with seed 3151703014
+          - generic [ref=e29]: Created stateless session with seed 3438090640
           - generic [ref=e30]: Loaded 0 AI units
           - generic [ref=e31]: Placement proposed by server (stateless);
   - generic [ref=e34]:
     - heading "AI Deployment" [level=3] [ref=e35]
     - generic [ref=e36]:
-      - paragraph [ref=e37]: "The uploaded roster is the enemy AI. Deployment has been auto-picked based on the battleplan: Veins of Ghur (2021)"
+      - paragraph [ref=e37]: "The uploaded roster is the enemy AI. Deployment has been auto-picked based on the battleplan: Marking Territory (2021)"
       - generic [ref=e39]:
         - generic [ref=e40]:
           - generic [ref=e41]:

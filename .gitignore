@@ -23,3 +23,8 @@ env/
 
 # Node
 node_modules/
+
+# Test Armies
+Current-Stormcasts.html
+New-Orruk-Roster.html
+
