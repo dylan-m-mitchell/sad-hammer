@@ -6,12 +6,12 @@ they follow the Peter Holland Solo Wargaming rules correctly.
 
 import pytest
 import random
-from deck_manager import (
+from backend.deck_manager import (
     TacticsDeckManager,
     ActionDeckManager,
     create_turn_action_assignments
 )
-from reference_card_decks import battle_tactic_deck, objective_action_deck
+from backend.reference_card_decks import battle_tactic_deck, objective_action_deck
 
 
 class TestTacticsDeckManager:

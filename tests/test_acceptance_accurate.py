@@ -6,8 +6,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from full_simulator import SoloSimulator, Unit
-from interactive_simulator import Unit as CombatUnit, resolve_attack
+from backend.full_simulator import SoloSimulator, Unit
+from backend.interactive_simulator import Unit as CombatUnit, resolve_attack
 
 
 def test_aggression_modifier_deterministic():

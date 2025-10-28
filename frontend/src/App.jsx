@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
 import ClientControls from "./components/ClientControls";
+import UploadModal from "./components/UploadModal";
 import UnitsList from "./components/UnitsList";
 import PlacementModal from "./components/PlacementModal";
 import RollModal from "./components/RollModal";
@@ -103,6 +104,7 @@ export default function App() {
   const [rollMode, setRollMode] = useState("ai");
   const [placement, setPlacement] = useState(null);
   const [placementOpen, setPlacementOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [chosenZones, setChosenZones] = useState({});
   const [seed, setSeed] = useState(null);
   const [turn, setTurn] = useState(1);
@@ -275,10 +277,13 @@ export default function App() {
     try {
       if (t === "action_resolved" && ev.action_resolved) {
         const ar = ev.action_resolved;
+        if (import.meta.env && import.meta.env.DEV) {
+          // Developer-only console log for initiative (internal ordering)
+          console.debug("[dev] action_resolved initiative:", ar.initiative, ar);
+        }
         const lines = [];
         lines.push(`AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`);
-        if (ar.initiative !== undefined)
-          lines.push(`  initiative: ${ar.initiative}`);
+        // initiative is internal ordering info; do not print to the user
         if (ar.behavior) lines.push(`  behavior: ${ar.behavior}`);
         const details = ar.details || {};
         const detailKeys = Object.keys(details || {});
@@ -307,10 +312,18 @@ export default function App() {
         const lines = [];
         lines.push(`ROLL REQUEST (turn ${ev.turn ?? "?"}): ${ev.tactic || ""}`);
         (ev.pending_actions || []).forEach((p) => {
+          if (import.meta.env && import.meta.env.DEV) {
+            console.debug(
+              "[dev] pending action initiative:",
+              p.request_id,
+              p.initiative,
+              p
+            );
+          }
           const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
           const card = p.card_title || (p.card && p.card.title) || "(action)";
           lines.push(
-            `  - [${p.request_id}] ${p.unit} -> ${card} | init=${p.initiative} | roll: ${dice}`
+            `  - [${p.request_id}] ${p.unit} -> ${card} | roll: ${dice}`
           );
         });
         return lines.join("\n");
@@ -513,6 +526,11 @@ export default function App() {
       try {
         const proposed = created.proposed_placement;
         if (proposed) {
+          // If the server included battleplan info inside the proposed placement,
+          // ensure our top-level battleplan state is set so the modal can show the name.
+          if (!battleplan && proposed.battleplan) {
+            setBattleplan(proposed.battleplan);
+          }
           setPlacement(proposed);
           const aiChosen = {};
           const placements = (proposed.suggestions || []).map((sug) => {
@@ -681,7 +699,7 @@ export default function App() {
             const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
             const card = p.card_title || (p.card && p.card.title) || "(action)";
             appendLog(
-              `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
+              `  • [${p.request_id}] ${p.unit} -> ${card}  |  roll: ${dice}`
             );
           });
           appendLog("");
@@ -728,7 +746,6 @@ export default function App() {
             );
             const block = [
               `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
-              `  initiative: ${ar.initiative || ""}`,
               `  behavior: ${ar.behavior || ""}`,
               ...(detailLines.length ? ["  details:", ...detailLines] : []),
             ].join("\n");
@@ -893,8 +910,9 @@ export default function App() {
         <ClientControls
           file={file}
           onFileChange={handleFileChange}
-          onChoose={handleChoose}
           onUpload={onUpload}
+          openUploadModal={uploadOpen}
+          setOpenUploadModal={setUploadOpen}
           battleplans={battleplans}
           selectedBattleplan={selectedBattleplan}
           setSelectedBattleplan={setSelectedBattleplan}
@@ -905,8 +923,29 @@ export default function App() {
           busy={busy}
         />
 
+        <UploadModal
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onFileChange={handleFileChange}
+          onUpload={async () => {
+            await onUpload();
+            // close modal once upload completes
+            setUploadOpen(false);
+          }}
+          busy={busy}
+          battleplans={battleplans}
+          selectedBattleplan={selectedBattleplan}
+          setSelectedBattleplan={setSelectedBattleplan}
+          rollMode={rollMode}
+          setRollMode={setRollMode}
+        />
+
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
-          <UnitsList units={units} onRemove={handleRemoveUnit} />
+          <UnitsList
+            units={units}
+            onRemove={handleRemoveUnit}
+            collapsible={true}
+          />
 
           <div className="card md:col-span-2">
             <div className="card-header">
@@ -928,6 +967,7 @@ export default function App() {
         placement={placement}
         chosenZones={chosenZones}
         bpImgSrc={bpImgSrc}
+        battleplan={battleplan}
         onClose={() => setPlacementOpen(false)}
       />
       <RollModal

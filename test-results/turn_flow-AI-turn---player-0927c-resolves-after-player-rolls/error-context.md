@@ -1,0 +1,67 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Sadhammer" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Upload a BattleScribe HTML roster and run a simulated AI turn.
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - button "Upload Roster" [ref=e10] [cursor=pointer]
+      - combobox [ref=e11]:
+        - option "(random)" [selected]
+        - option "First Blood (2021)"
+        - option "Power Struggle (2021)"
+        - option "Savage Gains (2021)"
+        - option "Apex Predators (2021)"
+        - option "Survival of the Fittest (2021)"
+        - option "Marking Territory (2021)"
+        - option "Feral Foray (2021)"
+        - option "The Vice (2021)"
+        - option "Tectonic Interference (2021)"
+        - option "Tooth and Nail (2021)"
+        - option "Power in Numbers (2021)"
+        - option "Veins of Ghur (2021)"
+      - generic [ref=e12]: "Roll mode:"
+      - combobox "Roll mode:" [ref=e13]:
+        - option "AI handles rolls" [selected]
+        - option "Player rolls (enter dice)"
+      - button "Run AI Turn" [disabled] [ref=e14]
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Units" [level=2] [ref=e18]
+        - paragraph [ref=e20]: No units loaded yet.
+      - generic [ref=e21]:
+        - heading "Log" [level=2] [ref=e23]
+        - generic [ref=e27]:
+          - generic [ref=e28]: Created stateless session with seed 2979195423
+          - generic [ref=e29]: Loaded 0 AI units
+          - generic [ref=e30]: Placement proposed by server (stateless);
+  - generic [ref=e33]:
+    - heading "AI Deployment" [level=3] [ref=e34]
+    - generic [ref=e35]:
+      - paragraph [ref=e36]: "The uploaded roster is the enemy AI. Deployment has been auto-picked based on the battleplan: Feral Foray (2021)"
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]: Allowed zones
+            - generic [ref=e42]:
+              - generic [ref=e43]: left
+              - generic [ref=e44]: center
+              - generic [ref=e45]: right
+              - generic [ref=e46]: forward
+              - generic [ref=e47]: defensive
+              - generic [ref=e48]: reserve
+              - generic [ref=e49]: scattered
+          - table [ref=e51]:
+            - rowgroup [ref=e52]:
+              - row "Unit Zone (AI-chosen)" [ref=e53]:
+                - cell "Unit" [ref=e54]
+                - cell "Zone (AI-chosen)" [ref=e55]
+            - rowgroup
+        - generic [ref=e57]:
+          - generic [ref=e58]: Deployment map
+          - img "Battleplan map" [ref=e59]
+      - button "Close" [ref=e61] [cursor=pointer]
+```

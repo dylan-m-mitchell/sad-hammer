@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Simple Flask API to serve the Battlescribe parser and simulator to a web frontend.
+"""Flask API (moved into backend package).
 
-Endpoints:
-- POST /api/load_roster : multipart file upload 'file' -> returns parsed units JSON
-- POST /api/run_simulation : JSON payload { "units": [...] , "turns": N, "seed": S } -> returns list of events
-
-This is intended for local development only.
+This is the same application previously at repo root `api_server.py`, but
+paths are computed relative to the repository root so the module can live
+inside the `backend/` package.
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -13,10 +11,10 @@ from flask_cors import CORS
 import tempfile
 import os
 
-from battlescribe_parser import parse_battlescribe_html
-from full_simulator import SoloSimulator, Unit as AIUnit
+from backend.battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator, Unit as AIUnit
 from copy import deepcopy
-from reference_card_decks import tactic_to_actions, battleplan_deck
+from backend.reference_card_decks import tactic_to_actions, battleplan_deck
 from backend import placement as placement_module
 import json
 import hashlib
@@ -25,42 +23,20 @@ import random as _random
 app = Flask(__name__)
 CORS(app)
 
-# Legacy sessionful endpoints were removed. Add explicit stubs that return 404
-# so clients POSTing to old `/api/session` paths receive a clear 404 instead
-# of a 405 caused by the generic static-file route below.
-@app.route('/api/session', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
-def legacy_session_root():
-    return jsonify({'error': 'session endpoints removed'}), 404
+# Compute repository root (one level up from this file)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-
-@app.route('/api/session/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
-def legacy_session_sub(subpath):
-    return jsonify({'error': 'session endpoints removed'}), 404
-
-# NOTE: server is now stateless for simulation flows. All sessionful server-side
-# state (previously in SESSIONS) has been removed. Clients must provide the
-# initial seed, current turn, and AI unit list for stateless endpoints.
-
-# Load optional battleplan -> zone bias mapping (allows controlling which deployment
-# zones are permitted/weighted for each battleplan). This file is authored under
-# backend/battleplan_zone_bias.json and is used to report allowed zones in the
-# placement event emitted on the initial AI turn.
+# Load optional battleplan -> zone bias mapping (file lives in backend/)
 BATTLEPLAN_ZONE_BIAS = []
-_bp_bias_path = os.path.join(os.path.dirname(__file__), 'backend', 'battleplan_zone_bias.json')
+_bp_bias_path = os.path.join(os.path.dirname(__file__), 'battleplan_zone_bias.json')
 try:
     with open(_bp_bias_path, 'r', encoding='utf-8') as _f:
         BATTLEPLAN_ZONE_BIAS = json.load(_f)
 except Exception:
-    # silently ignore missing/invalid file; placement will fall back to freeform text
     BATTLEPLAN_ZONE_BIAS = []
 
 
 def _get_zone_info_for_bp(bp):
-    """Return the zone bias entry for the given battleplan dict or None.
-
-    bp may be a dict from `battleplan_deck` (with 'id' or 'title'). We match
-    by id first, then by case-insensitive title.
-    """
     if not bp:
         return None
     try:
@@ -82,51 +58,37 @@ def _get_zone_info_for_bp(bp):
 
 
 def _find_map_for_bp(bp):
-    """Return a map URL (under /assets/battleplan_maps/) for the given battleplan dict, or None.
-
-    Tries several filename patterns against the `battleplans-media` directory and returns
-    the first match. Patterns include: Title-Case hyphenated, slug, raw title, stripped-parentheses,
-    and common extensions (.jpg, .jpeg, .png, .webp).
-    """
     if not bp:
         return None
-    base_dir = os.path.join(os.path.dirname(__file__), 'battleplans-media')
-    # collect candidate stems
+    # battleplans-media lives at repository root
+    base_dir = os.path.join(REPO_ROOT, 'battleplans-media')
     stems = []
     try:
         title = str(bp.get('title', '')).strip()
     except Exception:
         title = ''
     if title:
-        # Title-Case hyphenated
-        parts = [p for p in [w for w in __import__('re').split(r'[^A-Za-z0-9]+', title)] if p]
-    # Fallback: build via safe transforms (avoid complex errors)
-    try:
-        raw = title
-        # slug
-        slug = raw.lower().replace(' ', '-').replace('/', '-').replace("'", '').replace('"', '')
-        slug = __import__('re').sub(r'[^a-z0-9\-]+', '-', slug).strip('-')
-        stems.append(slug)
-        # title-case hyphen
-        words = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', raw) if w]
-        if words:
-            title_case = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in words])
-            stems.append(title_case)
-            stems.append(title_case + '-2048x1524')
-        # raw with spaces
-        stems.append(raw)
-        stems.append(raw + '-2048x1524')
-        # stripped parentheses
-        stripped = __import__('re').sub(r'\s*\([^\)]*\)\s*', '', raw).strip()
-        if stripped and stripped != raw:
-            ws = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', stripped) if w]
-            stripped_hy = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in ws])
-            stems.append(stripped_hy)
-            stems.append(stripped_hy + '-2048x1524')
-    except Exception:
-        stems = stems or []
+        try:
+            raw = title
+            slug = raw.lower().replace(' ', '-').replace('/', '-').replace("'", '').replace('"', '')
+            slug = __import__('re').sub(r'[^a-z0-9\-]+', '-', slug).strip('-')
+            stems.append(slug)
+            words = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', raw) if w]
+            if words:
+                title_case = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in words])
+                stems.append(title_case)
+                stems.append(title_case + '-2048x1524')
+            stems.append(raw)
+            stems.append(raw + '-2048x1524')
+            stripped = __import__('re').sub(r'\s*\([^\)]*\)\s*', '', raw).strip()
+            if stripped and stripped != raw:
+                ws = [w for w in __import__('re').split(r'[^A-Za-z0-9]+', stripped) if w]
+                stripped_hy = '-'.join([w[0].upper() + w[1:] if len(w) > 1 else w.upper() for w in ws])
+                stems.append(stripped_hy)
+                stems.append(stripped_hy + '-2048x1524')
+        except Exception:
+            stems = stems or []
 
-    # candidate extensions
     exts = ['.jpg', '.jpeg', '.png', '.webp']
     for stem in stems:
         for ext in exts:
@@ -137,24 +99,24 @@ def _find_map_for_bp(bp):
                     return f"/assets/battleplan_maps/{fname}"
             except Exception:
                 continue
-    # No file found
     return None
 
-# Serve the web frontend (static) from the web/ directory
+
+# Serve the web frontend (static) from the web/ directory at repository root
 @app.route('/')
 def index():
-    return send_from_directory('web', 'index.html')
+    return send_from_directory(os.path.join(REPO_ROOT, 'web'), 'index.html')
+
 
 @app.route('/<path:filename>')
 def static_files(filename):
-    return send_from_directory('web', filename)
+    return send_from_directory(os.path.join(REPO_ROOT, 'web'), filename)
 
 
 # Serve battleplan map images from the repository `battleplans-media/` directory
 @app.route('/assets/battleplan_maps/<path:filename>')
 def battleplan_maps(filename):
-    # Security: avoid directory traversal by normalizing path
-    base = os.path.join(os.path.dirname(__file__), 'battleplans-media')
+    base = os.path.join(REPO_ROOT, 'battleplans-media')
     return send_from_directory(base, filename)
 
 
@@ -163,7 +125,6 @@ def load_roster():
     if 'file' not in request.files:
         return jsonify({'error': 'no file provided'}), 400
     f = request.files['file']
-    # save to a temp file and parse
     with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
         tmp.write(f.read())
         tmp_path = tmp.name
@@ -186,13 +147,11 @@ def run_simulation_api():
     units = data.get('units')
     turns = int(data.get('turns', 5))
     seed = int(data.get('seed', 1))
-    # For quick one-off runs we treat provided units as an AI roster and run the SoloSimulator
     ai_units = []
     if units:
         for u in units:
             ai_units.append(AIUnit(u.get('name', 'Unit'), aggression=u.get('aggression', 'Neutral')))
     else:
-        # fallback sample AI units
         ai_units = [AIUnit('Mournfang Pack A', aggression='Aggressive'), AIUnit('Huskard on Stonehorn', aggression='Aggressive')]
 
     events = []
@@ -200,7 +159,6 @@ def run_simulation_api():
     try:
         for _ in range(turns):
             out = sim.simulate_turn()
-            # copy events
             for ev in out:
                 events.append(ev.copy())
     except Exception as e:
@@ -209,10 +167,8 @@ def run_simulation_api():
     return jsonify({'events': events})
 
 
-
 @app.route('/api/battleplans', methods=['GET'])
 def list_battleplans():
-    # Return the available battleplan cards (id and title and short deployment text)
     plans = []
     for b in battleplan_deck:
         p = {'id': b.get('id'), 'title': b.get('title'), 'deployment': b.get('deployment')}
@@ -226,23 +182,8 @@ def list_battleplans():
     return jsonify({'battleplans': plans})
 
 
-# Player unit CRUD endpoints removed: server does not model or persist player units.
-
-
-# Note: player actions are not modeled by this server. The app only runs an AI opponent
-# based on uploaded rosters and the card decks.
-
-
-
-
-
 def _derive_seed(initial_seed, turn):
-    """Derive a 32-bit integer seed from an initial seed and a turn number.
-
-    This uses SHA-256(initial_seed:turn) and returns the first 32 bits as an int.
-    """
     if initial_seed is None:
-        # fallback to random seed
         return _random.getrandbits(32)
     s = f"{initial_seed}:{turn}"
     h = hashlib.sha256(s.encode('utf-8')).digest()
@@ -251,12 +192,6 @@ def _derive_seed(initial_seed, turn):
 
 @app.route('/api/session_stateless', methods=['POST'])
 def create_session_stateless():
-    """Create a stateless session response. Returns an initial seed and AI unit/profile data.
-
-    Accepts the same payload as POST /api/session (multipart file upload 'file' or JSON 'units'),
-    but does NOT persist any server-side session. Returns: { seed, battleplan, state: { turn, ai_units, ai_profiles, roll_mode }, proposed_placement }
-    """
-    # Accept file upload or JSON body
     units_payload = None
     if request.files and 'file' in request.files:
         f = request.files['file']
@@ -283,14 +218,12 @@ def create_session_stateless():
     else:
         ai_units = [AIUnit('Mournfang Pack A', aggression='Aggressive'), AIUnit('Huskard on Stonehorn', aggression='Aggressive')]
 
-    # roll_mode and chosen_battleplan same handling as create_session
     try:
         data = request.get_json(silent=True) or {}
     except Exception:
         data = {}
     roll_mode = data.get('roll_mode') if data else None
     if roll_mode not in ('ai', 'player'):
-        # check form
         roll_mode = request.form.get('roll_mode') if 'roll_mode' in request.form else 'ai'
 
     chosen_bp = None
@@ -318,10 +251,7 @@ def create_session_stateless():
     except Exception:
         selected_battleplan = battleplan_deck[0] if battleplan_deck else None
 
-    # Generate an initial seed to return to the client; client will send this seed for subsequent calls
     seed = _random.getrandbits(32)
-
-    # Build a SoloSimulator locally to compute an initial proposed placement (statelessly)
     sim = SoloSimulator(ai_units, seed=seed)
     placement = None
     try:
@@ -330,7 +260,33 @@ def create_session_stateless():
     except Exception:
         placement = None
 
-    # Return a minimal state object
+    # Ensure the proposed placement includes explicit, frontend-friendly battleplan info
+    try:
+        if placement is not None and selected_battleplan:
+            # placement['battleplan'] may already contain the bp dict; normalize to include id/title/deployment/map
+            placement.setdefault('battleplan', {})
+            try:
+                placement['battleplan']['id'] = selected_battleplan.get('id')
+            except Exception:
+                pass
+            try:
+                placement['battleplan']['title'] = selected_battleplan.get('title')
+            except Exception:
+                pass
+            try:
+                placement['battleplan']['deployment'] = selected_battleplan.get('deployment')
+            except Exception:
+                pass
+            try:
+                m = _find_map_for_bp(selected_battleplan)
+                if m:
+                    placement['battleplan']['map'] = m
+            except Exception:
+                pass
+    except Exception:
+        # non-fatal: don't break session creation if annotation fails
+        pass
+
     state = {'turn': sim.turn, 'ai_units': [{'name': u.name, 'aggression': getattr(u, 'aggression', None)} for u in ai_units], 'ai_profiles': ai_profiles, 'roll_mode': roll_mode}
     bp_info = None
     if selected_battleplan:
@@ -347,19 +303,12 @@ def create_session_stateless():
 
 @app.route('/api/ai_turn_stateless', methods=['POST'])
 def ai_turn_stateless():
-    """Run a single AI turn deterministically from an initial seed and turn index.
-
-    Expected JSON: { seed: <int|string>, turn: <int>, ai_units: [...], roll_mode: 'ai'|'player', battleplan: <optional> }
-    Returns: { turn: <int>, events: [...], pending_actions: [...](if player mode) }
-    """
     data = request.get_json(force=True) or {}
     seed = data.get('seed')
     turn = int(data.get('turn', 1))
     roll_mode = data.get('roll_mode', 'ai')
     ai_units_payload = data.get('ai_units') or []
-    battleplan = data.get('battleplan')
 
-    # Reconstruct Unit objects
     units = []
     for u in ai_units_payload:
         name = u.get('name') if isinstance(u, dict) else str(u)
@@ -367,25 +316,20 @@ def ai_turn_stateless():
         agg_mod = u.get('aggression_modifier', 0) if isinstance(u, dict) else 0
         units.append(AIUnit(name, aggression=agg or 'Neutral', aggression_modifier=agg_mod))
 
-    # Derive a per-turn seed and instantiate a SoloSimulator seeded with it
     derived = _derive_seed(seed, turn)
     sim = SoloSimulator(units, seed=derived)
-    # Force simulator to the requested turn so internal deck managers consider the correct turn
     sim.turn = turn
 
     events = []
     pending_actions = []
 
     if roll_mode == 'player':
-        # advance tactic deck and draw tactic
         sim.tactics_deck.advance_turn(sim.turn)
         tactic_card = sim.choose_battle_tactic()
         if tactic_card is None:
             return jsonify({'turn': sim.turn, 'events': [{'event': 'no_tactic_available'}]})
 
         tactic_title = tactic_card.get('title')
-
-        # aggression checks
         for u in sim.units:
             check = sim.aggression_check(u)
             will_act = check['result']
@@ -399,11 +343,9 @@ def ai_turn_stateless():
                 'target': check['target'],
             })
 
-        # Use deck_manager to create action assignments
-        from deck_manager import create_turn_action_assignments
+        from backend.deck_manager import create_turn_action_assignments
         action_assignments = create_turn_action_assignments(tactic_card, sim.units, {u.name: True for u in sim.units if True}, rng=sim.rng)
 
-        # Build pending_actions in the same format the frontend expects
         drawn_actions = []
         for idx, assignment in enumerate(action_assignments):
             req_id = f"{sim.turn}-{idx}"
@@ -435,19 +377,12 @@ def ai_turn_stateless():
 
         return jsonify({'turn': sim.turn, 'events': events, 'pending_actions': pending_actions})
 
-    # default AI mode: run the turn fully
     resolved = sim.simulate_turn()
-    # ensure events are JSON-serializable
     return jsonify({'turn': turn, 'events': resolved})
 
 
 @app.route('/api/resolve_rolls_stateless', methods=['POST'])
 def resolve_rolls_stateless():
-    """Resolve player-provided roll results for a paused turn in a stateless way.
-
-    Expected JSON: { seed, turn, pending_actions: [...], action_results: [...] }
-    Returns: { ok: true, events: [action_resolved, ...] }
-    """
     data = request.get_json(force=True) or {}
     seed = data.get('seed')
     turn = int(data.get('turn', 1))
@@ -472,7 +407,6 @@ def resolve_rolls_stateless():
         }
         events.append({'event': 'action_resolved', 'action_resolved': rec})
 
-    # Any pending actions not provided: mark resolved_by_client_without_details
     for rid, p in pending.items():
         if not any(r.get('request_id') == rid for r in action_results):
             rec = {
@@ -491,11 +425,6 @@ def resolve_rolls_stateless():
 
 @app.route('/api/remove_unit_stateless', methods=['POST'])
 def remove_unit_stateless():
-    """Stateless removal of an AI unit from a provided ai_units list.
-
-    Expected JSON: { ai_units: [{name, aggression, ...}], unit_name }
-    Returns: { ok: true, removed_unit, remaining_units }
-    """
     data = request.get_json(force=True) or {}
     ai_units_payload = data.get('ai_units') or []
     unit_name = data.get('unit_name')
@@ -509,5 +438,4 @@ def remove_unit_stateless():
 
 
 if __name__ == '__main__':
-    # bind to 0.0.0.0 so the app is reachable from nginx in docker-compose
     app.run(host='0.0.0.0', port=5000, debug=True)

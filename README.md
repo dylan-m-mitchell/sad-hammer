@@ -4,6 +4,11 @@ Sad Hammer is a small, card-driven solo AI for Age of Sigmar-style play. It prov
 a lightweight BattleScribe HTML roster parser, a Solo AI that uses card decks (tactics
 and action cards), and a minimal Flask API + static frontend to run and inspect AI turns.
 
+Note: The simulator is intended to compute and present the enemy army's intentions
+and recommended actions (what the AI would try to do). It is primarily an advisory
+tool for the player or a client to enact those intentions, not an automatic autoplayer
+that takes full control of the enemy army by default.
+
 This repo is intended to be both a playable table tool and a development kit for
 experimenting with different rule-fidelity modes (MVP, Accurate, Automated).
 
@@ -74,6 +79,11 @@ High-level usage (stateless)
 - Use "Run AI Turn" to call `POST /api/ai_turn_stateless` with `{ seed, turn, ai_units, roll_mode }`.
   The server computes deterministic AI behavior for that turn and returns structured
   events (and `pending_actions` when `roll_mode=="player"`).
+
+  Note: the returned structured events are intended to describe the enemy's
+  intentions and recommended actions. The client or player may use these to
+  enact moves/rolls manually or programmatically; the simulator is not required
+  to autonomously take control of the enemy army.
 
 Rule fidelity and roll handling
 

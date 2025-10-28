@@ -1,32 +1,11 @@
 """Reference card decks for Solo Wargaming (data-only)
 
-This file contains three decks used by Peter Holland's Solo Wargaming system
-as described on the Woehammer blog (Oct-Nov 2021). The intent is to provide
-data only (card text and minimal metadata) that matches the blog examples
-and the Age of Sigmar General's Handbook 2021 rules where relevant.
-
-This is a standalone reference module. It intentionally does not modify
-`solo_wargaming_ai.py` so it can be used as a stable data source.
-
-Assumptions / notes:
-- Battleplan deck contains 12 cards; where the blog does not specify exact
-  deployment text, reasonable inferred deployment instructions are used.
-- There are 8 Battle Tactic cards (the blog references many tactics; we've
-  selected the named ones and included 'Broken Ranks' as used in the blog).
-- Each tactic has an associated list of action cards. The blog provides the
-  full set for the 'Broken Ranks' deck; for other tactics we include placeholders
-  or short inferred actions which can be expanded later.
-- Objective action cards are a small set taken/inferred from the blog images
-  and descriptions.
+Copied into backend package for server ownership.
 """
 
 import random
 
-# ----------------------
 # Battleplan deck (12 cards)
-# ----------------------
-# The blog mentions a 'cover card' that explains deployment and a number of
-# deployment cards. We provide 12 cards with deployment hints.
 battleplan_deck = [
     {"id": 1, "title": "First Blood (2021)", "deployment": "Early engagement across the line; pressure forward and threaten enemy-half objectives.", "twist": "—"},
     {"id": 2, "title": "Power Struggle (2021)", "deployment": "Objectives form a central axis; contest center and paired flanks.", "twist": "—"},
@@ -42,89 +21,65 @@ battleplan_deck = [
     {"id": 12, "title": "Veins of Ghur (2021)", "deployment": "Falling objectives; be ready to flex to new drops.", "twist": "—"},
 ]
 
-
-# ----------------------
 # Battle Tactic deck (8 cards)
-# ----------------------
-# The blog references a set of battle tactic cards. Each battle tactic has:
-# - title: The name of the tactic
-# - description: What the tactic focuses on
-# - enters_deck_on_turn: Which turn this card is added to the tactics deck
-#   (0 = in deck from start, 1 = added after turn 1, etc.)
-# - designated_units: How to choose which unit(s) this tactic applies to
-# - designated_objectives: How to choose which objective(s) this tactic applies to
-#
-# The Tactics Deck is shuffled at the start of the game (with cards that have
-# enters_deck_on_turn=0), then one card is drawn each turn. When a card is drawn,
-# it is discarded from the deck. Cards with enters_deck_on_turn > 0 are added
-# to the discard pile at the appropriate time, then all discarded cards are
-# reshuffled back into the deck when it runs out.
 battle_tactic_deck = [
     {
         "title": "Monstrous Takeover",
         "description": "Prioritize monstrous units to seize objectives.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "All units with Monster keyword; if multiple, choose closest to nearest objective.",
         "designated_objectives": "Nearest objective to designated monster(s)."
     },
     {
-        "title": "Ferocious Advance", 
+        "title": "Ferocious Advance",
         "description": "Aggressive repositioning and charges.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "Hero with highest move characteristic; if tied, closest to enemy.",
         "designated_objectives": "Objective closest to designated hero."
     },
     {
         "title": "Aggressive Expansion",
         "description": "Move multiple units toward objectives to contest or capture.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "All units within 18\" of any objective.",
         "designated_objectives": "All objectives not currently controlled by AI."
     },
     {
         "title": "Conquer",
         "description": "Focus on taking and holding objectives.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "All Battleline units.",
         "designated_objectives": "Two closest objectives to AI deployment zone."
     },
     {
         "title": "Broken Ranks",
         "description": "A versatile tactic that breaks enemy formations.",
-        "enters_deck_on_turn": 2,  # Added to deck after turn 1 completes (drawn starting turn 2)
+        "enters_deck_on_turn": 2,
         "designated_units": "All units; priority to fastest units first.",
         "designated_objectives": "Center objective or objective closest to enemy Battleline."
     },
     {
         "title": "Bring It Down",
         "description": "Target a specific enemy unit to be destroyed.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "All units that can shoot or fight; prioritize units with highest attack count.",
         "designated_objectives": "None; focus is on destroying designated enemy unit (highest wounds or points value)."
     },
     {
         "title": "Slay the Warlord",
         "description": "Kill the enemy commander/leader.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "All units; priority to units with high damage output.",
         "designated_objectives": "None; focus is on eliminating enemy general/leader (if dead, next highest-cost enemy)."
     },
     {
         "title": "Savage Spearhead",
         "description": "Push a concentrated spearhead forward to overwhelm a flank.",
-        "enters_deck_on_turn": 0,  # In deck from start
+        "enters_deck_on_turn": 0,
         "designated_units": "Three fastest units or units on one flank (left or right, whichever has more units).",
         "designated_objectives": "Flank objective on the same side as designated units."
     },
 ]
-
-
-# ----------------------
-# Action decks
-# ----------------------
-# The blog shows the Broken Ranks action cards explicitly; we'll include those
-# verbatim (as used in your original file). For other tactics we'll include
-# short inferred actions so the data set is complete.
 
 broken_ranks_actions = [
     {"title": "WAAAGH! Forward!", "behavior": "If not within 12\" of an enemy, Run toward the nearest visible enemy unit. If within 12\", Move normally to close the gap and prepare to charge next turn.", "initiative": 8},
@@ -137,7 +92,6 @@ broken_ranks_actions = [
     {"title": "WAAAGH's Endin' Soon!", "behavior": "If within 12\" of an objective, Move to capture it even if enemy units are present. Otherwise, Run toward the largest cluster of enemy models visible.", "initiative": 1},
 ]
 
-# Minimal action decks for other named tactics (placeholders/inferred actions)
 monstrous_takeover_actions = [
     {"title": "Rampage Breaker", "behavior": "Monsters push forward to seize objectives; attempt to charge if within 6\".", "initiative": 8},
     {"title": "Monster Anchor", "behavior": "Monster holds a flank and refuses to fall back; other units support.", "initiative": 7},
@@ -215,13 +169,6 @@ hold_the_line_actions = [
     {"title": "Orderly Retreat", "behavior": "If overwhelmed, withdraw to the next objective in order and regroup.", "initiative": 1},
 ]
 
-# ----------------------
-# Objective Action Cards (4 cards)
-# ----------------------
-# These 4 cards are shuffled together with the 8 tactic-specific action cards
-# each turn to create a 12-card Action Deck. Each card specifies general
-# objective-focused behavior. Initiative numbers are included to ensure proper
-# sorting when drawn.
 objective_action_deck = [
     {"title": "Contest Objective", "behavior": "If within 6\" of an objective, move to contest it rather than charging enemies. If already contesting, hold position.", "initiative": 9},
     {"title": "Capture Objective", "behavior": "Move to the nearest objective not controlled by the AI. If already there, secure it by removing enemy models.", "initiative": 10},
@@ -229,8 +176,6 @@ objective_action_deck = [
     {"title": "Secure Objective", "behavior": "If within 3\" of an objective, remain there and defend it. Attack any enemy units that come within 3\".", "initiative": 12},
 ]
 
-
-# map tactic title -> action deck (reference lookup)
 tactic_to_actions = {
     "Broken Ranks": broken_ranks_actions,
     "Monstrous Takeover": monstrous_takeover_actions,
@@ -244,17 +189,10 @@ tactic_to_actions = {
 
 
 def sample_print():
-    """Print sample info to verify the module loads and decks are usable."""
     print("Battleplan cards:", len(battleplan_deck))
     print("Tactic cards:", len(battle_tactic_deck))
     print("Broken Ranks actions:", len(broken_ranks_actions))
     print("Objective action cards:", len(objective_action_deck))
-    print("-- sample battleplan --")
-    print(battleplan_deck[0])
-    print("-- sample tactic --")
-    print(battle_tactic_deck[0])
-    print("-- sample broken ranks card --")
-    print(broken_ranks_actions[0])
 
 
 if __name__ == '__main__':

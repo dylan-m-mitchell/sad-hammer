@@ -7,8 +7,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from battlescribe_parser import parse_battlescribe_html
-from full_simulator import SoloSimulator, Unit as AIUnit
+from backend.battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator, Unit as AIUnit
 
 
 def test_ai_simulator_runs_with_roster():

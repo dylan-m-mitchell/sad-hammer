@@ -8,13 +8,25 @@ test.describe("Battleplan and Placement Flow", () => {
   test("should allow creating a session and show placement UI", async ({
     page,
   }) => {
-    // 1. Upload a file
-    const fileInput = await page.locator('input[type="file"]');
+    // 1. Open upload modal and select a file
+    await page.click("#upload-roster");
+    const fileInput = await page.locator("#upload-file-modal");
     await fileInput.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    // Step 2: choose battleplan and roll mode if desired, then confirm
+    // Wait for options step to be available
+    await page.click("#upload-next");
+    // Select first non-random battleplan when available
+    const bpCount = await page
+      .locator("#upload-battleplan-select option")
+      .count();
+    if (bpCount > 1) {
+      await page.selectOption("#upload-battleplan-select", { index: 1 });
+    }
+    await page.click("#upload-confirm");
 
     // 2. Wait for battleplans to load
     await page.waitForTimeout(1000);
@@ -29,11 +41,8 @@ test.describe("Battleplan and Placement Flow", () => {
       await page.selectOption("#battleplan-select", { index: 1 });
     }
 
-    // 3. Trigger upload & parse (create stateless run)
-    await page.click("#create-run");
-
-    // 4. Verify a stateless session was created by looking for the seed log entry
-    // The frontend logs: "Created stateless session with seed <number>"
+    // After confirming upload (modal), a stateless session should be created.
+    // Verify by looking for the seed log entry.
     const seedLog = page.locator("text=Created stateless session with seed");
     await expect(seedLog).toHaveCount(1, { timeout: 10000 });
 
@@ -60,18 +69,18 @@ test.describe("Battleplan and Placement Flow", () => {
   test("should allow uploading roster without battleplan selection", async ({
     page,
   }) => {
-    // 1. Upload a file without selecting a battleplan (leave it on Random)
-    const fileInput = await page.locator('input[type="file"]');
-    await fileInput.setInputFiles({
+    // 1. Open upload modal and select a file (leave battleplan as Random)
+    await page.click("#upload-roster");
+    const fileInput2 = await page.locator("#upload-file-modal");
+    await fileInput2.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    await page.click("#upload-next");
+    await page.click("#upload-confirm");
 
-    // 2. Click create-run without selecting a battleplan
-    await page.click("#create-run");
-
-    // 3. Verify stateless session was created (look for seed log entry)
+    // After confirming upload (modal), verify stateless session was created
     await expect(
       page.locator("text=Created stateless session with seed")
     ).toHaveCount(1, {
@@ -82,7 +91,9 @@ test.describe("Battleplan and Placement Flow", () => {
   test("should show error when no file is selected", async ({ page }) => {
     // When no file is selected the create button should be disabled. Ensure that
     // state rather than attempting to click a disabled control.
-    const createBtn = page.locator("#create-run");
-    await expect(createBtn).toBeDisabled();
+    // Open upload modal and ensure the Upload button is disabled when no file is selected
+    await page.click("#upload-roster");
+    const uploadConfirm = page.locator("#upload-confirm");
+    await expect(uploadConfirm).toBeDisabled();
   });
 });

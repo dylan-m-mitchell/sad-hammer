@@ -1,15 +1,8 @@
-"""Interactive (or automatic) simulator front-end.
+"""Interactive (or automatic) simulator front-end (backend copy)
 
-This provides a lightweight CLI to create a player army (or use a sample),
-runs the AI SoloSimulator from `full_simulator.py`, and resolves simple
-combat when AI actions instruct attacks. Combat resolution is intentionally
-simplified: each model makes `attacks` attacks; to-hit/to-wound/save are
-resolved with d6 comparisons; wounds are subtracted from units and models
-are removed when their wounds run out.
-
-This is not a full AoS rules engine—it's a decision/combat harness that
-lets you interactively test card-driven AI behavior and see concrete
-outcomes.
+This provides the lightweight CLI harness but kept under backend/ so the
+server-owned modules are colocated. It reuses backend.full_simulator.SoloSimulator
+and backend.battlescribe_parser.parse_battlescribe_html when needed.
 """
 
 import argparse
@@ -18,8 +11,8 @@ import random
 from copy import deepcopy
 from typing import List, Optional, Callable
 
-from full_simulator import SoloSimulator, Unit as AIUnit
-from battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator, Unit as AIUnit
+from backend.battlescribe_parser import parse_battlescribe_html
 
 
 class Unit:
@@ -53,7 +46,6 @@ def roll_d6():
 
 
 def _roll_damage(dmg):
-    """Roll damage which can be an int or a dict {'type':'D','sides':n}."""
     if isinstance(dmg, dict) and dmg.get('type') == 'D':
         sides = dmg.get('sides', 3)
         return random.randint(1, sides)
@@ -61,11 +53,6 @@ def _roll_damage(dmg):
 
 
 def resolve_attack(attacker: Unit, defender: Unit, weapon: dict = None):
-    """Resolve an attack using weapon profile when provided.
-
-    weapon: {'attacks', 'to_hit', 'to_wound', 'rend', 'damage'} or None
-    If weapon is None, use attacker's base stats.
-    """
     atk_attacks = attacker.models_remaining * (weapon.get('attacks') if weapon else attacker.attacks)
     hits = 0
     wounds = 0
@@ -81,10 +68,8 @@ def resolve_attack(attacker: Unit, defender: Unit, weapon: dict = None):
             hits += 1
             if roll_d6() >= to_wound:
                 wounds += 1
-                # defender saves
                 save_needed = max(2, defender.save - rend)
                 if roll_d6() < save_needed:
-                    # unsaved wound: roll damage for this unsaved wound
                     dmg = _roll_damage(damage_profile)
                     unsaved += 1
                     defender.take_wounds(dmg)
@@ -128,7 +113,6 @@ def run_simulation(player_units: List[Unit], ai_units: List[AIUnit], turns: int 
                 break
 
         log = sim.simulate_turn()
-        # Print compact log and emit structured events via event_callback when provided
         for entry in log:
             if 'unit' in entry and 'aggression_check' in entry:
                 msg = f"AI check: {entry['unit']} -> {'ACT' if entry['aggression_check'] else 'HOLD'}"
@@ -145,19 +129,14 @@ def run_simulation(player_units: List[Unit], ai_units: List[AIUnit], turns: int 
                     print(msg)
 
                 behavior = (ar.get('behavior') or '').lower()
-                # Simple mapping: if behavior contains 'attack', 'charge', 'smash', resolve attack vs first alive player unit
                 if any(k in behavior for k in ['attack', 'charge', 'smash', 'kill', 'trample', 'krump', 'slay']):
-                    # pick first alive player unit
                     target = next((u for u in player_units if u.is_alive()), None)
                     if target:
-                        # Use simplified attacker stats: map AIUnit keywords to basic stats
-                        # For monsters/heroes, use stronger template
                         if 'Monster' in ar.get('behavior','') or 'monster' in ar.get('behavior','') or 'Monster' in ar.get('card_title',''):
                             atk = Unit(ar['unit'], models=1, wounds_per_model=3, attacks=3, to_hit=3, to_wound=3, save=6)
                         elif 'hero' in (ar.get('behavior','').lower() + ar.get('card_title','').lower()):
                             atk = Unit(ar['unit'], models=1, wounds_per_model=2, attacks=2, to_hit=4, to_wound=4, save=5)
                         else:
-                            # generic AI battleline
                             atk = Unit(ar['unit'], models=3, wounds_per_model=1, attacks=1, to_hit=4, to_wound=4, save=6)
 
                         res = resolve_attack(atk, target)
@@ -172,21 +151,15 @@ def run_simulation(player_units: List[Unit], ai_units: List[AIUnit], turns: int 
                         else:
                             print("  -> No player units remain to attack")
 
-        # After AI turn, optionally allow player to auto-attack
         if any(u.is_alive() for u in player_units):
             if not auto:
                 cmd = input("Type 'auto' for auto-player attack on nearest AI, Enter to skip: ")
                 if cmd.strip().lower() == 'auto':
-                    # player attacks first alive AI unit
                     target_ai = next((u for u in ai_units if True), None)
-                    # We don't have detailed AI unit stats; use a generic template
-                    ai_target_name = target_ai.name if target_ai else 'AI'
-                    # find player unit to attack
                     attacker = next((p for p in player_units if p.is_alive()), None)
                     if attacker and target_ai:
-                        # convert AIUnit to Unit template for defense
+                        ai_target_name = target_ai.name if target_ai else 'AI'
                         def_unit = Unit(ai_target_name, models=3, wounds_per_model=1, attacks=1, to_hit=4, to_wound=4, save=6)
-                        # If the player unit has weapons parsed from a roster, prefer its first weapon
                         weapon = getattr(attacker, 'weapons', None)
                         if weapon and len(weapon) > 0:
                             w = weapon[0]
@@ -205,7 +178,6 @@ def run_simulation(player_units: List[Unit], ai_units: List[AIUnit], turns: int 
                             else:
                                 print(text)
             else:
-                # in auto mode, let the first alive player unit auto-attack the first AI target
                 target_ai = next((u for u in ai_units if True), None)
                 attacker = next((p for p in player_units if p.is_alive()), None)
                 if attacker and target_ai:
@@ -229,7 +201,6 @@ def run_simulation(player_units: List[Unit], ai_units: List[AIUnit], turns: int 
                         else:
                             print(text)
 
-        # Show summary
         summary_texts = []
         summary_texts.append("\n-- Army Status --")
         for p in player_units:
@@ -262,13 +233,11 @@ def main():
     if args.roster:
         try:
             parsed = parse_battlescribe_html(args.roster)
-            # Create Unit instances in the same order as parsed. Do not aggregate duplicates.
             player_units = []
             for u in parsed:
                 unit = Unit(u['name'], models=u.get('models', 1), wounds_per_model=u.get('wounds_per_model', 1),
                             attacks=u.get('attacks', 1), to_hit=u.get('to_hit', 4), to_wound=u.get('to_wound', 4),
                             save=u.get('save', 6))
-                # attach weapons list for later use
                 setattr(unit, 'weapons', u.get('weapons', []))
                 player_units.append(unit)
             print(f"Imported {len(player_units)} player units from {args.roster}")
@@ -280,7 +249,6 @@ def main():
         choice = input("Type 'sample' to use sample armies or Enter to use sample: ")
         player_units, ai_units = sample_armies()
 
-    # If ai_units wasn't set by sample_armies fallback above, set it now
     if ai_units is None:
         _, ai_units = sample_armies()
 
