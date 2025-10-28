@@ -277,10 +277,13 @@ export default function App() {
     try {
       if (t === "action_resolved" && ev.action_resolved) {
         const ar = ev.action_resolved;
+        if (import.meta.env && import.meta.env.DEV) {
+          // Developer-only console log for initiative (internal ordering)
+          console.debug("[dev] action_resolved initiative:", ar.initiative, ar);
+        }
         const lines = [];
         lines.push(`AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`);
-        if (ar.initiative !== undefined)
-          lines.push(`  initiative: ${ar.initiative}`);
+        // initiative is internal ordering info; do not print to the user
         if (ar.behavior) lines.push(`  behavior: ${ar.behavior}`);
         const details = ar.details || {};
         const detailKeys = Object.keys(details || {});
@@ -309,10 +312,18 @@ export default function App() {
         const lines = [];
         lines.push(`ROLL REQUEST (turn ${ev.turn ?? "?"}): ${ev.tactic || ""}`);
         (ev.pending_actions || []).forEach((p) => {
+          if (import.meta.env && import.meta.env.DEV) {
+            console.debug(
+              "[dev] pending action initiative:",
+              p.request_id,
+              p.initiative,
+              p
+            );
+          }
           const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
           const card = p.card_title || (p.card && p.card.title) || "(action)";
           lines.push(
-            `  - [${p.request_id}] ${p.unit} -> ${card} | init=${p.initiative} | roll: ${dice}`
+            `  - [${p.request_id}] ${p.unit} -> ${card} | roll: ${dice}`
           );
         });
         return lines.join("\n");
@@ -688,7 +699,7 @@ export default function App() {
             const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
             const card = p.card_title || (p.card && p.card.title) || "(action)";
             appendLog(
-              `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
+              `  • [${p.request_id}] ${p.unit} -> ${card}  |  roll: ${dice}`
             );
           });
           appendLog("");
@@ -735,7 +746,6 @@ export default function App() {
             );
             const block = [
               `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
-              `  initiative: ${ar.initiative || ""}`,
               `  behavior: ${ar.behavior || ""}`,
               ...(detailLines.length ? ["  details:", ...detailLines] : []),
             ].join("\n");
