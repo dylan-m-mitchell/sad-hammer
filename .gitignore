@@ -29,5 +29,5 @@ Current-Stormcasts.html
 New-Orruk-Roster.html
 
 # dist (frontend build output)
-frontend/dist/
+dist/
 
