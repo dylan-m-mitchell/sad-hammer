@@ -27,7 +27,7 @@ import interactive_simulator as sim_mod
 class SimulatorGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('Sad Hammer — Solo Simulator')
+        self.title('Sad Hammer  Solo Simulator')
         self.geometry('900x600')
 
         # Top frame: roster controls
@@ -51,7 +51,7 @@ class SimulatorGUI(tk.Tk):
         self.unit_list = tk.Listbox(left, width=40, height=20)
         self.unit_list.pack(side='left', fill='y')
         # Add placeholder so the GUI isn't visually empty on first open
-        self.unit_list.insert(tk.END, 'No roster loaded — click Browse and Load to import a BattleScribe HTML roster')
+        self.unit_list.insert(tk.END, 'No roster loaded  click Browse and Load to import a BattleScribe HTML roster')
 
         right = ttk.Frame(mid)
         right.pack(side='left', fill='both', expand=True)
@@ -80,7 +80,7 @@ class SimulatorGUI(tk.Tk):
         self.ai_units = []
         self._sim_thread = None
         # initial log instruction
-        self.append_log('Welcome — load a roster (Browse -> Load) and press Run Simulation.')
+        self.append_log('Welcome  load a roster (Browse -> Load) and press Run Simulation.')
 
     def browse_roster(self):
         path = filedialog.askopenfilename(title='Select BattleScribe HTML roster', filetypes=[('HTML files', '*.html'), ('All files', '*.*')])
@@ -110,7 +110,7 @@ class SimulatorGUI(tk.Tk):
         # fill listbox
         self.unit_list.delete(0, tk.END)
         for u in self.player_units:
-            self.unit_list.insert(tk.END, f"{u.name} — {u.models_remaining} models, {u.current_wounds} wounds")
+            self.unit_list.insert(tk.END, f"{u.name}  {u.models_remaining} models, {u.current_wounds} wounds")
 
         # populate AI units with sample armies for now
         _, self.ai_units = sim_mod.sample_armies()
@@ -130,7 +130,7 @@ class SimulatorGUI(tk.Tk):
     def _sim_worker(self, turns: int, seed: int):
         # Run the simulator with a structured event callback
         if not self.player_units:
-            self.append_log('No player units loaded — aborting simulation')
+            self.append_log('No player units loaded  aborting simulation')
             return
 
         def event_cb(ev: dict):

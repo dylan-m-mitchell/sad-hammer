@@ -7,7 +7,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from battlescribe_parser import parse_battlescribe_html
+from backend.battlescribe_parser import parse_battlescribe_html
 
 # Uses the provided 'Current Stormcasts.html' in repo root as fixture if present
 

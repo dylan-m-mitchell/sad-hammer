@@ -21,54 +21,30 @@ Endpoints
 - Units follow the same simplified shape used throughout the app (see architecture doc).
 - Response: 200 JSON `{ "events": [ ... ] }` — a concatenation of events from each simulated AI turn.
 
-3. Stateless simulation endpoints (recommended)
+3. Stateless simulation endpoints (current)
 
 - POST `/api/session_stateless`
 
-  - Purpose: initialize a client-managed stateless run. Accepts the same payload as the old `POST /api/session` (file upload or JSON `units`) but does NOT persist state. The server returns an initial `seed`, `state` (turn, ai_units, ai_profiles, roll_mode), and a `proposed_placement` when available.
+  - Purpose: initialize a client-managed stateless run. Accepts either a multipart `file` upload (BattleScribe HTML) or JSON body with `units` and optional `roll_mode` / `battleplan`. The server returns an initial `seed`, `battleplan` summary, a minimal `state` (turn, ai_units, ai_profiles, roll_mode), and a `proposed_placement` when a matching battleplan and zone bias exist.
 
-  - Response: 200 JSON `{ "seed": <int>, "state": { "turn": <int>, "ai_units": [...], "ai_profiles": [...] , "roll_mode": "ai"|"player" }, "proposed_placement": ... }`.
+  - Response: 200 JSON `{ "seed": <int>, "battleplan": {...}, "state": { "turn": <int>, "ai_units": [...], "ai_profiles": [...] , "roll_mode": "ai"|"player" }, "proposed_placement": ... }`.
 
 - POST `/api/ai_turn_stateless`
 
-  - Purpose: run a single deterministic AI turn derived from the provided `seed` and `turn` (client must provide `{ seed, turn, ai_units, roll_mode }`).
+  - Purpose: run a single deterministic AI turn derived from the provided `seed` and `turn` (client must provide `{ seed, turn, ai_units, roll_mode }`). The server derives a per-turn RNG from `seed:turn` so runs are deterministic when the client records the seed and state.
 
-  - Response (AI mode): 200 JSON `{ "turn": <int>, "events": [...] }`.
-  - Response (player roll_mode): 200 JSON `{ "turn": <int>, "events": [...], "pending_actions": [...] }`.
+  - Response (AI mode): 200 JSON `{ "turn": <int>, "events": [...] }` where `events` contains aggression checks and `action_resolved` events.
+  - Response (player roll_mode): 200 JSON `{ "turn": <int>, "events": [...], "pending_actions": [...] }` where the server includes a `roll_request` event and `pending_actions` describing requested dice for the client to roll and return.
 
 - POST `/api/resolve_rolls_stateless`
 
-  - Purpose: Resolve player-provided roll results for a paused turn. Accepts `{ seed, turn, pending_actions, action_results }` and returns resolved `events`.
+  - Purpose: Resolve player-provided roll results for a paused turn in the stateless flow. Accepts `{ seed, turn, pending_actions, action_results }` and returns `{ ok: true, events: [...] }` containing `action_resolved` events built from the client-supplied roll results.
 
 - POST `/api/remove_unit_stateless`
 
-  - Purpose: remove a unit from the provided `ai_units` list. Accepts `{ ai_units, unit_name, turn? }` and returns `{ ok: true, removed_unit, remaining_units, event }`.
+  - Purpose: remove a unit from the provided `ai_units` list (stateless convenience endpoint). Accepts `{ ai_units, unit_name, turn? }` and returns `{ ok: true, removed_unit, remaining_units, event }`.
 
-Legacy sessionful endpoints removed
-
-The older `/api/session`-based endpoints have been removed from the server. Clients should use the stateless endpoints described above (`/api/session_stateless`, `/api/ai_turn_stateless`, etc.). Requests to the legacy paths will return 404 Not Found.
-
-8. GET /api/session/<session_id>/log
-
-- Purpose: paginated access to the session log.
-- Query params: `page` (1-based, default 1), `size` (items per page, default 50).
-- Response: 200 JSON `{ "turn": <sim.turn>, "page": <int>, "size": <int>, "total": <int>, "items": [...] }`.
-
-8. POST /api/session/<session_id>/notes
-
-- Purpose: save a free-form note for the session.
-- Request (JSON): `{ "text": "..." }`.
-- Response: 200 JSON `{ "ok": true, "note": { "text": "..." } }`.
-
-9. GET /api/session/<session_id>/notes
-
-- Purpose: list session notes.
-- Response: 200 JSON `{ "notes": [ { text: "..." }, ... ] }`.
-
-Future endpoints (planned)
-
-- POST /api/session/<session_id>/resolve_rolls — accept player-provided roll results to complete a paused AI turn when `roll_mode == 'player'` (server-mediated flow).
-- Endpoints for player unit CRUD (if server-side player modeling is added).
+Note: legacy sessionful `/api/session` endpoints were intentionally removed; the server now favors stateless client-driven workflows. Calls to legacy paths will return 404 with an explanatory payload.
 
 Error responses
 
@@ -76,13 +52,13 @@ Error responses
 - 404: session not found
 - 500: server exception (error JSON includes `error` string)
 
-Examples
+Examples (stateless)
 
-Create a session via JSON
+Create a stateless session via JSON
 
 Request
 
-POST /api/session
+POST /api/session_stateless
 
 ```json
 {
@@ -104,8 +80,19 @@ Response (200)
 
 ```json
 {
-  "session_id": "f9b2c7f0-6d2e-4a91-9a4b-1a2b3c4d5e6f",
-  "state": { "turn": 1, "ai_count": 1, "roll_mode": "player" }
+  "seed": 123456789,
+  "battleplan": { "id": 1, "title": "First Blood (2021)", "deployment": "..." },
+  "state": {
+    "turn": 1,
+    "ai_units": [{ "name": "Ironjaw Warboss", "aggression": "Aggressive" }],
+    "ai_profiles": [
+      /* parsed profiles */
+    ],
+    "roll_mode": "player"
+  },
+  "proposed_placement": {
+    /* optional placement hints */
+  }
 }
 ```
 
@@ -116,129 +103,61 @@ Include the `file` field containing the exported Battlescribe HTML and an option
 Example curl (file upload)
 
 ```bash
-curl -X POST -F "file=@roster.html" -F "roll_mode=player" http://localhost:5000/api/session
+curl -X POST -F "file=@roster.html" -F "roll_mode=player" http://localhost:5000/api/session_stateless
 ```
 
-Response: same as JSON example above.
-
-Run a single AI turn (server-side)
+Run a single AI turn (stateless)
 
 Request
 
-POST /api/session/<session_id>/ai_turn
-
-Response
-
-- This endpoint returns a plain-text human-readable summary. It also appends structured events to the session log. To obtain structured events, call GET `/api/session/<session_id>/last_turn`.
-
-Sample structured event schema
-
-Events added to the session `log` follow a loose schema used throughout the simulator. Clients should treat fields as optional but can expect these common shapes:
-
-1. Aggression check event
+POST /api/ai_turn_stateless
 
 ```json
 {
-  "event": "aggression_check",
-  "unit": "Giant",
-  "aggression_check": true,
-  "roll": 4,
-  "modifier": 2,
-  "total": 6,
-  "target": 5
+  "seed": 123456789,
+  "turn": 1,
+  "ai_units": [{ "name": "Ironjaw Warboss", "aggression": "Aggressive" }],
+  "roll_mode": "player"
 }
 ```
 
-2. Action resolved event
+Response (player mode)
 
 ```json
 {
-  "event": "action_resolved",
-  "action_resolved": {
-    "unit": "Giant",
-    "card_title": "Crush and Consume",
-    "initiative": "High",
-    "behavior": "attack",
-    "details": {
-      "attacks": 6,
-      "unsaved_wounds": 3,
-      "defender_remaining_models": 2
+  "turn": 1,
+  "events": [
+    /* aggression_check events, other structured events */
+  ],
+  "pending_actions": [
+    {
+      "request_id": "1-0",
+      "unit": "Ironjaw Warboss",
+      "card": { "title": "Crush and Consume" },
+      "initiative": 8,
+      "behavior": "attack",
+      "dice": { "count": 1, "sides": 6 }
     }
-  }
+  ]
 }
 ```
 
-3. No tactic available
+The client should then POST roll results to `/api/resolve_rolls_stateless` with the `pending_actions` and `action_results` payload.
 
-```json
-{ "event": "no_tactic_available", "text": "No tactics in pool for this turn" }
-```
-
-Pagination example (session log)
+Resolve roll results (stateless)
 
 Request
 
-GET /api/session/<session_id>/log?page=2&size=10
-
-Response
+POST /api/resolve_rolls_stateless
 
 ```json
 {
-  "turn": 3,
-  "page": 2,
-  "size": 10,
-  "total": 37,
-  "items": [
-    /* events 11..20 */
-  ]
-}
-```
-
-Error examples
-
-400 Bad request
-
-```json
-{ "error": "no file provided" }
-```
-
-404 Not found
-
-```json
-{ "error": "session not found" }
-```
-
-500 Server error
-
-```json
-{ "error": "KeyError: something failed" }
-```
-
-Roll-mode: server vs player (guidance)
-
-- When `roll_mode == 'ai'`: `POST /api/session/<id>/ai_turn` returns resolved events and the session `log` contains concrete resolution results (unsaved wounds, models removed, etc.). This is the current default flow.
-- When `roll_mode == 'player'`: the server persists the preference. Two patterns are recommended for clients:
-
-  1. Server-mediated roll requests (recommended for deterministic persistence):
-
-     - `POST /api/session/<id>/ai_turn` returns events up to the first unresolved roll and includes a special `roll_request` event listing required dice (dice type, modifiers, target, reason).
-     - Client performs the physical or UI roll and posts results to `POST /api/session/<id>/resolve_rolls` with a payload matching the roll_request IDs and rolled values.
-     - Server processes the roll results and continues resolving the turn, appending final events to the session log and returning completed events.
-
-  2. Client-resolved flow (simpler):
-     - `POST /api/session/<id>/ai_turn` returns structured, unresolved action events.
-     - Client performs rolls locally and may optionally POST a final resolved summary to a persistence endpoint (eg. `POST /api/session/<id>/persist_events`) if you want the server to store the final outcome.
-
-Draft contract: POST /api/session/<session_id>/resolve_rolls
-
-Request (JSON)
-
-```json
-{
-  "rolls": [
-    { "request_id": "r1", "value": 5 },
-    { "request_id": "r2", "value": 1 }
-  ]
+  "seed": 123456789,
+  "turn": 1,
+  "pending_actions": [
+    /* payload from ai_turn_stateless */
+  ],
+  "action_results": [{ "request_id": "1-0", "result": { "roll": 4 } }]
 }
 ```
 
@@ -248,14 +167,23 @@ Response (200)
 {
   "ok": true,
   "events": [
-    /* final events appended to the session log for this turn */
+    {
+      "event": "action_resolved",
+      "action_resolved": {
+        "turn": 1,
+        "unit": "Ironjaw Warboss",
+        "card_title": "Crush and Consume",
+        "initiative": 8,
+        "behavior": "attack",
+        "details": { "roll": 4 }
+      }
+    }
   ]
 }
 ```
 
 Notes
 
-- The current server persists `roll_mode` on session creation and returns it via GET `/api/session/<id>`.
-- The `resolve_rolls` endpoint is a draft and is not yet implemented; the contract above is proposed for a future release.
+- The server intentionally removed sessionful `/api/session` endpoints and now favors stateless client-managed workflows. Calls to legacy sessionful paths will return 404 with an explanatory payload.
 
 \*\*\* End of file

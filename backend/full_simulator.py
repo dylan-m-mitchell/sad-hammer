@@ -3,35 +3,19 @@
 This module implements the simulator behavior using the data in
 `reference_card_decks.py`. It is standalone and does not modify other
 project files. The simulator follows the rules described on the Woehammer
-blog and the General's Handbook 2021 conventions where applicable:
-
-- Tactic pool handling: start with 4 tactics (Monstrous Takeover,
-  Ferocious Advance, Aggressive Expansion, Conquer). On turn 2 add
-  Broken Ranks. On turn 3 add the remaining tactics. Used tactics are
-  discarded. One tactic is drawn each turn.
-- Action deck: for the chosen tactic, use its action cards and mix in
-  ~1/5 of the objective action cards (at least 1) then shuffle.
-- Aggression checks: Aggressive=4+, Neutral=5+, Cautious=6+ (d6 roll).
-- Per-unit resolution: draw one action per unit that passes the
-  aggression check; actions carry initiative values; resolve actions in
-  descending initiative order.
-
-This is a behavioural simulator and intentionally does not implement
-full AoS rules (movement, combat resolution, dice rolls for attacks,
-damage). It executes the card-driven decision process and prints
-structured logs that a game-engine or human can use to enact actions.
+blog and the General's Handbook 2021 conventions where applicable.
 """
 
 from copy import deepcopy
 import random
 from typing import List, Dict, Optional
 
-from reference_card_decks import (
+from backend.reference_card_decks import (
     battle_tactic_deck,
     tactic_to_actions,
     objective_action_deck,
 )
-from deck_manager import TacticsDeckManager, create_turn_action_assignments
+from backend.deck_manager import TacticsDeckManager, create_turn_action_assignments
 
 
 # Aggression thresholds (default more likely to ACT than prior mapping)

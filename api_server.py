@@ -13,10 +13,10 @@ from flask_cors import CORS
 import tempfile
 import os
 
-from battlescribe_parser import parse_battlescribe_html
-from full_simulator import SoloSimulator, Unit as AIUnit
+from backend.battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator, Unit as AIUnit
 from copy import deepcopy
-from reference_card_decks import tactic_to_actions, battleplan_deck
+from backend.reference_card_decks import tactic_to_actions, battleplan_deck
 from backend import placement as placement_module
 import json
 import hashlib
@@ -399,8 +399,8 @@ def ai_turn_stateless():
                 'target': check['target'],
             })
 
-        # Use deck_manager to create action assignments
-        from deck_manager import create_turn_action_assignments
+        # Use deck_manager to create action assignments (backend package)
+        from backend.deck_manager import create_turn_action_assignments
         action_assignments = create_turn_action_assignments(tactic_card, sim.units, {u.name: True for u in sim.units if True}, rng=sim.rng)
 
         # Build pending_actions in the same format the frontend expects
