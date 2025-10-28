@@ -4,7 +4,8 @@ export default function ClientControls({
   file,
   onFileChange,
   onUpload,
-  onChoose,
+  openUploadModal,
+  setOpenUploadModal,
   battleplans,
   selectedBattleplan,
   setSelectedBattleplan,
@@ -16,55 +17,17 @@ export default function ClientControls({
 }) {
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-4">
-      <input
-        id="upload-file"
-        type="file"
-        onChange={onFileChange}
-        style={{ display: "none" }}
-      />
       <button
-        id="choose-file"
-        onClick={onChoose}
-        className="btn-secondary w-full sm:w-auto"
-      >
-        {file ? file.name : "Choose file"}
-      </button>
-      <button
-        id="create-run"
-        onClick={onUpload}
-        disabled={busy || !file}
+        id="upload-roster"
+        onClick={() => setOpenUploadModal(true)}
         className="btn-primary w-full sm:w-auto"
+        disabled={busy}
       >
-        Upload & Parse
+        Upload Roster
       </button>
+      {/* Legacy upload controls removed — use Upload Roster modal instead. */}
 
-      <select
-        id="battleplan-select"
-        value={selectedBattleplan}
-        onChange={(e) => setSelectedBattleplan(e.target.value)}
-        className="w-full sm:w-auto"
-      >
-        <option value="">(random)</option>
-        {battleplans &&
-          battleplans.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.title}
-            </option>
-          ))}
-      </select>
-
-      <label htmlFor="roll-mode" className="text-sm">
-        Roll mode:
-      </label>
-      <select
-        id="roll-mode"
-        value={rollMode}
-        onChange={(e) => setRollMode(e.target.value)}
-        className="w-full sm:w-auto"
-      >
-        <option value="ai">AI handles rolls</option>
-        <option value="player">Player rolls (enter dice)</option>
-      </select>
+      {/* Battleplan and roll-mode are selected in the Upload modal; remove legacy dropdowns */}
 
       <button
         id="run-ai-turn"

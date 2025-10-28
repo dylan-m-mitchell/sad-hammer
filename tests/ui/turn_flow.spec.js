@@ -8,21 +8,22 @@ test.describe("AI turn -> player-roll -> resolve flow", () => {
   test("shows turn header immediately and resolves after player rolls", async ({
     page,
   }) => {
-    // Upload a roster
-    const fileInput = await page.locator('input[type="file"]');
+    // Open upload modal and upload a roster
+    await page.click("#upload-roster");
+    const fileInput = await page.locator("#upload-file-modal");
     await fileInput.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    await page.click("#upload-confirm");
 
     // Select player-controlled rolls (if a control exists)
     const playerRadio = page.locator('input[name="roll-mode"][value="player"]');
     const exists = await playerRadio.count();
     if (exists > 0) await playerRadio.check();
 
-    // Trigger create-run
-    await page.click("#create-run");
+    // After confirming upload (modal), seed and units should be available.
 
     // Wait for seed log and turn header
     await expect(

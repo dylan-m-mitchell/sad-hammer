@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
 import ClientControls from "./components/ClientControls";
+import UploadModal from "./components/UploadModal";
 import UnitsList from "./components/UnitsList";
 import PlacementModal from "./components/PlacementModal";
 import RollModal from "./components/RollModal";
@@ -103,6 +104,7 @@ export default function App() {
   const [rollMode, setRollMode] = useState("ai");
   const [placement, setPlacement] = useState(null);
   const [placementOpen, setPlacementOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [chosenZones, setChosenZones] = useState({});
   const [seed, setSeed] = useState(null);
   const [turn, setTurn] = useState(1);
@@ -898,8 +900,9 @@ export default function App() {
         <ClientControls
           file={file}
           onFileChange={handleFileChange}
-          onChoose={handleChoose}
           onUpload={onUpload}
+          openUploadModal={uploadOpen}
+          setOpenUploadModal={setUploadOpen}
           battleplans={battleplans}
           selectedBattleplan={selectedBattleplan}
           setSelectedBattleplan={setSelectedBattleplan}
@@ -908,6 +911,23 @@ export default function App() {
           onRunAiTurn={handleRunAiTurn}
           units={units}
           busy={busy}
+        />
+
+        <UploadModal
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onFileChange={handleFileChange}
+          onUpload={async () => {
+            await onUpload();
+            // close modal once upload completes
+            setUploadOpen(false);
+          }}
+          busy={busy}
+          battleplans={battleplans}
+          selectedBattleplan={selectedBattleplan}
+          setSelectedBattleplan={setSelectedBattleplan}
+          rollMode={rollMode}
+          setRollMode={setRollMode}
         />
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">

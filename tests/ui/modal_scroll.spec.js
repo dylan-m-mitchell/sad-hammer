@@ -7,13 +7,15 @@ test.describe("AI Deployment modal should be scrollable and accessible", () => {
     await page.setViewportSize({ width: 1100, height: 600 });
     await page.goto("/");
 
-    // Upload a dummy roster to trigger session creation and placement modal
-    const fileInput = page.locator('input[type="file"]');
+    // Open upload modal and provide a dummy roster to trigger placement modal
+    await page.click("#upload-roster");
+    const fileInput = page.locator("#upload-file-modal");
     await fileInput.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    await page.click("#upload-confirm");
 
     // Select first non-random battleplan when available for determinism
     const options = await page
@@ -24,8 +26,7 @@ test.describe("AI Deployment modal should be scrollable and accessible", () => {
       await page.selectOption("#battleplan-select", { index: 1 });
     }
 
-    // Trigger upload & parse (create stateless run)
-    await page.click("#create-run");
+    // After confirming upload (modal) the placement modal should appear.
 
     // Wait for placement modal body to show up, but placement may be auto-confirmed
     // by the frontend/server. If the modal doesn't appear, verify a placement
