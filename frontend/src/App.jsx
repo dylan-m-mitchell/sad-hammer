@@ -931,7 +931,11 @@ export default function App() {
         />
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
-          <UnitsList units={units} onRemove={handleRemoveUnit} />
+          <UnitsList
+            units={units}
+            onRemove={handleRemoveUnit}
+            collapsible={true}
+          />
 
           <div className="card md:col-span-2">
             <div className="card-header">
