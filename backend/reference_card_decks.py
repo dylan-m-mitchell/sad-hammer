@@ -27,28 +27,35 @@ battle_tactic_deck = [
         "title": "Monstrous Takeover",
         "description": "Prioritize monstrous units to seize objectives.",
         "enters_deck_on_turn": 0,
-        "designated_units": "All units with Monster keyword; if multiple, choose closest to nearest objective.",
+        "designated_units_raw": "All units with Monster keyword; if multiple, choose closest to nearest objective.",
+        # sanitized fallback: spatial instructions are not supported by the simulator (card-only model)
+        "designated_units": "monster random",
         "designated_objectives": "Nearest objective to designated monster(s)."
     },
     {
         "title": "Ferocious Advance",
         "description": "Aggressive repositioning and charges.",
         "enters_deck_on_turn": 0,
-        "designated_units": "Hero with highest move characteristic; if tied, closest to enemy.",
+        "designated_units_raw": "Hero with highest move characteristic; if tied, closest to enemy.",
+        # fallback: interpret spatial tie-breaks as deterministic random among highest-move heroes
+        "designated_units": "hero random",
         "designated_objectives": "Objective closest to designated hero."
     },
     {
         "title": "Aggressive Expansion",
         "description": "Move multiple units toward objectives to contest or capture.",
         "enters_deck_on_turn": 0,
-        "designated_units": "All units within 18\" of any objective.",
+        "designated_units_raw": "All units within 18\" of any objective.",
+        # fallback: spatial filter -> attribute-only (all units), rely on RNG to pick among them
+        "designated_units": "all random",
         "designated_objectives": "All objectives not currently controlled by AI."
     },
     {
         "title": "Conquer",
         "description": "Focus on taking and holding objectives.",
         "enters_deck_on_turn": 0,
-        "designated_units": "All Battleline units.",
+        "designated_units_raw": "All Battleline units.",
+        "designated_units": "battleline",
         "designated_objectives": "Two closest objectives to AI deployment zone."
     },
     {
@@ -76,7 +83,9 @@ battle_tactic_deck = [
         "title": "Savage Spearhead",
         "description": "Push a concentrated spearhead forward to overwhelm a flank.",
         "enters_deck_on_turn": 0,
-        "designated_units": "Three fastest units or units on one flank (left or right, whichever has more units).",
+        "designated_units_raw": "Three fastest units or units on one flank (left or right, whichever has more units).",
+        # fallback: interpret 'fastest' as 'highest wounds' is not ideal, so default to random among units
+        "designated_units": "random 3",
         "designated_objectives": "Flank objective on the same side as designated units."
     },
 ]
