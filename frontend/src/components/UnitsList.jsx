@@ -70,9 +70,6 @@ export default function UnitsList({ units, onRemove, collapsible = false }) {
                 <li key={i} className="flex items-center justify-between">
                   <div>
                     {u.name} — {u.models} models
-                    {u.wounds_per_model
-                      ? `, ${u.wounds_per_model} wpmodel`
-                      : ""}
                   </div>
                   {onRemove ? (
                     <button
