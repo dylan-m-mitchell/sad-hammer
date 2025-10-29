@@ -23,16 +23,27 @@ Contents
 - `tests/` — pytest test suite (unit, integration, acceptance).
 - `docs/` — project documentation (rule mapping, API, architecture).
 
-Quick start (local development)
+Quick start
 
-1. Create and activate a virtual environment (macOS / zsh):
+For a 5-minute setup guide, see [docs/quick-start.md](docs/quick-start.md).
+
+**Quick start with Docker (recommended):**
+
+```bash
+docker compose up --build
+# Open http://localhost:8080
+```
+
+**Local development:**
+
+1. Create virtual environment:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-2. Install runtime and test dependencies:
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -44,25 +55,19 @@ pip install -r requirements.txt
 pytest -q
 ```
 
-4. Start the backend (development mode):
+4. Start backend (one terminal):
 
 ```bash
-./scripts/start_backend.sh
+./scripts/start_backend.sh  # Runs on http://localhost:5000
 ```
 
-5. Start the frontend (Vite dev server):
+5. Start frontend (another terminal):
 
 ```bash
-./scripts/start_frontend.sh
+./scripts/start_frontend.sh  # Runs on http://localhost:5173
 ```
 
-The app will open on http://localhost:5173 and proxy API calls to http://localhost:5000.
-
-Or use Docker Compose to run everything:
-
-```bash
-docker compose up --build
-```
+See [docs/quick-start.md](docs/quick-start.md) for full setup instructions and your first solo game.
 
 Frontend framework and styling
 
@@ -76,22 +81,14 @@ High-level usage (stateless)
 - Initialize stateless state with `POST /api/session_stateless`; the server returns an
   initial `seed` and a minimal `state` object. The client is responsible for
   persisting the seed, current `turn`, and the `ai_units` list.
-- Use "Run AI Turn" to call `POST /api/ai_turn_stateless` with `{ seed, turn, ai_units, roll_mode }`.
+- Use "Run AI Turn" to call `POST /api/ai_turn_stateless` with `{ seed, turn, ai_units }`.
   The server computes deterministic AI behavior for that turn and returns structured
-  events (and `pending_actions` when `roll_mode=="player"`).
+  events with automatically resolved actions and dice rolls.
 
   Note: the returned structured events are intended to describe the enemy's
   intentions and recommended actions. The client or player may use these to
   enact moves/rolls manually or programmatically; the simulator is not required
   to autonomously take control of the enemy army.
-
-Rule fidelity and roll handling
-
-Sad Hammer supports different fidelity modes; see `docs/rule_mapping.md` for details.
-Clients provide a `roll_mode` when initializing stateless state or when calling `/api/ai_turn_stateless`:
-
-- `ai` (default): server executes rolls and returns resolved events.
-- `player`: the server will return `pending_actions` for client resolution; the client should resolve and post results to `/api/resolve_rolls_stateless`.
 
 API and developer notes
 

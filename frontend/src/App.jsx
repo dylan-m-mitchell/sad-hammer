@@ -4,7 +4,6 @@ import ClientControls from "./components/ClientControls";
 import UploadModal from "./components/UploadModal";
 import UnitsList from "./components/UnitsList";
 import PlacementModal from "./components/PlacementModal";
-import RollModal from "./components/RollModal";
 import Log from "./components/Log";
 
 // Module-level cache to prevent duplicate /api/battleplans requests
@@ -37,10 +36,11 @@ const api = {
   },
   // (sessionful APIs removed — stateless endpoints below are used)
   // Stateless endpoints (derived-seed per-turn)
-  createSessionStateless: async (file, rollMode = "ai", battleplan = "") => {
+  createSessionStateless: async (file, battleplan = "") => {
     const fd = new FormData();
     if (file) fd.append("file", file);
-    fd.append("roll_mode", rollMode);
+    // Always use AI mode for dice rolling
+    fd.append("roll_mode", "ai");
     if (battleplan) fd.append("battleplan", String(battleplan));
     const res = await fetch(`/api/session_stateless`, {
       method: "POST",
@@ -50,31 +50,17 @@ const api = {
       throw new Error(`Failed to create stateless session: ${res.status}`);
     return res.json();
   },
-  aiTurnStateless: async ({
-    seed,
-    turn,
-    ai_units,
-    roll_mode = "ai",
-    battleplan = null,
-  }) => {
+  aiTurnStateless: async ({ seed, turn, ai_units, battleplan = null }) => {
     const res = await fetch(`/api/ai_turn_stateless`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seed, turn, ai_units, roll_mode, battleplan }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  },
-  resolveRollsStateless: async ({
-    seed,
-    turn,
-    pending_actions,
-    action_results,
-  }) => {
-    const res = await fetch(`/api/resolve_rolls_stateless`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seed, turn, pending_actions, action_results }),
+      body: JSON.stringify({
+        seed,
+        turn,
+        ai_units,
+        roll_mode: "ai",
+        battleplan,
+      }),
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
@@ -101,30 +87,34 @@ export default function App() {
   const [battleplan, setBattleplan] = useState(null);
   const [battleplans, setBattleplans] = useState([]);
   const [selectedBattleplan, setSelectedBattleplan] = useState("");
-  const [rollMode, setRollMode] = useState("ai");
   const [placement, setPlacement] = useState(null);
   const [placementOpen, setPlacementOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [chosenZones, setChosenZones] = useState({});
   const [seed, setSeed] = useState(null);
   const [turn, setTurn] = useState(1);
-  const [pausedActions, setPausedActions] = useState(null);
-  const [rollInputs, setRollInputs] = useState({});
-  const [rollModalOpen, setRollModalOpen] = useState(false);
-  const [rollValidationErrors, setRollValidationErrors] = useState({});
   const [collapsedTurns, setCollapsedTurns] = useState({});
 
   const classifyLine = (text) => {
     if (!text) return "info";
     const t = String(text).trim();
+    const raw = String(text);
     if (/^PLAYER ROLL REQUEST/i.test(t) || /^ROLL REQUEST/i.test(t))
       return "request";
+    if (/🎯.*BATTLE TACTIC/i.test(t) || /^AI BATTLE TACTIC/i.test(t))
+      return "tactic";
+    if (/^━━━━━/.test(t))
+      // Tactic separator lines
+      return "tactic-separator";
     if (
       /^AI action/i.test(t) ||
       /^AI action resolved/i.test(t) ||
       /^Resolved:/i.test(t)
     )
       return "action";
+    // Indented behavior/details lines (start with whitespace)
+    if (/^  /.test(raw) && (/behavior:/i.test(t) || /details:/i.test(t)))
+      return "behavior";
     if (
       /^Aggression/i.test(t) ||
       /^AI check/i.test(t) ||
@@ -294,6 +284,19 @@ export default function App() {
           );
         }
         return lines.join("\n");
+      }
+
+      if (t === "battle_tactic_drawn") {
+        // Display battle tactic prominently with visual separator
+        return `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 AI BATTLE TACTIC: ${ev.tactic}
+${ev.description || ""}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      }
+
+      if (t === "aggression_level") {
+        // Hide aggression level events - players don't need to see this technical detail
+        return "";
       }
 
       if (t === "aggression_check") {
@@ -502,7 +505,6 @@ export default function App() {
       // Create a stateless session and receive a seed and initial AI units/profiles
       const created = await api.createSessionStateless(
         file,
-        rollMode,
         selectedBattleplan ? String(selectedBattleplan) : ""
       );
       const s = created.seed;
@@ -644,7 +646,6 @@ export default function App() {
           seed,
           turn,
           ai_units: ai_payload,
-          roll_mode: rollMode,
           battleplan: selectedBattleplan,
         });
         const events = resp.events || [];
@@ -662,173 +663,25 @@ export default function App() {
 
         const inferredTurn =
           resp.turn ?? events.find((e) => e && e.turn !== undefined)?.turn;
-        // Always ensure the turn header is present immediately so the UI
-        // looks identical between AI-controlled and player-controlled
-        // roll modes. Only advance the local turn counter when there are
-        // no pending player actions; if there are pending actions the
-        // header stays visible and the remainder of the events will be
-        // printed after the player resolves their rolls.
+        // Ensure the turn header is present and advance the turn counter
         if (inferredTurn !== undefined) {
           ensureTurnHeader(inferredTurn);
-          if (!(rr && rr.pending_actions && rr.pending_actions.length > 0)) {
-            setTurn(inferredTurn + 1);
-          }
-        }
-        if (rr && rr.pending_actions && rr.pending_actions.length > 0) {
-          // Append any aggression checks first
-          events
-            .filter((ev) => ev.event === "aggression_check")
-            .forEach((ac) =>
-              appendTyped("check", {
-                unit: ac.unit,
-                needed: ac.target ?? null,
-                actual: ac.total ?? ac.roll ?? null,
-                raw: ac,
-              })
-            );
-
-          const pendingActions = rr.pending_actions || [];
-          setPausedActions(pendingActions);
-          setRollModalOpen(true);
-          appendLog("");
-          appendLog("=== PLAYER ROLL REQUEST ===");
-          appendLog(
-            "Please roll the required dice physically and enter each result in the dialog:"
-          );
-          pendingActions.forEach((p) => {
-            const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
-            const card = p.card_title || (p.card && p.card.title) || "(action)";
-            appendLog(
-              `  • [${p.request_id}] ${p.unit} -> ${card}  |  roll: ${dice}`
-            );
-          });
-          appendLog("");
-        } else {
-          // No pause: present the events in ordered groups: checks -> rolls -> actions
-          const checks = [];
-          const rolls = [];
-          const actions = [];
-          const others = [];
-          events.forEach((ev) => {
-            if (ev.event === "aggression_check") checks.push(ev);
-            else if (ev.event === "roll_result" || ev.event === "roll")
-              rolls.push(ev);
-            else if (ev.event === "action_resolved" && ev.action_resolved)
-              actions.push(ev);
-            else others.push(ev);
-          });
-
-          checks.forEach((ac) =>
-            appendTyped("check", {
-              unit: ac.unit,
-              needed: ac.target ?? null,
-              actual: ac.total ?? ac.roll ?? null,
-              raw: ac,
-            })
-          );
-
-          rolls.forEach((r) => {
-            appendTyped("roll", {
-              unit: r.unit || null,
-              card: r.card_title || (r.card && r.card.title) || null,
-              needed: r.target ?? r.required ?? null,
-              actual: r.roll ?? r.value ?? null,
-              request_id: r.request_id ?? null,
-              raw: r,
-            });
-          });
-
-          actions.forEach((ev) => {
-            const ar = ev.action_resolved;
-            const details = ar.details || {};
-            const detailLines = Object.keys(details || {}).map(
-              (k) => `    ${k}: ${JSON.stringify(details[k])}`
-            );
-            const block = [
-              `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
-              `  behavior: ${ar.behavior || ""}`,
-              ...(detailLines.length ? ["  details:", ...detailLines] : []),
-            ].join("\n");
-            appendBlock(block);
-          });
-
-          others.forEach((ev) => {
-            const n = normalizeEvent(ev) || ev;
-            if (n && n.event === "aggression_check") {
-              appendTyped("check", {
-                unit: n.unit || null,
-                needed: n.target ?? null,
-                actual: n.total ?? n.roll ?? null,
-                raw: n,
-              });
-            } else if (n && (n.event === "roll_result" || n.event === "roll")) {
-              appendTyped("roll", {
-                unit: n.unit || null,
-                card: n.card_title || (n.card && n.card.title) || null,
-                needed: n.target ?? n.required ?? null,
-                actual: n.roll ?? n.value ?? null,
-                request_id: n.request_id ?? null,
-                raw: n,
-              });
-            } else {
-              appendBlock(formatEvent(n));
-            }
-          });
+          setTurn(inferredTurn + 1);
         }
 
-        setBusy(false);
-        return;
-      }
-
-      // Determine the turn number (if present) and append header so player knows which turn.
-      const inferredTurn =
-        events.find((e) => e && e.turn !== undefined)?.turn ??
-        events.find((e) => e && e.action_resolved && e.action_resolved.turn)
-          ?.action_resolved.turn;
-      if (inferredTurn !== undefined) {
-        appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
-      }
-
-      // If there's a roll_request present (player-mode), show a request block.
-      const rr = events.find((ev) => ev.event === "roll_request");
-      if (rr && rr.pending_actions && rr.pending_actions.length > 0) {
-        // Append any aggression checks first
-        events
-          .filter((ev) => ev.event === "aggression_check")
-          .forEach((ac) =>
-            appendTyped("check", {
-              unit: ac.unit,
-              needed: ac.target ?? null,
-              actual: ac.total ?? ac.roll ?? null,
-              raw: ac,
-            })
-          );
-
-        // Show the player roll request instructions (keeps previous behavior)
-        const pending = rr.pending_actions || [];
-        setPausedActions(pending);
-        setRollModalOpen(true);
-        appendLog("");
-        appendLog("=== PLAYER ROLL REQUEST ===");
-        appendLog(
-          "Please roll the required dice physically and enter each result in the dialog:"
-        );
-        pending.forEach((p) => {
-          const dice = p.dice ? `${p.dice.count}d${p.dice.sides}` : "1d6";
-          const card = p.card_title || (p.card && p.card.title) || "(action)";
-          appendLog(
-            `  • [${p.request_id}] ${p.unit} -> ${card}  |  init=${p.initiative}  |  roll: ${dice}`
-          );
-        });
-        appendLog("");
-      } else {
-        // No pause: present the events in ordered groups: checks -> rolls -> actions
+        // AI mode: present the events in ordered groups: tactics -> checks -> rolls -> actions
+        const tactics = [];
         const checks = [];
         const rolls = [];
         const actions = [];
         const others = [];
         events.forEach((ev) => {
-          if (ev.event === "aggression_check") checks.push(ev);
+          if (ev.event === "battle_tactic_drawn") tactics.push(ev);
+          else if (
+            ev.event === "aggression_check" ||
+            ev.event === "aggression_level"
+          )
+            checks.push(ev);
           else if (ev.event === "roll_result" || ev.event === "roll")
             rolls.push(ev);
           else if (ev.event === "action_resolved" && ev.action_resolved)
@@ -836,14 +689,19 @@ export default function App() {
           else others.push(ev);
         });
 
-        checks.forEach((ac) =>
+        // Display tactics first (most important)
+        tactics.forEach((t) => appendBlock(formatEvent(t)));
+
+        // Filter out aggression_level events - players don't need to see these
+        checks.forEach((ac) => {
+          if (ac.event === "aggression_level") return; // Skip aggression_level events
           appendTyped("check", {
             unit: ac.unit,
             needed: ac.target ?? null,
             actual: ac.total ?? ac.roll ?? null,
             raw: ac,
-          })
-        );
+          });
+        });
 
         rolls.forEach((r) => {
           appendTyped("roll", {
@@ -864,14 +722,12 @@ export default function App() {
           );
           const block = [
             `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
-            `  initiative: ${ar.initiative || ""}`,
             `  behavior: ${ar.behavior || ""}`,
             ...(detailLines.length ? ["  details:", ...detailLines] : []),
           ].join("\n");
           appendBlock(block);
         });
 
-        // Anything else: render via formatEvent, but normalize checks/rolls to structured entries first
         others.forEach((ev) => {
           const n = normalizeEvent(ev) || ev;
           if (n && n.event === "aggression_check") {
@@ -894,7 +750,103 @@ export default function App() {
             appendBlock(formatEvent(n));
           }
         });
+
+        setBusy(false);
+        return;
       }
+
+      // Determine the turn number (if present) and append header so player knows which turn.
+      const inferredTurn =
+        events.find((e) => e && e.turn !== undefined)?.turn ??
+        events.find((e) => e && e.action_resolved && e.action_resolved.turn)
+          ?.action_resolved.turn;
+      if (inferredTurn !== undefined) {
+        appendTyped("turn", `=== AI Turn ${inferredTurn} ===`);
+      }
+
+      // AI mode: present the events in ordered groups: tactics -> checks -> rolls -> actions
+      const tactics = [];
+      const checks = [];
+      const rolls = [];
+      const actions = [];
+      const others = [];
+      events.forEach((ev) => {
+        if (ev.event === "battle_tactic_drawn") tactics.push(ev);
+        else if (
+          ev.event === "aggression_check" ||
+          ev.event === "aggression_level"
+        )
+          checks.push(ev);
+        else if (ev.event === "roll_result" || ev.event === "roll")
+          rolls.push(ev);
+        else if (ev.event === "action_resolved" && ev.action_resolved)
+          actions.push(ev);
+        else others.push(ev);
+      });
+
+      // Display tactics first (most important)
+      tactics.forEach((t) => appendBlock(formatEvent(t)));
+
+      // Filter out aggression_level events - players don't need to see these
+      checks.forEach((ac) => {
+        if (ac.event === "aggression_level") return; // Skip aggression_level events
+        appendTyped("check", {
+          unit: ac.unit,
+          needed: ac.target ?? null,
+          actual: ac.total ?? ac.roll ?? null,
+          raw: ac,
+        });
+      });
+
+      rolls.forEach((r) => {
+        appendTyped("roll", {
+          unit: r.unit || null,
+          card: r.card_title || (r.card && r.card.title) || null,
+          needed: r.target ?? r.required ?? null,
+          actual: r.roll ?? r.value ?? null,
+          request_id: r.request_id ?? null,
+          raw: r,
+        });
+      });
+
+      actions.forEach((ev) => {
+        const ar = ev.action_resolved;
+        const details = ar.details || {};
+        const detailLines = Object.keys(details || {}).map(
+          (k) => `    ${k}: ${JSON.stringify(details[k])}`
+        );
+        const block = [
+          `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
+          `  initiative: ${ar.initiative || ""}`,
+          `  behavior: ${ar.behavior || ""}`,
+          ...(detailLines.length ? ["  details:", ...detailLines] : []),
+        ].join("\n");
+        appendBlock(block);
+      });
+
+      // Anything else: render via formatEvent, but normalize checks/rolls to structured entries first
+      others.forEach((ev) => {
+        const n = normalizeEvent(ev) || ev;
+        if (n && n.event === "aggression_check") {
+          appendTyped("check", {
+            unit: n.unit || null,
+            needed: n.target ?? null,
+            actual: n.total ?? n.roll ?? null,
+            raw: n,
+          });
+        } else if (n && (n.event === "roll_result" || n.event === "roll")) {
+          appendTyped("roll", {
+            unit: n.unit || null,
+            card: n.card_title || (n.card && n.card.title) || null,
+            needed: n.target ?? n.required ?? null,
+            actual: n.roll ?? n.value ?? null,
+            request_id: n.request_id ?? null,
+            raw: n,
+          });
+        } else {
+          appendBlock(formatEvent(n));
+        }
+      });
     } catch (e) {
       appendLog(`Warn: failed to run AI turn: ${e.message}`);
     } finally {
@@ -916,8 +868,6 @@ export default function App() {
           battleplans={battleplans}
           selectedBattleplan={selectedBattleplan}
           setSelectedBattleplan={setSelectedBattleplan}
-          rollMode={rollMode}
-          setRollMode={setRollMode}
           onRunAiTurn={handleRunAiTurn}
           units={units}
           busy={busy}
@@ -936,8 +886,6 @@ export default function App() {
           battleplans={battleplans}
           selectedBattleplan={selectedBattleplan}
           setSelectedBattleplan={setSelectedBattleplan}
-          rollMode={rollMode}
-          setRollMode={setRollMode}
         />
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
@@ -969,144 +917,6 @@ export default function App() {
         bpImgSrc={bpImgSrc}
         battleplan={battleplan}
         onClose={() => setPlacementOpen(false)}
-      />
-      <RollModal
-        open={rollModalOpen}
-        pausedActions={pausedActions}
-        rollInputs={rollInputs}
-        rollValidationErrors={rollValidationErrors}
-        onChangeInput={(rid, val) => {
-          setRollInputs((r) => ({ ...r, [rid]: val }));
-          const n = Number(val);
-          setRollValidationErrors((errs) => ({
-            ...errs,
-            [rid]: !Number.isInteger(n) || n < 1 || n > 6,
-          }));
-        }}
-        onCancel={() => setRollModalOpen(false)}
-        onSubmit={async () => {
-          // Build action results array from rollInputs
-          const results = (pausedActions || []).map((a) => ({
-            request_id: a.request_id,
-            result: { roll: Number(rollInputs[a.request_id] || 0) },
-          }));
-          try {
-            if (!seed) {
-              alert(
-                "No seed available: upload a roster first to initialize a stateless session."
-              );
-              return;
-            }
-            // stateless resolve only
-            const res = await api.resolveRollsStateless({
-              seed,
-              turn: turn - 1,
-              pending_actions: pausedActions,
-              action_results: results,
-            });
-            // Prefer to present checks first (white), then rolls (red small), then actions (yellow)
-            if (res && Array.isArray(res.events)) {
-              const inferredTurn =
-                res.events.find((e) => e && e.turn !== undefined)?.turn ??
-                res.events.find(
-                  (e) => e && e.action_resolved && e.action_resolved.turn
-                )?.action_resolved.turn;
-              if (inferredTurn !== undefined) ensureTurnHeader(inferredTurn);
-              // normalize incoming events so shapes are consistent
-              const norm = res.events.map((e) => normalizeEvent(e) || e);
-              // collect ordered lists
-              const checks = [];
-              const rolls = [];
-              const actions = [];
-              norm.forEach((ev) => {
-                if (ev.event === "aggression_check") checks.push(ev);
-                else if (ev.event === "roll_result" || ev.event === "roll")
-                  rolls.push(ev);
-                else if (ev.event === "action_resolved" && ev.action_resolved)
-                  actions.push(ev);
-                else actions.push(ev);
-              });
-
-              // Append checks (white, compact)
-              checks.forEach((ac) => {
-                const line = `Aggression: ${ac.unit} -> ${
-                  ac.aggression_check ? "ACT" : "HOLD"
-                }  (d6=${ac.roll ?? "?"} + mod=${ac.modifier ?? 0} => total=${
-                  ac.total ?? "?"
-                } vs target=${ac.target ?? "?"})`;
-                appendTyped("check", line);
-              });
-
-              // Append explicit per-request roll results (red, small)
-              rolls.forEach((r) => {
-                appendTyped("roll", {
-                  unit: r.unit || null,
-                  card: r.card_title || (r.card && r.card.title) || null,
-                  needed: r.target ?? r.required ?? null,
-                  actual: r.roll ?? r.value ?? null,
-                  request_id: r.request_id ?? null,
-                  raw: r,
-                });
-              });
-
-              // Append actions (yellow)
-              actions.forEach((ev) => {
-                if (ev.event === "action_resolved" && ev.action_resolved) {
-                  const ar = ev.action_resolved;
-                  const details = ar.details || {};
-                  const detailLines = Object.keys(details || {}).map(
-                    (k) => `    ${k}: ${JSON.stringify(details[k])}`
-                  );
-                  const block = [
-                    `AI action: ${ar.unit} -> ${ar.card_title || "(action)"}`,
-                    `  initiative: ${ar.initiative || ""}`,
-                    `  behavior: ${ar.behavior || ""}`,
-                    ...(detailLines.length
-                      ? ["  details:", ...detailLines]
-                      : []),
-                  ].join("\n");
-                  // append as a block so classification picks it up as 'action'
-                  appendBlock(block);
-                } else {
-                  appendBlock(formatEvent(ev));
-                }
-              });
-            } else {
-              appendBlock("Resolved rolls (no events returned)");
-            }
-
-            // advance local turn counter (we presented roll_request for turn-1 earlier)
-            setTurn((t) => t + 1);
-            // Clear paused state and inputs
-            setPausedActions(null);
-            setRollInputs({});
-            setRollValidationErrors({});
-            setRollModalOpen(false);
-          } catch (err) {
-            // Try to show a friendly server error if it's JSON
-            const msg = String(err);
-            try {
-              const parsed = JSON.parse(msg);
-              if (parsed && parsed.error) {
-                const rid = parsed.request_id
-                  ? ` request=${parsed.request_id}`
-                  : "";
-                const field = parsed.field ? ` field=${parsed.field}` : "";
-                const val =
-                  parsed.value !== undefined ? ` value=${parsed.value}` : "";
-                appendLog(`Roll rejected: ${parsed.error}${rid}${field}${val}`);
-              } else {
-                appendLog("Warn: failed to resolve rolls: " + msg);
-              }
-            } catch (parseErr) {
-              // Not JSON, just log the message
-              appendLog("Warn: failed to resolve rolls: " + msg);
-            }
-          }
-        }}
-        disableSubmit={(pausedActions || []).some(
-          (a) => rollValidationErrors[a.request_id] || !rollInputs[a.request_id]
-        )}
       />
     </div>
   );

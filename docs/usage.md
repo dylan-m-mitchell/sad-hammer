@@ -28,14 +28,11 @@ Initialize stateless run (upload roster)
 
 - Open the frontend and upload a BattleScribe HTML roster. The uploaded roster becomes the AI-controlled army.
 - When initializing, call `POST /api/session_stateless` (the frontend does this for you). The server returns an initial `seed`, `battleplan`, and a minimal `state` object. The client must persist the `seed`, `turn`, and current `ai_units` and send them on subsequent calls.
-- Control roll handling by providing `roll_mode` in session initialization or when calling `/api/ai_turn_stateless`:
-  - `roll_mode == 'ai'` (default): calls to `/api/ai_turn_stateless` return fully-resolved events (server executes rolls and resolves actions).
-  - `roll_mode == 'player'`: `/api/ai_turn_stateless` will return structured `events` including aggression checks and a `roll_request`/`pending_actions` block; the client resolves the requested rolls and posts results to `/api/resolve_rolls_stateless` to obtain final, resolved events.
 
 Stepping AI turns
 
-- Click "Run AI Turn" to call `/api/ai_turn_stateless` with `{ seed, turn, ai_units, roll_mode }`.
-- The frontend stores structured events in a log you can inspect and replay. When `roll_mode == 'player'` the server may return `pending_actions` which the client resolves and posts back to `/api/resolve_rolls_stateless`.
+- Click "Run AI Turn" to call `/api/ai_turn_stateless` with `{ seed, turn, ai_units }`.
+- The frontend stores structured events in a log you can inspect and replay. The server automatically resolves all dice rolls and actions.
 
 Interpreting events
 

@@ -25,20 +25,15 @@ Endpoints
 
 - POST `/api/session_stateless`
 
-  - Purpose: initialize a client-managed stateless run. Accepts either a multipart `file` upload (BattleScribe HTML) or JSON body with `units` and optional `roll_mode` / `battleplan`. The server returns an initial `seed`, `battleplan` summary, a minimal `state` (turn, ai_units, ai_profiles, roll_mode), and a `proposed_placement` when a matching battleplan and zone bias exist.
+  - Purpose: initialize a client-managed stateless run. Accepts either a multipart `file` upload (BattleScribe HTML) or JSON body with `units` and optional `battleplan`. The server returns an initial `seed`, `battleplan` summary, a minimal `state` (turn, ai_units, ai_profiles), and a `proposed_placement` when a matching battleplan and zone bias exist.
 
-  - Response: 200 JSON `{ "seed": <int>, "battleplan": {...}, "state": { "turn": <int>, "ai_units": [...], "ai_profiles": [...] , "roll_mode": "ai"|"player" }, "proposed_placement": ... }`.
+  - Response: 200 JSON `{ "seed": <int>, "battleplan": {...}, "state": { "turn": <int>, "ai_units": [...], "ai_profiles": [...] }, "proposed_placement": ... }`.
 
 - POST `/api/ai_turn_stateless`
 
-  - Purpose: run a single deterministic AI turn derived from the provided `seed` and `turn` (client must provide `{ seed, turn, ai_units, roll_mode }`). The server derives a per-turn RNG from `seed:turn` so runs are deterministic when the client records the seed and state.
+  - Purpose: run a single deterministic AI turn derived from the provided `seed` and `turn` (client must provide `{ seed, turn, ai_units }`). The server derives a per-turn RNG from `seed:turn` so runs are deterministic when the client records the seed and state.
 
-  - Response (AI mode): 200 JSON `{ "turn": <int>, "events": [...] }` where `events` contains aggression checks and `action_resolved` events.
-  - Response (player roll_mode): 200 JSON `{ "turn": <int>, "events": [...], "pending_actions": [...] }` where the server includes a `roll_request` event and `pending_actions` describing requested dice for the client to roll and return.
-
-- POST `/api/resolve_rolls_stateless`
-
-  - Purpose: Resolve player-provided roll results for a paused turn in the stateless flow. Accepts `{ seed, turn, pending_actions, action_results }` and returns `{ ok: true, events: [...] }` containing `action_resolved` events built from the client-supplied roll results.
+  - Response: 200 JSON `{ "turn": <int>, "events": [...] }` where `events` contains aggression levels and `action_resolved` events.
 
 - POST `/api/remove_unit_stateless`
 
@@ -71,8 +66,7 @@ POST /api/session_stateless
       "aggression": "Aggressive",
       "keywords": ["Monster", "Hero"]
     }
-  ],
-  "roll_mode": "player"
+  ]
 }
 ```
 
@@ -87,8 +81,7 @@ Response (200)
     "ai_units": [{ "name": "Ironjaw Warboss", "aggression": "Aggressive" }],
     "ai_profiles": [
       /* parsed profiles */
-    ],
-    "roll_mode": "player"
+    ]
   },
   "proposed_placement": {
     /* optional placement hints */
@@ -98,12 +91,12 @@ Response (200)
 
 Create a session via multipart/form-data (file upload)
 
-Include the `file` field containing the exported Battlescribe HTML and an optional `roll_mode` form field.
+Include the `file` field containing the exported Battlescribe HTML.
 
 Example curl (file upload)
 
 ```bash
-curl -X POST -F "file=@roster.html" -F "roll_mode=player" http://localhost:5000/api/session_stateless
+curl -X POST -F "file=@roster.html" http://localhost:5000/api/session_stateless
 ```
 
 Run a single AI turn (stateless)
@@ -116,48 +109,7 @@ POST /api/ai_turn_stateless
 {
   "seed": 123456789,
   "turn": 1,
-  "ai_units": [{ "name": "Ironjaw Warboss", "aggression": "Aggressive" }],
-  "roll_mode": "player"
-}
-```
-
-Response (player mode)
-
-```json
-{
-  "turn": 1,
-  "events": [
-    /* aggression_check events, other structured events */
-  ],
-  "pending_actions": [
-    {
-      "request_id": "1-0",
-      "unit": "Ironjaw Warboss",
-      "card": { "title": "Crush and Consume" },
-      "initiative": 8,
-      "behavior": "attack",
-      "dice": { "count": 1, "sides": 6 }
-    }
-  ]
-}
-```
-
-The client should then POST roll results to `/api/resolve_rolls_stateless` with the `pending_actions` and `action_results` payload.
-
-Resolve roll results (stateless)
-
-Request
-
-POST /api/resolve_rolls_stateless
-
-```json
-{
-  "seed": 123456789,
-  "turn": 1,
-  "pending_actions": [
-    /* payload from ai_turn_stateless */
-  ],
-  "action_results": [{ "request_id": "1-0", "result": { "roll": 4 } }]
+  "ai_units": [{ "name": "Ironjaw Warboss", "aggression": "Aggressive" }]
 }
 ```
 
@@ -165,8 +117,24 @@ Response (200)
 
 ```json
 {
-  "ok": true,
+  "turn": 1,
   "events": [
+    {
+      "event": "battle_tactic_drawn",
+      "tactic": "Ferocious Advance",
+      "description": "Aggressive repositioning and charges."
+    },
+    {
+      "event": "aggression_level",
+      "unit": "Ironjaw Warboss",
+      "aggression": "Aggressive",
+      "modifiers": {
+        "charge_range_threshold": 12,
+        "run_preference": 0.7,
+        "retreat_threshold": 0.25,
+        "target_priority": "highest_threat"
+      }
+    },
     {
       "event": "action_resolved",
       "action_resolved": {
@@ -174,8 +142,8 @@ Response (200)
         "unit": "Ironjaw Warboss",
         "card_title": "Crush and Consume",
         "initiative": 8,
-        "behavior": "attack",
-        "details": { "roll": 4 }
+        "behavior": "attack: charge nearest enemy unit within range",
+        "aggression": "Aggressive"
       }
     }
   ]

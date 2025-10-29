@@ -12,10 +12,9 @@ Core docs
 
 Recent changes
 
-- Added `roll_mode` concept to allow clients to select who handles AI dice rolls. In the stateless flow clients provide the `roll_mode` when calling `/api/session_stateless` and `POST /api/ai_turn_stateless`.
-- Implemented stateless roll resolution endpoints (`/api/ai_turn_stateless`, `/api/resolve_rolls_stateless`) to support both server-resolved and client-resolved flows without persisting server-side session state.
-- Added frontend UI to display pending roll requests and submit roll results (client-side handling recommended when `roll_mode == 'player'`).
-- Added server-side validation for die roll values and tests covering accept/reject cases.
+- Removed player roll mode in favor of simplified AI-only mode for better user experience.
+- Implemented stateless AI turn endpoint (`/api/ai_turn_stateless`) where the server automatically resolves all dice rolls and actions.
+- All units now act every turn - aggression levels modify how units execute their actions rather than whether they act.
 
 How to contribute
 
