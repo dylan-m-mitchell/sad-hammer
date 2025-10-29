@@ -12,14 +12,13 @@ Core docs
 
 Recent changes
 
-- Added `roll_mode` per-session setting to let players decide whether the AI or the player handles AI dice rolls.
-- Implemented `POST /api/session/<id>/resolve_rolls` server endpoint to accept player-provided roll results and complete paused AI turns.
-- Added frontend UI to display pending roll requests and submit roll results.
-- Added server-side validation for die roll values and tests covering accept/reject cases.
+- Removed player roll mode in favor of simplified AI-only mode for better user experience.
+- Implemented stateless AI turn endpoint (`/api/ai_turn_stateless`) where the server automatically resolves all dice rolls and actions.
+- All units now act every turn - aggression levels modify how units execute their actions rather than whether they act.
 
 How to contribute
 
 - Edit docs in `docs/` and open a PR on the feature branch `feature/rule-mapping-accurate`.
 - Run `pytest -q` to ensure tests pass before committing.
 
-*** End of file
+\*\*\* End of file

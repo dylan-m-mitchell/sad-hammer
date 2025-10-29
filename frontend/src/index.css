@@ -1,0 +1,54 @@
+/* Baseline: minimal styling; Tailwind directives included for framework-safe styles when used. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  color-scheme: light dark;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+button {
+  cursor: pointer;
+}
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Reusable component classes */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500;
+  }
+  .btn-success {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500;
+  }
+  .btn-secondary {
+    @apply btn bg-slate-700 text-slate-100 hover:bg-slate-600 focus:ring-2 focus:ring-slate-500;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500;
+  }
+  .card {
+    @apply rounded-lg border border-slate-800 bg-slate-800 shadow-sm;
+  }
+  .card-header {
+    @apply border-b border-slate-700 px-4 py-2;
+  }
+  .card-title {
+    @apply text-sm font-semibold tracking-wide text-slate-100;
+  }
+  .input {
+    @apply block w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+  .container-max {
+    @apply mx-auto max-w-6xl px-4;
+  }
+}
