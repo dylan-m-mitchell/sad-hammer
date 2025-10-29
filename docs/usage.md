@@ -24,17 +24,15 @@ pip install -r requirements.txt
 ./scripts/start_frontend.sh
 ```
 
-Create a session (upload roster)
+Initialize stateless run (upload roster)
 
 - Open the frontend and upload a BattleScribe HTML roster. The uploaded roster becomes the AI-controlled army.
-- Choose the "AI roll handling" option before creating the session:
-  - "AI handles rolls": the server executes dice rolls and returns resolved events.
-  - "Player handles AI rolls": the server persists the preference; future releases may pause and request explicit roll inputs from the client.
+- When initializing, call `POST /api/session_stateless` (the frontend does this for you). The server returns an initial `seed`, `battleplan`, and a minimal `state` object. The client must persist the `seed`, `turn`, and current `ai_units` and send them on subsequent calls.
 
 Stepping AI turns
 
-- Click "Run AI Turn" to have the server draw tactics and actions and return a human-readable summary of the turn.
-- The frontend also stores structured events in a log you can inspect and replay.
+- Click "Run AI Turn" to call `/api/ai_turn_stateless` with `{ seed, turn, ai_units }`.
+- The frontend stores structured events in a log you can inspect and replay. The server automatically resolves all dice rolls and actions.
 
 Interpreting events
 

@@ -23,3 +23,15 @@ env/
 
 # Node
 node_modules/
+
+# Test Armies
+Current-Stormcasts.html
+New-Orruk-Roster.html
+
+# dist (frontend build output)
+dist/
+
+# Test artifacts
+test-results/
+playwright-report/
+

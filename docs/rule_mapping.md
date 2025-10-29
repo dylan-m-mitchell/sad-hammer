@@ -9,22 +9,22 @@ Goals
 
 Scope — what the app simulates (server-side)
 
-- Turn sequencing: battle round, AI turn only (player turn is enacted by the human — server does not enforce movement rules unless in `Auto` mode).
-- Aggression checks: implemented as d6 + unit modifiers >= target, where target is mapped from Aggression (Aggressive/Neutral/Cautious) per GH2021 guidance.
-- Tactic selection and action draws: follows the card decks in `reference_card_decks.py` and the blog's pool rules (Broken Ranks added turn 2, etc.).
-- Action resolution summary: server returns structured events (aggression_check, action_resolved) but does not resolve full AoS attack-to-wound-roll-by-roll unless `Accurate` combat mode is enabled.
-
-Scope — what the app does NOT simulate (left to the human at the table)
-
+- Turn sequencing: battle round, AI turn only (player turn is enacted by the human — the server does not enforce movement rules unless an automated mode is explicitly wired in).
+- Aggression checks: implemented as d6 + unit modifiers >= a target threshold mapped from Aggression (Aggressive/Neutral/Cautious).
+- Tactic selection and action draws: follows the card decks in `reference_card_decks.py` and the Solo Wargaming deck rules (cards may be added to the pool on specified turns).
+- Action resolution: the server returns structured events (aggression_check, action_resolved). A separate, simplified combat harness (`interactive_simulator.py`) can perform roll-by-roll attack resolution for testing/play but it is not a full rulebook-accurate engine — many AoS subtleties (pile-in, consolidation, line-of-sight, detailed ability interactions) are intentionally simplified or not modeled.
+- Battleshock / morale: not implemented as a full system in the server; current tests include placeholders for morale/battleshock behavior. If accurate morale is required, it should be added to the combat resolution harness.
+- Unit profiles: parsed from BattleScribe HTML when available (wounds_per_model, attacks, weapons). Missing fields use conservative defaults in the combat harness.
+- Deterministic seeds: the stateless API derives per-turn seeds from the initial seed to allow deterministic replays when clients persist the seed and state.
 - Exact positioning, movement distances, line-of-sight and terrain-dependent rules.
 - Full rulebook subtleties like advanced sequences for specific artefacts or layered abilities that require board context.
 
 Accurate fidelity behavior (what changes compared to MVP)
 
-- Combat resolution: when an action indicates an attack, the simulator performs full roll-by-roll resolution using weapon profiles (to-hit/to-wound/rend/damage) and updates unit wounds and models.
-- Morale / battleshock: simple battleshock rules implemented (leadership check adjusted by casualties), with thresholds and rout handling consistent with GH2021 simplifications.
-- Unit profiles: parsed from BattleScribe HTML when available (wounds_per_model, attacks, weapons). Missing fields use safe defaults.
-- Deterministic seeds: acceptance tests and debugging runs use RNG seeding to reproduce runs.
+- Combat resolution (current state): `interactive_simulator.py` contains a simplified roll-by-roll resolution helper (`resolve_attack`) used in demos and tests. This harness models to-hit, to-wound, save, and simple damage profiles (including D-sides), but it does not implement full AoS sequencing (pile-in, consolidation, overlapping abilities, or extensive special rules).
+- Morale / battleshock: currently a placeholder in tests; a full battleshock implementation is not present in the simulator and should be added if required for Accurate mode.
+- Unit profiles: parsed from BattleScribe HTML when available and used by the simplified combat harness; missing attributes fall back to conservative defaults.
+- Deterministic seeds: acceptance tests and debugging runs use deterministic RNG seeding; the stateless API derives a per-turn seed to preserve repeatability when clients persist the initial seed and turn index.
 
 Acceptance tests (examples)
 
@@ -56,23 +56,3 @@ Next actions
 
 - Implement acceptance tests in `tests/` (pytest) with deterministic seeds.
 - Wire an `--fidelity accurate` flag to `run_simulation` so the simulator switches to accurate combat resolution.
-
-Roll handling modes
-
-Sad Hammer now supports a per-session `roll_mode` that controls who performs/records the AI's dice rolls:
-
-- `ai` (default): the server performs all dice rolls during `ai_turn` and returns fully-resolved events (human-readable text and structured JSON). This is the simplest and most automated mode for players who want the AI opponent to be self-contained.
-
-- `player`: the session is flagged so the player resolves the AI's rolls at the table. The server persists the `roll_mode` but currently still executes turns server-side; see Recommended behaviors below for how to evolve the server/client contract if you prefer a server-mediated roll-request flow.
-
-Recommended behaviors
-
-- Server-mediated roll requests (server-assisted player resolution): when `roll_mode == 'player'`, the server should return structured events that include explicit roll requests (which die to roll, what modifiers/targets apply) and pause resolution. The client performs the die roll physically (or with a client-side RNG) and POSTs the roll result back to an endpoint (eg. `POST /api/session/<id>/resolve_rolls`) so the server can finish resolving effects and persist the final events to the session log. This preserves determinism when players record the exact roll values.
-
-- Client-resolved flow (simpler): the server returns structured, but unresolved, action events when in `player` mode and the client performs all rolls locally and applies resolution in the UI. The client can optionally call endpoints to persist the final outcome if desired (eg. POST the final resolved events or resulting unit state).
-
-- UX tip: show clear roll prompts in the UI (which unit, which roll, modifiers, and the target) and provide a simple numeric input or an on-screen die that the player can tap to record the rolled value.
-
-Implementation note
-
-- The repo now persists `roll_mode` on session creation and returns it in the session state. Tests were added to assert this behavior. The next incremental enhancement is to implement the server-mediated roll-request flow and an accompanying small API to accept roll results and complete a paused AI turn.

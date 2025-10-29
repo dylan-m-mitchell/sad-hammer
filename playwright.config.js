@@ -1,23 +1,14 @@
-const { defineConfig, devices } = require("@playwright/test");
+const { defineConfig } = require("@playwright/test");
 
 module.exports = defineConfig({
-  testDir: "./tests/ui",
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  testDir: "tests/ui",
   use: {
+    // The application under test listens on port 8080
     baseURL: "http://localhost:8080",
-    trace: "on-first-retry",
+    headless: true,
+    viewport: { width: 1200, height: 800 },
+    ignoreHTTPSErrors: true,
+    actionTimeout: 10000,
+    navigationTimeout: 20000,
   },
-
-  /* We expect the dev server to already be running via docker compose */
-  /* If you need to start it automatically, run: docker compose up --build */
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
 });

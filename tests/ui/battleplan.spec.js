@@ -8,13 +8,25 @@ test.describe("Battleplan and Placement Flow", () => {
   test("should allow creating a session and show placement UI", async ({
     page,
   }) => {
-    // 1. Upload a file
-    const fileInput = await page.locator('input[type="file"]');
+    // 1. Open upload modal and select a file
+    await page.click("#upload-roster");
+    const fileInput = await page.locator("#upload-file-modal");
     await fileInput.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    // Step 2: choose battleplan and roll mode if desired, then confirm
+    // Wait for options step to be available
+    await page.click("#upload-next");
+    // Select first non-random battleplan when available
+    const bpCount = await page
+      .locator("#upload-battleplan-select option")
+      .count();
+    if (bpCount > 1) {
+      await page.selectOption("#upload-battleplan-select", { index: 1 });
+    }
+    await page.click("#upload-confirm");
 
     // 2. Wait for battleplans to load
     await page.waitForTimeout(1000);
@@ -29,18 +41,10 @@ test.describe("Battleplan and Placement Flow", () => {
       await page.selectOption("#battleplan-select", { index: 1 });
     }
 
-    // 3. Click create session
-    await page.click("#create-session");
-
-    // 4. Verify session was created (wait for session ID to appear and not be "(none)")
-    await expect(page.locator("#session-id")).not.toHaveText("(none)", {
-      timeout: 10000,
-    });
-
-    // Get the session ID for verification
-    const sessionId = await page.locator("#session-id").textContent();
-    expect(sessionId).not.toBe("(none)");
-    expect(sessionId?.length).toBeGreaterThan(0);
+    // After confirming upload (modal), a stateless session should be created.
+    // Verify by looking for the seed log entry.
+    const seedLog = page.locator("text=Created stateless session with seed");
+    await expect(seedLog).toHaveCount(1, { timeout: 10000 });
 
     // 5. Verify some form of placement UI is shown (check each individually)
     // At least one of these should be visible
@@ -65,37 +69,31 @@ test.describe("Battleplan and Placement Flow", () => {
   test("should allow uploading roster without battleplan selection", async ({
     page,
   }) => {
-    // 1. Upload a file without selecting a battleplan (leave it on Random)
-    const fileInput = await page.locator('input[type="file"]');
-    await fileInput.setInputFiles({
+    // 1. Open upload modal and select a file (leave battleplan as Random)
+    await page.click("#upload-roster");
+    const fileInput2 = await page.locator("#upload-file-modal");
+    await fileInput2.setInputFiles({
       name: "test-roster.html",
       mimeType: "text/html",
       buffer: Buffer.from("<h1>Test Roster</h1>"),
     });
+    await page.click("#upload-next");
+    await page.click("#upload-confirm");
 
-    // 2. Click create session without selecting a battleplan
-    await page.click("#create-session");
-
-    // 3. Verify session was created
-    await expect(page.locator("#session-id")).not.toHaveText("(none)", {
+    // After confirming upload (modal), verify stateless session was created
+    await expect(
+      page.locator("text=Created stateless session with seed")
+    ).toHaveCount(1, {
       timeout: 10000,
     });
-
-    const sessionId = await page.locator("#session-id").textContent();
-    expect(sessionId).not.toBe("(none)");
-    expect(sessionId?.length).toBeGreaterThan(0);
   });
 
   test("should show error when no file is selected", async ({ page }) => {
-    // Set up dialog handler to capture the alert
-    page.on("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Choose an HTML roster first");
-      await dialog.accept();
-    });
-
-    // Try to create session without selecting a file
-    await page.click("#create-session");
-
-    // The alert should have been triggered (handled by the dialog handler above)
+    // When no file is selected the create button should be disabled. Ensure that
+    // state rather than attempting to click a disabled control.
+    // Open upload modal and ensure the Upload button is disabled when no file is selected
+    await page.click("#upload-roster");
+    const uploadConfirm = page.locator("#upload-confirm");
+    await expect(uploadConfirm).toBeDisabled();
   });
 });
