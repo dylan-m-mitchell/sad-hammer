@@ -66,9 +66,33 @@ export default function Log({ log, collapsedTurns, setCollapsedTurns }) {
         </div>
       );
     }
+    if (kind === "tactic")
+      return (
+        <div
+          key={key}
+          className="text-amber-400 font-bold text-lg my-2 text-center bg-amber-900/20 py-2 px-4 rounded border border-amber-600/30"
+        >
+          {text}
+        </div>
+      );
+    if (kind === "tactic-separator")
+      return (
+        <div key={key} className="text-amber-600/50 text-center my-1">
+          {text}
+        </div>
+      );
     if (kind === "action")
       return (
-        <div key={key} className="text-amber-300 font-semibold my-2">
+        <div
+          key={key}
+          className="text-amber-200 font-semibold my-2 pl-2 border-l-2 border-amber-500/40"
+        >
+          {text}
+        </div>
+      );
+    if (kind === "behavior")
+      return (
+        <div key={key} className="text-slate-300 text-sm my-1 pl-4 italic">
           {text}
         </div>
       );

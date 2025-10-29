@@ -7,7 +7,7 @@ Overview
 Sad Hammer is intentionally small and modular. The main runtime components are:
 
 - `api_server.py` — lightweight Flask API that constructs `SoloSimulator` instances and manages in-memory sessions. It also serves the frontend static files from `web/`.
-- `full_simulator.py` — contains `SoloSimulator` which implements the card-driven AI: tactic pool lifecycle, action deck building, aggression checks, and action resolution ordering.
+- `full_simulator.py` — contains `SoloSimulator` which implements the card-driven AI: tactic pool lifecycle, action deck building, aggression level modifiers, and action resolution ordering. All units participate each turn with aggression affecting tactical execution.
 - `interactive_simulator.py` — contains `Unit` model for wounds and a combat resolver used in Accurate mode for roll-by-roll attack resolution.
 - `battlescribe_parser.py` — extracts unit profiles and weapon data from BattleScribe HTML exports.
 - `reference_card_decks.py` — data file defining tactic/action/objective cards used by the AI.
@@ -22,25 +22,29 @@ SESSIONS[session_id] = {
   'ai_units': [...AIUnit instances...],
   'ai_profiles': [...parsed profile objects...],
   'log': [...structured events...],
-  'notes': [...],
-  'roll_mode': 'ai'|'player'
+  'notes': [...]
 }
 ```
 
 SoloSimulator contract
 
-- `simulate_turn()` — runs a single AI turn: evaluates aggression checks for each unit, chooses a battle tactic, builds the action deck for drawn actions, resolves each action in initiative order, appends structured events and returns the events for that turn. `simulate_turn()` increments the `turn` counter.
-- `choose_battle_tactic()` — picks a tactic card from `tactic_pool` and moves it to `tactic_discard`. The tactics "Broken Ranks" and the remaining tactics are added based on the simulator's `turn` value (turn 2 and 3 respectively).
-- Aggression checks use an instance-local RNG seeded via the simulator's constructor for deterministic replay when seeds are provided.
+- `simulate_turn()` — runs a single AI turn: All units receive action cards each turn. Aggression level affects execution modifiers (charge ranges, movement preferences, target priorities) rather than gating participation. Returns structured events including aggression level info and resolved actions. `simulate_turn()` increments the `turn` counter.
+- `choose_battle_tactic()` — picks a tactic card from `tactic_pool` and moves it to `tactic_discard`. The Battle Tactic deck is dynamic with cards entering at different turns:
+  - Turn 1: 4 cards available (Monstrous Takeover, Ferocious Advance, Aggressive Expansion, Conquer)
+  - Turn 2: 1 card added (Broken Ranks)
+  - Turn 3: 3 cards added (Bring It Down, Slay the Warlord, Savage Spearhead)
+  - This timing matches the original Woehammer blog solo wargaming rules
+- Aggression levels (Aggressive/Neutral/Cautious) modify tactical execution. Uses an instance-local RNG seeded via the simulator's constructor for deterministic replay when seeds are provided.
 
 Event shapes
 
 The simulator emits structured event objects in the session log. Common event keys include:
 
-- `aggression_check`: boolean (true when unit acted)
+- `event`: event type identifier (e.g., "aggression_level", "action_resolved")
 - `unit`: unit name
-- `roll`, `modifier`, `total`, `target`: aggression check debug fields
-- `action_resolved`: object containing `unit`, `card_title`, `initiative`, `behavior`, and additional resolution info
+- `aggression`: unit's aggression level ("Aggressive", "Neutral", or "Cautious")
+- `modifiers`: dict containing aggression execution modifiers (charge_range_threshold, run_preference, retreat_threshold, target_priority)
+- `action_resolved`: object containing `unit`, `card_title`, `initiative`, `behavior`, `aggression`, `aggression_modifiers`, and additional resolution info
 - `text`: optional human-readable text summary
 
 Combat resolution
@@ -51,7 +55,6 @@ Combat resolution
 Notes about design choices
 
 - The server intentionally does not model the player's units or the board; the app focuses on the AI opponent and returns events the human resolves.
-- `roll_mode` is persisted per session so clients can decide whether they want to resolve AI rolls locally.
 - Sessions are in-memory for now. A production roadmap includes adding Redis or a lightweight file-backed store to persist sessions across restarts.
 
 Card-only decision model and spatial fallbacks

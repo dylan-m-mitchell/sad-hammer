@@ -9,8 +9,6 @@ export default function UploadModal({
   battleplans = [],
   selectedBattleplan,
   setSelectedBattleplan,
-  rollMode,
-  setRollMode,
   busy,
 }) {
   const [hover, setHover] = useState(false);
@@ -133,18 +131,6 @@ export default function UploadModal({
                   {b.title}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm text-slate-300">Roll mode:</label>
-            <select
-              id="upload-rollmode-select"
-              value={rollMode}
-              onChange={(e) => setRollMode && setRollMode(e.target.value)}
-              className="w-full mt-1"
-            >
-              <option value="ai">AI handles rolls</option>
-              <option value="player">Player rolls (enter dice)</option>
             </select>
           </div>
           <div className="text-sm text-slate-400">

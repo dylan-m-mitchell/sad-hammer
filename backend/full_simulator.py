@@ -6,21 +6,37 @@ project files. The simulator follows the rules described on the Woehammer
 blog and the General's Handbook 2021 conventions where applicable.
 """
 
-from copy import deepcopy
 import random
 from typing import List, Dict, Optional
 
-from backend.reference_card_decks import (
-    battle_tactic_deck,
-    tactic_to_actions,
-    objective_action_deck,
-)
+# reference_card_decks imported by other modules; avoid unused-import warnings here
 from backend.deck_manager import TacticsDeckManager, create_turn_action_assignments
 
 
-# Aggression thresholds (default more likely to ACT than prior mapping)
-# These are the d6 target numbers a unit must roll >= to ACT.
-# Default: Aggressive 3+ (66%), Neutral 4+ (50%), Cautious 5+ (33%)
+# Aggression execution modifiers - all units always act, but aggression affects HOW they execute
+# These modifiers influence tactical decision-making (charge ranges, movement preferences, target priorities)
+AGGRESSION_EXECUTION_MODIFIERS = {
+    "Aggressive": {
+        "charge_range_threshold": 12,  # Willing to attempt longer charges
+        "run_preference": 0.7,  # 70% chance to Run vs Move when closing distance
+        "retreat_threshold": 0.25,  # Only retreat if below 25% effective strength
+        "target_priority": "highest_threat",  # Target most dangerous enemy
+    },
+    "Neutral": {
+        "charge_range_threshold": 9,
+        "run_preference": 0.5,
+        "retreat_threshold": 0.4,
+        "target_priority": "balanced",
+    },
+    "Cautious": {
+        "charge_range_threshold": 6,  # Only charge if very close
+        "run_preference": 0.2,  # Prefer normal Move over Run
+        "retreat_threshold": 0.6,  # Retreat earlier for safety
+        "target_priority": "lowest_risk",
+    },
+}
+
+# Legacy constant kept for backward compatibility (deprecated - no longer used)
 AGGRESSION_CHECK_TARGET = {
     "Aggressive": 3,
     "Neutral": 4,
@@ -29,7 +45,13 @@ AGGRESSION_CHECK_TARGET = {
 
 
 class Unit:
-    def __init__(self, name: str, aggression: str = "Neutral", keywords: Optional[List[str]] = None, aggression_modifier: int = 0):
+    def __init__(
+        self,
+        name: str,
+        aggression: str = "Neutral",
+        keywords: Optional[List[str]] = None,
+        aggression_modifier: int = 0,
+    ):
         self.name = name
         self.aggression = aggression
         self.keywords = keywords or []
@@ -37,11 +59,18 @@ class Unit:
         self.aggression_modifier = int(aggression_modifier or 0)
 
     def __repr__(self):
-        return f"Unit(name={self.name!r}, aggression={self.aggression!r}, keywords={self.keywords!r})"
+        return (
+            f"Unit(name={self.name!r}, aggression={self.aggression!r}, keywords={self.keywords!r})"
+        )
 
 
 class SoloSimulator:
-    def __init__(self, units: List[Unit], seed: Optional[int] = None, aggression_thresholds: Optional[Dict[str, int]] = None):
+    def __init__(
+        self,
+        units: List[Unit],
+        seed: Optional[int] = None,
+        aggression_thresholds: Optional[Dict[str, int]] = None,
+    ):
         self.units = units
         self.turn = 1
         self.seed = seed
@@ -67,14 +96,20 @@ class SoloSimulator:
         """
         target = self.aggression_targets.get(unit.aggression, 5)
         roll = self.rng.randint(1, 6)
-        modifier = int(getattr(unit, 'aggression_modifier', 0) or 0)
+        modifier = int(getattr(unit, "aggression_modifier", 0) or 0)
         total = roll + modifier
         result = total >= target
-        return {'result': result, 'roll': roll, 'modifier': modifier, 'total': total, 'target': target}
+        return {
+            "result": result,
+            "roll": roll,
+            "modifier": modifier,
+            "total": total,
+            "target": target,
+        }
 
     def choose_battle_tactic(self) -> Optional[Dict]:
         """Draw a Battle Tactic card from the managed deck.
-        
+
         Returns the full tactic dict (with title, description, etc.) or None if empty.
         This method is now a thin wrapper around TacticsDeckManager.
         """
@@ -83,10 +118,10 @@ class SoloSimulator:
 
     def remove_unit(self, unit_name: str) -> bool:
         """Remove a unit from the simulation (e.g., when killed by the player).
-        
+
         Args:
             unit_name: The name of the unit to remove
-            
+
         Returns:
             True if unit was found and removed, False otherwise
         """
@@ -99,35 +134,43 @@ class SoloSimulator:
     def simulate_turn(self) -> List[Dict]:
         """Simulate a single AI turn; returns a list of resolved action records."""
         log = []
-        
+
         # Advance the tactics deck turn counter
         self.tactics_deck.advance_turn(self.turn)
-        
+
         # Draw a Battle Tactic card
         tactic_card = self.choose_battle_tactic()
         if tactic_card is None:
             log.append({"event": "no_tactic_available"})
             self.turn += 1
             return log
-        
-        tactic_title = tactic_card['title']
 
-        # Perform aggression checks for all units
-        aggression_results = {}
+        tactic_title = tactic_card["title"]
+
+        # Log the battle tactic so players know the AI's goal
+        log.append({
+            "event": "battle_tactic_drawn",
+            "tactic": tactic_title,
+            "description": tactic_card.get("description", ""),
+        })
+
+        # Log aggression levels for each unit (informational only)
+        # All units act - aggression affects HOW they execute their actions
         for u in self.units:
-            check = self.aggression_check(u)
-            will_act = check['result']
-            aggression_results[u.name] = will_act
-            
-            # Include debug fields so a client can see the roll and modifier
-            log.append({
-                "unit": u.name,
-                "aggression_check": will_act,
-                "roll": check['roll'],
-                "modifier": check['modifier'],
-                "total": check['total'],
-                "target": check['target'],
-            })
+            modifiers = AGGRESSION_EXECUTION_MODIFIERS.get(
+                u.aggression, AGGRESSION_EXECUTION_MODIFIERS["Neutral"]
+            )
+            log.append(
+                {
+                    "event": "aggression_level",
+                    "unit": u.name,
+                    "aggression": u.aggression,
+                    "modifiers": modifiers,
+                }
+            )
+
+        # All units act (no gating)
+        aggression_results = {u.name: True for u in self.units}
 
         # Use deck manager to create action assignments sorted by initiative
         action_assignments = create_turn_action_assignments(
@@ -139,10 +182,10 @@ class SoloSimulator:
             rec = {
                 "turn": self.turn,
                 "tactic": tactic_title,
-                "unit": assignment['unit'],
-                "card_title": assignment['card_title'],
-                "initiative": assignment['initiative'],
-                "behavior": assignment['behavior'],
+                "unit": assignment["unit"],
+                "card_title": assignment["card_title"],
+                "initiative": assignment["initiative"],
+                "behavior": assignment["behavior"],
             }
             # Simple textual resolution: append to log
             log.append({"action_resolved": rec})
@@ -168,5 +211,5 @@ def demo_run(turns: int = 3, seed: Optional[int] = 1):
         print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     demo_run(turns=4, seed=42)
