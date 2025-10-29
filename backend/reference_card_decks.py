@@ -153,7 +153,7 @@ battle_tactic_deck = [
 broken_ranks_actions = [
     {
         "title": "WAAAGH! Forward!",
-        "behavior": 'If not within 12" of an enemy, Run toward the nearest visible enemy unit. If within 12", Move normally to close the gap and prepare to charge next turn.',
+        "behavior": 'If not within 12" of an enemy, Run toward the nearest visible enemy unit. If within 12", Move to close the gap and attempt a Charge if within range; otherwise continue advancing to threaten this turn.',
         "initiative": 8,
     },
     {
@@ -168,7 +168,7 @@ broken_ranks_actions = [
     },
     {
         "title": "Reposition fer da Kill!",
-        "behavior": 'If not in combat, move toward the nearest flank of an enemy Battleline. If within 3", Retreat 6" toward cover, then attempt to Charge a different target next turn.',
+        "behavior": 'Advance toward the nearest enemy Battleline and attempt a Charge if within range. If already in combat, Attack the Battleline target.',
         "initiative": 5,
     },
     {
@@ -355,7 +355,7 @@ conquer_actions = [
     },
     {
         "title": "Hold Ground",
-        "behavior": "Units on objectives hold and contest; allied units assist as needed.",
+        "behavior": "If an objective was captured this turn, hold and contest; otherwise advance to support capture attempts.",
         "initiative": 2,
     },
     {
@@ -459,7 +459,7 @@ hold_the_line_actions = [
     },
     {
         "title": "Anchor",
-        "behavior": "Designated units hold position and force enemy to come to them.",
+        "behavior": "If already in the desired position (e.g., wholly within enemy territory for tactic requirements), hold; otherwise continue advancing toward that position.",
         "initiative": 7,
     },
     {
