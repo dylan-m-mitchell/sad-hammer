@@ -96,9 +96,9 @@ battle_tactic_deck = [
         "title": "Ferocious Advance",
         "description": "Aggressive repositioning and charges.",
         "enters_deck_on_turn": 0,
-        "designated_units_raw": "Hero with highest move characteristic; if tied, closest to enemy.",
-        # fallback (structured): choose one Hero (role); tie-breaks resolved by simulator
-        "designated_units": {"type": "role", "value": "Hero", "count": 1},
+        "designated_units_raw": "Pick 3 different units from starting army on the battlefield.",
+        # Structured selector: choose 3 units; higher-wounds preferred by assignment logic
+        "designated_units": {"type": "all", "count": 3},
         "designated_objectives": "Objective closest to designated hero.",
     },
     {
@@ -153,7 +153,7 @@ battle_tactic_deck = [
 broken_ranks_actions = [
     {
         "title": "WAAAGH! Forward!",
-        "behavior": 'If not within 12" of an enemy, Run toward the nearest visible enemy unit. If within 12", Move normally to close the gap and prepare to charge next turn.',
+        "behavior": 'If not within 12" of an enemy, Run toward the nearest visible enemy unit. If within 12", Move to close the gap and attempt a Charge if within range; otherwise continue advancing to threaten this turn.',
         "initiative": 8,
     },
     {
@@ -168,7 +168,7 @@ broken_ranks_actions = [
     },
     {
         "title": "Reposition fer da Kill!",
-        "behavior": 'If not in combat, move toward the nearest flank of an enemy Battleline. If within 3", Retreat 6" toward cover, then attempt to Charge a different target next turn.',
+        "behavior": 'Advance toward the nearest enemy Battleline and attempt a Charge if within range. If already in combat, Attack the Battleline target.',
         "initiative": 5,
     },
     {
@@ -355,7 +355,7 @@ conquer_actions = [
     },
     {
         "title": "Hold Ground",
-        "behavior": "Units on objectives hold and contest; allied units assist as needed.",
+        "behavior": "If an objective was captured this turn, hold and contest; otherwise advance to support capture attempts.",
         "initiative": 2,
     },
     {
@@ -459,7 +459,7 @@ hold_the_line_actions = [
     },
     {
         "title": "Anchor",
-        "behavior": "Designated units hold position and force enemy to come to them.",
+        "behavior": "If already in the desired position (e.g., wholly within enemy territory for tactic requirements), hold; otherwise continue advancing toward that position.",
         "initiative": 7,
     },
     {

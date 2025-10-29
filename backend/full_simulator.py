@@ -7,6 +7,8 @@ blog and the General's Handbook 2021 conventions where applicable.
 """
 
 import random
+import json
+import os
 from typing import List, Dict, Optional
 
 # reference_card_decks imported by other modules; avoid unused-import warnings here
@@ -82,6 +84,26 @@ class SoloSimulator:
 
         # Initialize Battle Tactics Deck Manager
         self.tactics_deck = TacticsDeckManager(rng=self.rng, current_turn=self.turn)
+        # Lazy-load canonical tactic text store
+        self._tactic_text_map = None
+
+    def _load_tactic_text_map(self) -> Dict[str, str]:
+        if self._tactic_text_map is not None:
+            return self._tactic_text_map
+        store_path = os.path.join(os.path.dirname(__file__), "rules", "battle_tactics.json")
+        text_map: Dict[str, str] = {}
+        try:
+            with open(store_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for t in (data.get("tactics") or []):
+                    title = (t.get("title") or "").strip()
+                    exact = (t.get("exact_text") or "").strip()
+                    if title and exact:
+                        text_map[title] = exact
+        except Exception:
+            text_map = {}
+        self._tactic_text_map = text_map
+        return text_map
 
     def aggression_check(self, unit: Unit) -> Dict:
         """Perform an aggression check and return a dict with details.
@@ -148,10 +170,12 @@ class SoloSimulator:
         tactic_title = tactic_card["title"]
 
         # Log the battle tactic so players know the AI's goal
+        exact_text = self._load_tactic_text_map().get(tactic_title, "")
         log.append({
             "event": "battle_tactic_drawn",
             "tactic": tactic_title,
             "description": tactic_card.get("description", ""),
+            "exact_text": exact_text,
         })
 
         # Log aggression levels for each unit (informational only)

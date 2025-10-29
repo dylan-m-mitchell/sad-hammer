@@ -40,22 +40,25 @@ class TacticsDeckManager:
             self._reshuffle_if_needed()
 
     def _reshuffle_if_needed(self):
-        if not self.deck and self.discard_pile:
-            self.deck = self.discard_pile[:]
-            self.discard_pile = []
-            self.rng.shuffle(self.deck)
+        # Single-use tactics: do not reshuffle discard pile back into the deck
+        # Once a tactic is drawn, it cannot be drawn again this game
+        return
 
     def advance_turn(self, new_turn: int):
         self.current_turn = new_turn
 
+        # Add newly available tactics directly into the draw deck on the turn they enter
         for tactic in battle_tactic_deck:
             enters_on = tactic.get("enters_deck_on_turn", 0)
             if enters_on == new_turn:
-                already_in_play = any(
+                already_present = any(
                     t["title"] == tactic["title"] for t in (self.deck + self.discard_pile)
                 )
-                if not already_in_play:
-                    self.discard_pile.append(deepcopy(tactic))
+                if not already_present:
+                    self.deck.append(deepcopy(tactic))
+        # Keep deck order unpredictable
+        if self.deck:
+            self.rng.shuffle(self.deck)
 
     def draw_tactic(self) -> Optional[Dict[str, Any]]:
         self._reshuffle_if_needed()
@@ -374,19 +377,100 @@ def create_turn_action_assignments(
             ordered_unit_names.append(unit_name)
 
     # Assign drawn cards to ordered units
-    for unit_name in ordered_unit_names:
+    fa_units: List[str] = []
+    if (tactic or {}).get("title") == "Ferocious Advance":
+        # Take up to first 3 designated units
+        for dn in designated:
+            if len(fa_units) < 3:
+                fa_units.append(dn)
+
+    for idx, unit_name in enumerate(ordered_unit_names):
+        # find unit_obj by name
+        unit_obj = next((uu for uu in units if getattr(uu, "name", str(uu)) == unit_name), None)
+
+        # Import aggression modifiers from full_simulator
+        from backend.full_simulator import AGGRESSION_EXECUTION_MODIFIERS
+        unit_aggression = getattr(unit_obj, "aggression", "Neutral") if unit_obj else "Neutral"
+        aggression_modifiers = AGGRESSION_EXECUTION_MODIFIERS.get(
+            unit_aggression, AGGRESSION_EXECUTION_MODIFIERS["Neutral"]
+        )
+
+        if unit_name in fa_units:
+            # Force run-and-group behavior for Ferocious Advance designated units
+            forced_initiative = 8 - fa_units.index(unit_name)  # 8,7,6 for first three
+            assignments.append(
+                {
+                    "unit": unit_name,
+                    "unit_obj": unit_obj,
+                    "card": {"title": "Run Together", "initiative": forced_initiative},
+                    "initiative": forced_initiative,
+                    "behavior": "This unit must Run; aim to finish within 3\" of the other selected units.",
+                    "card_title": "Run Together",
+                    "aggression": unit_aggression,
+                    "aggression_modifiers": aggression_modifiers,
+                    "behavior_explanation": "Ferocious Advance: overriding generic objective actions to prioritize completion.",
+                }
+            )
+            continue
+
+        # Other tactic-specific nudges to support completion
+        if (tactic or {}).get("title") == "Aggressive Expansion":
+            # Encourage two different units to push for non-friendly-territory objectives
+            if idx < 2:
+                forced_initiative = 8 - idx
+                assignments.append(
+                    {
+                        "unit": unit_name,
+                        "unit_obj": unit_obj,
+                        "card": {"title": "Seize Far Objective", "initiative": forced_initiative},
+                        "initiative": forced_initiative,
+                        "behavior": "Advance to control an objective not wholly within your territory by end of turn.",
+                        "card_title": "Seize Far Objective",
+                        "aggression": unit_aggression,
+                        "aggression_modifiers": aggression_modifiers,
+                        "behavior_explanation": "Aggressive Expansion: prioritizing two separate objectives outside our territory.",
+                    }
+                )
+                continue
+
+        if (tactic or {}).get("title") == "Conquer":
+            if idx == 0:
+                forced_initiative = 8
+                assignments.append(
+                    {
+                        "unit": unit_name,
+                        "unit_obj": unit_obj,
+                        "card": {"title": "Retake Objective", "initiative": forced_initiative},
+                        "initiative": forced_initiative,
+                        "behavior": "Move to and control an objective the opponent currently controls by end of turn.",
+                        "card_title": "Retake Objective",
+                        "aggression": unit_aggression,
+                        "aggression_modifiers": aggression_modifiers,
+                        "behavior_explanation": "Conquer: overriding generic behavior to secure the picked objective.",
+                    }
+                )
+                continue
+
+        if (tactic or {}).get("title") == "Savage Spearhead":
+            if idx < 2:
+                forced_initiative = 8 - idx
+                assignments.append(
+                    {
+                        "unit": unit_name,
+                        "unit_obj": unit_obj,
+                        "card": {"title": "Push into Enemy Territory", "initiative": forced_initiative},
+                        "initiative": forced_initiative,
+                        "behavior": "Advance to end the turn wholly within enemy territory; avoid getting tied down.",
+                        "card_title": "Push into Enemy Territory",
+                        "aggression": unit_aggression,
+                        "aggression_modifiers": aggression_modifiers,
+                        "behavior_explanation": "Savage Spearhead: moving two units into enemy territory.",
+                    }
+                )
+                continue
+
         card = action_deck.draw_card()
         if card:
-            # find unit_obj by name
-            unit_obj = next((uu for uu in units if getattr(uu, "name", str(uu)) == unit_name), None)
-            
-            # Import aggression modifiers from full_simulator
-            from backend.full_simulator import AGGRESSION_EXECUTION_MODIFIERS
-            unit_aggression = getattr(unit_obj, "aggression", "Neutral") if unit_obj else "Neutral"
-            aggression_modifiers = AGGRESSION_EXECUTION_MODIFIERS.get(
-                unit_aggression, AGGRESSION_EXECUTION_MODIFIERS["Neutral"]
-            )
-            
             assignments.append(
                 {
                     "unit": unit_name,
