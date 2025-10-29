@@ -1,0 +1,62 @@
+{
+  "season": "GHB 2021",
+  "source": "General's Handbook 2021",
+  "tactics": [
+    {
+      "title": "Ferocious Advance",
+      "exact_text": "When you reveal this battle tactic, pick 3 different units from your starting army on the battlefield. You complete this battle tactic if all of the units you picked run in the following movement phase and finish that run within 3\" of each other. If all 3 of those units are MONSTERS, score 1 additional victory point.",
+      "notes": "Verbatim per AoS 3.0/GHB 2021.",
+      "source_url": null,
+      "tags": ["movement", "run", "grouping"]
+    },
+    {
+      "title": "Aggressive Expansion",
+      "exact_text": "You complete this battle tactic if you control 2 or more objectives that are not wholly within your territory at the end of this turn.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["objectives", "control", "territory"]
+    },
+    {
+      "title": "Conquer",
+      "exact_text": "When you reveal this battle tactic, pick 1 objective marker on the battlefield that your opponent controls. You complete this battle tactic if you control that objective marker at the end of this turn.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["objectives", "capture"]
+    },
+    {
+      "title": "Broken Ranks",
+      "exact_text": "When you reveal this battle tactic, pick 1 Battleline unit from your opponent’s starting army on the battlefield. You complete this battle tactic if that unit is destroyed during this turn. If that unit was destroyed by an attack made by a friendly MONSTER or an ability of a friendly MONSTER, score 1 additional victory point.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["battleline", "kill"]
+    },
+    {
+      "title": "Monstrous Takeover",
+      "exact_text": "You complete this battle tactic if 1 friendly MONSTER is contesting an objective you control at the end of this turn. If that MONSTER is contesting that objective alone, score 1 additional victory point.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["monster", "objective"]
+    },
+    {
+      "title": "Bring It Down!",
+      "exact_text": "When you reveal this battle tactic, pick 1 enemy MONSTER on the battlefield. You complete this battle tactic if that unit is slain during this turn. If that unit was slain by an attack made by a friendly MONSTER or an ability of a friendly MONSTER, score 1 additional victory point.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["monster", "kill"]
+    },
+    {
+      "title": "Slay the Warlord",
+      "exact_text": "You complete this battle tactic if the model chosen to be your opponent’s general is slain during this turn. If that model was slain by an attack made by a friendly MONSTER or an ability of a friendly MONSTER, score 1 additional victory point.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["hero", "kill", "general"]
+    },
+    {
+      "title": "Savage Spearhead",
+      "exact_text": "You complete this battle tactic if there are 2 or more units from your starting army wholly within your opponent’s territory at the end of this turn. If both of those units are MONSTERS, score 1 additional victory point.",
+      "notes": "Verbatim per GHB 2021.",
+      "source_url": null,
+      "tags": ["territory", "movement"]
+    }
+  ]
+}

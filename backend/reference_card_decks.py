@@ -96,9 +96,9 @@ battle_tactic_deck = [
         "title": "Ferocious Advance",
         "description": "Aggressive repositioning and charges.",
         "enters_deck_on_turn": 0,
-        "designated_units_raw": "Hero with highest move characteristic; if tied, closest to enemy.",
-        # fallback (structured): choose one Hero (role); tie-breaks resolved by simulator
-        "designated_units": {"type": "role", "value": "Hero", "count": 1},
+        "designated_units_raw": "Pick 3 different units from starting army on the battlefield.",
+        # Structured selector: choose 3 units; higher-wounds preferred by assignment logic
+        "designated_units": {"type": "all", "count": 3},
         "designated_objectives": "Objective closest to designated hero.",
     },
     {
