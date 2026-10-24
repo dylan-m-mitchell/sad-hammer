@@ -1,105 +1,99 @@
-# Sad Hammer — Solo Wargaming AI
+# Sad Hammer
 
-Sad Hammer is a small, card-driven solo AI for Age of Sigmar-style play. It provides
-a lightweight BattleScribe HTML roster parser, a Solo AI that uses card decks (tactics
-and action cards), and a minimal Flask API + static frontend to run and inspect AI turns.
+Sad Hammer is a physical-table companion and AI opponent for miniature
+wargames. The human plays their army on a real table and rolls their own dice;
+the app maintains a digital twin of the board, resolves rules and dice for the
+AI, and explains what the AI is doing.
 
-Note: The simulator is intended to compute and present the enemy army's intentions
-and recommended actions (what the AI would try to do). It is primarily an advisory
-tool for the player or a client to enact those intentions, not an automatic autoplayer
-that takes full control of the enemy army by default.
+The v1 target is **Warhammer Age of Sigmar 4th edition** and **Warhammer 40,000
+11th edition**, starting with one mission and the starter-box forces for each
+system.
 
-This repo is intended to be both a playable table tool and a development kit for
-experimenting with different rule-fidelity modes (MVP, Accurate, Automated).
+## New engine
 
-Contents
+The next generation of Sad Hammer lives in `backend/engine/`:
 
-- `api_server.py` — Flask backend exposing stateless simulation endpoints (client holds seed/state).
-- `frontend/` — single-file static frontend used for local play/testing.
-- `battlescribe_parser.py` — parser for BattleScribe HTML roster exports.
-- `full_simulator.py` — Solo AI (tactic pool, aggression checks, action draws).
-- `interactive_simulator.py` — combat helpers and simplified model/wounds handling.
-- `reference_card_decks.py` — decks of tactics/actions/objectives used by the AI.
-- `tests/` — pytest test suite (unit, integration, acceptance).
-- `docs/` — project documentation (rule mapping, API, architecture).
+- deterministic dice and replayable state;
+- geometry for boards, deployment zones, terrain and objectives;
+- versioned JSON saves with validation;
+- a `GameSystem` interface for edition-specific rules;
+- a rules-based, explainable utility AI with aggression profiles;
+- a CLI walking skeleton and a focused test suite.
 
-Quick start
+Read:
 
-For a 5-minute setup guide, see [docs/quick-start.md](docs/quick-start.md).
+- [Engine overview](docs/engine/README.md)
+- [Roadmap](docs/engine/roadmap.md)
+- [Architecture](docs/engine/architecture.md)
+- [Rules references](docs/engine/rules-references.md)
+- [AI design](docs/engine/ai-design.md)
 
-**Quick start with Docker (recommended):**
+Try the walking skeleton:
 
 ```bash
-docker compose up --build
-# Open http://localhost:8080
+python -m backend.engine.cli demo --seed 7 --rounds 2
+python -m backend.engine.cli demo --seed 7 --rounds 1 --save /tmp/demo-state.json
+python -m backend.engine.cli inspect /tmp/demo-state.json
+pytest tests/engine -q
 ```
 
-**Local development:**
+## Repository status
 
-1. Create virtual environment:
+`backend/engine/` is the new rules engine. The existing Flask API, React
+frontend and card-driven simulator are **legacy reference code** for the
+retired AoS 3/GHB2021 solo-card flow. They remain runnable while the new AoS
+slice is built, but they are not the architecture for the new opponent.
+
+| Area | Status |
+| --- | --- |
+| Shared engine core and demo system | Implemented |
+| AoS 4th rules module | Next |
+| 40k 11th rules module | After the AoS slice |
+| Digital-twin board and deployment UI | Planned |
+| New Recruit `.ros`/`.rosz` import and curated builder | Planned |
+
+## Legacy application
+
+The old app still has its original local setup:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-2. Install dependencies:
-
-```bash
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-3. Run tests:
-
-```bash
 pytest -q
+./scripts/start_backend.sh   # http://localhost:5000
+./scripts/start_frontend.sh  # http://localhost:5173
 ```
 
-4. Start backend (one terminal):
+Or with Docker:
 
 ```bash
-./scripts/start_backend.sh  # Runs on http://localhost:5000
+docker compose up --build
+# http://localhost:8080
 ```
 
-5. Start frontend (another terminal):
+The legacy docs in `docs/` describe that flow. They should be treated as
+historical until the new UI replaces them.
 
-```bash
-./scripts/start_frontend.sh  # Runs on http://localhost:5173
-```
+## CI
 
-See [docs/quick-start.md](docs/quick-start.md) for full setup instructions and your first solo game.
+- `.github/workflows/engine-ci.yml` — fast engine formatting, lint, tests and
+  CLI smoke test.
+- `.github/workflows/main-ci-cd.yml` — full backend/frontend/docker/integration
+  checks on pull requests to `main`.
 
-Frontend framework and styling
+See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
-- The frontend has been migrated to React + Vite in `frontend/`.
-- Baseline styles are intentionally minimal; Tailwind is configured via PostCSS and will be used to (re)introduce accessible, framework-safe styles.
-- Build output is served by Nginx in the frontend container and proxied under `/` with API at `/api/`.
+## Contributing
 
-High-level usage (stateless)
+- Branch before changing the engine.
+- Keep rules code out of the AI layer and edition data out of the core.
+- Add tests for every rules action, state transition and AI legality claim.
+- Never commit rules PDFs, extracted rulebooks or proprietary datasets. Keep
+  official links, summaries, structured data and user-supplied rosters.
 
-- Upload a BattleScribe HTML roster (the uploaded roster becomes the AI's army).
-- Initialize stateless state with `POST /api/session_stateless`; the server returns an
-  initial `seed` and a minimal `state` object. The client is responsible for
-  persisting the seed, current `turn`, and the `ai_units` list.
-- Use "Run AI Turn" to call `POST /api/ai_turn_stateless` with `{ seed, turn, ai_units }`.
-  The server computes deterministic AI behavior for that turn and returns structured
-  events with automatically resolved actions and dice rolls.
+## License and credits
 
-  Note: the returned structured events are intended to describe the enemy's
-  intentions and recommended actions. The client or player may use these to
-  enact moves/rolls manually or programmatically; the simulator is not required
-  to autonomously take control of the enemy army.
-
-API and developer notes
-
-See `docs/api.md` for a complete API reference. For architecture and data shapes,
-read `docs/architecture.md`.
-
-Contributing
-
-- Write tests for new behavior and run the full test suite before opening a PR.
-- Keep acceptance tests deterministic by seeding RNGs where appropriate.
-
-License & Credits
-
-This project is a personal/homegrown tool—see repository for authorship and license notes.
+This is a personal/homegrown project. See the repository for authorship and
+license notes. Warhammer and Age of Sigmar are trademarks of Games Workshop;
+this project is unofficial and is not endorsed by Games Workshop.
