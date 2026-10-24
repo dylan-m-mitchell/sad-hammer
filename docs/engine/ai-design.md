@@ -4,12 +4,17 @@ The AI must feel like an opponent, not a random action generator and not a
 single universal card deck. It chooses only from actions the rules module says
 are legal and explains the important ones.
 
+The player-facing opponent is fixed. For new games, the server always uses the
+internal `balanced` profile, and the player is never asked to choose an AI
+style, aggression level or difficulty. The other profiles described below are
+internal testing and tuning tools.
+
 ## Decision pipeline
 
 ```text
 state
   -> system.legal_actions(state)
-  -> system.evaluate_action(action, profile weights)
+  -> system.evaluate_action(action, balanced profile weights)
   -> deterministic personality noise
   -> ranked decisions + explanation
   -> system.validate_action
@@ -37,7 +42,12 @@ combine:
 
 The demo implements a small subset so the interface is exercised.
 
-## Aggression and personality
+## Opponent profile and internal profiles
+
+The product uses one server-owned profile: `balanced`. New games always use it
+regardless of any `ai_profile` supplied to the API. `GET /api/aos4/options` does
+not expose profiles, and importing a game restores the profile recorded in the
+save rather than accepting a client override.
 
 An `AggressionProfile` is a set of weights, not a rule:
 
@@ -50,10 +60,28 @@ An `AggressionProfile` is a set of weights, not a rule:
 | `mobility` | tempo and board reach | high | lower |
 | `noise` | variation between games | higher | lower |
 
-Three initial profiles are provided: `aggressive`, `balanced`, `cautious`.
-Difficulty should be a separate preset that changes lookahead and mistake rate,
-not a rules handicap. Unit-level aggression can later override the global
-profile for individual characters or berserk units.
+The repository keeps three internal profiles: `aggressive`, `balanced` and
+`cautious`. They are available to the CLI, tests and benchmarks for comparison
+and regression coverage. They are not player-facing options, and a player-facing
+profile picker must not be added.
+
+Unit-level aggression could later override the global profile for individual
+characters or berserk units as an internal modelling detail, not as a player
+setting.
+
+## Fairness and difficulty
+
+Difficulty is not player-selected. There is no casual/standard/veteran menu and
+no aggression slider. The single balanced opponent is tuned to be fair and
+deliberately beatable: it makes legal, explainable choices and can be beaten by
+good play, but it is not optimized for tournament-level tactics.
+
+Difficulty changes, if any, belong to tuning the same heuristics. They must not
+change legality, grant hidden bonuses, or give the AI information the player
+does not have.
+
+There is no LLM, machine-learning or reinforcement-learning component, and none
+is planned. The AI also has no dependency on human gameplay data.
 
 ## Explainability
 
@@ -80,34 +108,33 @@ different model after the fact.
 
 The game seed drives dice and event order. AI tie-breaking uses a separate
 deterministic hash of the seed and action key, so it does not consume dice. The
-same seed and profiles replay exactly; different seeds produce different but
+same seed and profile replay exactly; different seeds produce different but
 legal choices. Tests must assert both.
-
-## Difficulty levels
-
-Planned presets:
-
-- **Casual:** more noise, shorter lookahead, occasional conservative fallback.
-- **Standard:** full v1 heuristics with moderate noise.
-- **Veteran:** stronger threat/objective evaluation, lower noise, better
-  resource sequencing.
-
-Difficulty must not change legality or secretly grant bonuses. It changes how
-well the AI evaluates the same information a human has.
 
 ## Evaluation and regression
 
+- Run the headless benchmark before and after changing AI weights or heuristics:
+
+  ```bash
+  python -m backend.engine.cli aos4-bench --games 20
+  ```
+
+  It plays a batch of balanced AI-vs-AI games without the web client. Use it to
+  compare outcomes, VP spread, game length and legality, and to judge whether a
+  change makes the product opponent better or worse.
 - Use AI-vs-AI batches as an engine regression harness, not as the product
   experience.
 - Assert zero illegal actions and no action loops.
 - Measure VP spread, game length, unit usage and objective participation.
-- Compare aggression profiles to ensure they produce meaningfully different
-  behavior without being irrational.
+- Compare internal profiles in harness runs to ensure they produce meaningfully
+  different behavior without being irrational.
 - Keep recorded games as regression fixtures for rules and AI changes.
 
-## Explicit non-goals for v1
+## Explicit non-goals
 
-- Machine learning or reinforcement learning.
+- LLM or machine-learning opponents, now or later.
+- A dependency on human gameplay data.
+- Player-selected AI profiles, aggression levels or difficulty.
 - A universal card/tactic deck driving either edition.
 - Perfect tactical play or tournament-level list optimization.
 - Pretending to know hidden information the AI would not have.

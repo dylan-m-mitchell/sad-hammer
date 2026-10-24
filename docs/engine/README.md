@@ -9,7 +9,7 @@ opponent. Edition-specific rules live behind the shared `GameSystem` contract:
 backend/engine/
   core/       geometry, dice, state, events, validation, serialization, session
   systems/    GameSystem interface + per-edition rules modules + match orchestration
-  ai/         legal-action utility AI and aggression profiles
+  ai/         legal-action utility AI and internal opponent profiles
   cli.py      local AI-vs-AI verification harness
 ```
 
@@ -41,9 +41,11 @@ docker compose up --build
 # open http://localhost:8080
 ```
 
-The app supports setup, deployment, orders, automatic AI turns, human combat
-picks in alternating combat, battle scoring, and versioned save/export/import.
-The old card simulator is still reachable at `/legacy`.
+The app opens on a one-click default game against the fixed, server-owned
+balanced opponent, with optional mission/force/seed customization. It supports
+deployment, orders, automatic AI turns, human combat picks in alternating
+combat, battle scoring, and versioned save/export/import. The old card simulator
+is still reachable at `/legacy`.
 
 The CLI is the engine verification harness. It runs both sides through the
 shared utility AI to check rules, legality and replay behaviour; it is not the
@@ -52,6 +54,9 @@ primary way to play:
 ```bash
 # A complete AI-vs-AI Age of Sigmar 4th verification game.
 python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
+
+# A headless benchmark batch for AI tuning and regression.
+python -m backend.engine.cli aos4-bench --games 20
 
 # The smaller contract-proving demo.
 python -m backend.engine.cli demo --seed 7 --rounds 2

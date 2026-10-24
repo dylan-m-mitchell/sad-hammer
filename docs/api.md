@@ -28,13 +28,14 @@ The `view` object is the client model: board, units, objectives, terrain,
 deployment zones, phase, round, scores, command points, setup details, AI intent,
 and only the legal actions owned by the human side.
 
-- `GET /api/aos4/options` — starter packs, missions, AI profiles and defaults
-  for the setup screen.
+- `GET /api/aos4/options` — starter packs, missions and defaults for the setup
+  screen. AI profiles are server-owned and are not exposed.
 - `POST /api/aos4/games` — create a match. JSON body:
   `{ "seed": 7, "mission": "contested-ground", "player_pack":
-  "stormcast-starter", "ai_pack": "skaven-starter", "ai_profile":
-  "aggressive", "skip_deployment": true, "max_rounds": 5 }`. All fields are
-  optional. A random seed is used when omitted.
+  "stormcast-starter", "ai_pack": "skaven-starter", "skip_deployment": true,
+  "max_rounds": 5 }`. All fields are optional. A random seed is used when
+  omitted. The server always uses its fixed `balanced` opponent; any
+  `ai_profile` field is ignored.
 - `GET /api/aos4/games/<id>` — current snapshot without advancing the game.
 - `POST /api/aos4/games/<id>/actions` — submit one human action as
   `{ "action": { ... } }`. The engine validates it, applies it, and runs AI
@@ -45,8 +46,9 @@ and only the legal actions owned by the human side.
 - `DELETE /api/aos4/games/<id>` — remove an active match from the store.
 - `GET /api/aos4/games/<id>/export` — download the versioned state as JSON.
 - `POST /api/aos4/games/import` — import a saved state. Send the exported JSON
-  object directly, or wrap it as `{ "state": {...}, "ai_profile": "balanced" }`.
-  A new game id is assigned and outstanding AI actions are resumed.
+  object directly, or wrap it as `{ "state": {...} }`. A new game id is assigned,
+  the saved game's AI profile is restored, and outstanding AI actions are
+  resumed. Any client-supplied `ai_profile` is ignored.
 
 The `interaction` field tells the client what to show:
 

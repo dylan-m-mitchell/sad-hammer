@@ -17,10 +17,10 @@ docker compose up --build
 # open http://localhost:8080
 ```
 
-Choose an AI profile and start a battle. The web client supports setup, the full
-turn loop, automatic AI turns, human picks in alternating combat, scoring,
-resume, and versioned export/import. The legacy card simulator remains at
-`/legacy`.
+Press Start to play the fixed, server-owned balanced opponent. The web client
+supports the full turn loop, automatic AI turns, human picks in alternating
+combat, scoring, resume, and versioned export/import. The legacy card simulator
+remains at `/legacy`.
 
 The CLI stays available as the AI-vs-AI verification harness:
 
@@ -71,7 +71,7 @@ terrain, scoring and default deployments.
 | Objective control | Models x control within an objective's radius; closest objective wins overlapping units | Control is checked at the start of round 1 and at the end of every turn |
 | Scoring | Active player scores 1 VP per objective controlled at the end of their turn | `contested-ground` mission rule |
 | End of Turn | Score, reset CP at the end of the round, advance the round or finish | Equal scores produce a draw |
-| AI | Legal-action utility scoring, aggression profiles, explanations and deterministic tie-breaking | No machine learning |
+| AI | Legal-action utility scoring, fixed balanced opponent, explanations and deterministic tie-breaking; internal profiles for tests | No machine learning |
 | Player UI | Responsive board, unit orders, AI intent log, battle log and result flow | Default app route on mobile and web |
 | Side ownership | Human and AI can only select actions owned by their side, including combat | Enforced by the play API and engine |
 | Save/replay | Versioned JSON save, action log and deterministic replay | Export/import in the UI and CLI save files |
@@ -111,8 +111,9 @@ score after the final battle round wins; equal scores are a draw.
 
 The AoS module supplies `evaluate_action` and `explain_action` to the generic
 policy. Its heuristics value expected damage, objective position, objective
-pressure, cover, target health and charge risk. The profile weights then change
-the decision:
+pressure, cover, target health and charge risk. The web game always uses the
+fixed `balanced` profile; the CLI and tests can compare the internal profiles,
+which change the decision:
 
 - `aggressive` favours damage and accepts more charge risk;
 - `balanced` mixes damage, objectives and cover;

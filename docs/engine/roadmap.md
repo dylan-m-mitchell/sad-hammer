@@ -22,8 +22,8 @@ not the product goal.
   cover, movement and therefore AI decisions. Both editors must work before the
   game is considered feature-complete.
 - **AI must be legal, explainable and characterful.** Utility scoring over
-  system-enumerated actions; aggression profiles change priorities; no machine
-  learning in v1.
+  system-enumerated actions; the product uses one fixed, server-owned balanced
+  opponent while internal profiles support testing; no machine learning or LLM.
 - **Save/export from day one.** The canonical state is versioned JSON. Active
   games are cached server-side by game id; export/import keeps them portable and
   recoverable after a restart.
@@ -65,7 +65,7 @@ selection and the turn loop independently of either commercial ruleset.
 - [x] Event log stamped with sequence, round, phase and side.
 - [x] `GameSystem` abstract interface and an action/result contract.
 - [x] Demo movement/shooting system with one objective and phase transitions.
-- [x] Utility AI with aggression profiles, alternatives and explanations.
+- [x] Utility AI with internal profiles, alternatives and explanations.
 - [x] CLI demo, save/load and inspect commands.
 - [x] Focused engine tests and CI workflow.
 
@@ -87,7 +87,9 @@ forces, one mission and the core rules.
 - [x] Weapon attacks, hit/wound/save/damage, mortal damage, wards and
       destroyed units.
 - [x] One mission with end-of-turn objective scoring and a battle-round limit.
-- [x] AI v1 using the generic policy and AoS-specific evaluation.
+- [x] AI v1 using the generic policy and AoS-specific evaluation, including
+      objective-value/control and retaliation-risk scoring.
+- [x] Headless `aos4-bench` AI-vs-AI benchmark for tuning and regression.
 - [x] Rules tests for every implemented core interaction plus an AI-vs-AI
       regression game and CLI smoke test.
 
@@ -104,7 +106,8 @@ that the abstraction works.
 **Goal:** open the app on a phone or in a browser and play a quick AoS 4th game
 against the AI.
 
-- [x] Setup wizard for mission, starter force and AI aggression profile.
+- [x] One-click default game with optional mission/force/seed customization and
+      a fixed, server-owned opponent.
 - [x] Responsive SVG board with terrain, objectives, deployment zones and units.
 - [x] Legal order UI for deployment, movement, shooting, charges, combat and
       commands.
