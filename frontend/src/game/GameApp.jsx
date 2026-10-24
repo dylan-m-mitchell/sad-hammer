@@ -4,7 +4,6 @@ import GameScreen from "./GameScreen";
 import {
   createGame,
   deleteGame,
-  exportUrl,
   fetchOptions,
   importGame,
   resumeGame,
@@ -113,8 +112,10 @@ export default function GameApp() {
         setAiDecisions(snapshot.ai_decisions || []);
       })
       .catch((err) => {
-        localStorage.removeItem(STORAGE_KEY);
-        setSavedGameId(null);
+        if (err.status === 404) {
+          localStorage.removeItem(STORAGE_KEY);
+          setSavedGameId(null);
+        }
         setError(`Could not resume the saved game: ${err.message}`);
       })
       .finally(() => {
@@ -218,9 +219,11 @@ export default function GameApp() {
       }
     } catch (err) {
       setError(err.message);
-      localStorage.removeItem(STORAGE_KEY);
-      setSavedGameId(null);
-      setGame(null);
+      if (err.status === 404) {
+        localStorage.removeItem(STORAGE_KEY);
+        setSavedGameId(null);
+        setGame(null);
+      }
     } finally {
       setBusy(false);
     }
@@ -295,13 +298,18 @@ export default function GameApp() {
   }
 
   function handleExport() {
-    if (!game?.game_id) return;
+    if (!game?.game_id || !game.state) return;
+    const blob = new Blob([JSON.stringify(game.state, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = exportUrl(game.game_id);
+    link.href = url;
     link.download = `${game.game_id}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
+    URL.revokeObjectURL(url);
   }
 
   if (!game) {

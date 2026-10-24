@@ -4,7 +4,9 @@ import App from "./App.jsx";
 import GameApp from "./game/GameApp.jsx";
 import "./index.css";
 
-const isLegacyRoute = window.location.pathname.startsWith("/legacy");
+const isLegacyRoute =
+  window.location.pathname === "/legacy" ||
+  window.location.pathname.startsWith("/legacy/");
 
 const container = document.getElementById("root");
 const root = createRoot(container);

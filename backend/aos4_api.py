@@ -250,11 +250,13 @@ def import_game() -> ResponseReturn:
             ai_profile=str(requested_profile) if requested_profile else None,
             game_id=game_id,
         )
-        _put_game(match)
         events, decisions = match.resume()
+        _put_game(match)
         return _snapshot_response(match, events=events, decisions=decisions)
     except (DataPackError, MatchError, ValueError, KeyError, TypeError) as exc:
         return _json_error(f"could not import the saved game: {exc}")
+    except RuntimeError as exc:
+        return _json_error(f"could not import the saved game: {exc}", status=409)
 
 
 __all__ = ["aos4_api"]

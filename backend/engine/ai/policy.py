@@ -9,7 +9,7 @@ select it in the first place.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from backend.engine.core.dice import stable_fraction
 from backend.engine.core.models import GameState, Side
@@ -239,6 +239,7 @@ def run_ai_until_human(
     *,
     max_actions: int = 500,
     top_alternatives: int = 0,
+    on_decision: Optional[Callable[[Decision, GameState], None]] = None,
 ) -> List[Decision]:
     """Advance the AI until the human must make the next decision.
 
@@ -246,7 +247,8 @@ def run_ai_until_human(
     considers actions owned by the AI side, so the computer can never choose a
     human unit's fight during alternating combat.  It stops at the start of the
     human's turn and also pauses when the human has a combat pick during an AI
-    turn.
+    turn. If supplied, ``on_decision`` sees each decision and its state before
+    the action is applied.
     """
 
     if max_actions < 1:
@@ -263,6 +265,8 @@ def run_ai_until_human(
         decision = policy.choose(session.state, Side.AI, actions=candidates)
         if decision is None:
             break
+        if on_decision is not None:
+            on_decision(decision, session.state)
         session.apply(decision.action)
         decisions.append(decision)
         if len(decisions) > max_actions:

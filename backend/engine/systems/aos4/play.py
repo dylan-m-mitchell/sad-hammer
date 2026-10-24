@@ -96,6 +96,7 @@ class Aos4Match:
         self.session = session
         self.system: Aos4System = system
         self.profile = profile
+        self._decision_descriptions: Dict[int, Dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Construction and persistence
@@ -303,7 +304,10 @@ class Aos4Match:
 
         before_seq = self._last_seq(state)
         self.session.apply(action)
-        decisions = run_ai_until_human(self.session, self.profile)
+        self._decision_descriptions.clear()
+        decisions = run_ai_until_human(
+            self.session, self.profile, on_decision=self._remember_decision
+        )
         events = [event for event in self.session.state.events if event.seq > before_seq]
         return events, decisions
 
@@ -311,7 +315,10 @@ class Aos4Match:
         """Run any outstanding AI decisions, returning the events they created."""
 
         before_seq = self._last_seq(self.session.state)
-        decisions = run_ai_until_human(self.session, self.profile)
+        self._decision_descriptions.clear()
+        decisions = run_ai_until_human(
+            self.session, self.profile, on_decision=self._remember_decision
+        )
         events = [event for event in self.session.state.events if event.seq > before_seq]
         return events, decisions
 
@@ -518,9 +525,14 @@ class Aos4Match:
                 )
         return units
 
+    def _remember_decision(self, decision: Decision, state: GameState) -> None:
+        self._decision_descriptions[id(decision)] = self.describe_action(decision.action, state)
+
     def _decision_view(self, decision: Decision) -> Dict[str, Any]:
         payload = decision.to_dict()
-        described = self.describe_action(decision.action)
+        described = self._decision_descriptions.get(id(decision))
+        if described is None:
+            described = self.describe_action(decision.action)
         payload["label"] = described["label"]
         payload["detail"] = described["detail"]
         payload["actor_name"] = described["actor_name"]

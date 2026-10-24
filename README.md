@@ -93,7 +93,7 @@ python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
 # The small demo system used to prove the shared contracts.
 python -m backend.engine.cli demo --seed 7 --rounds 2
 
-# Save, inspect and replay a game state.
+# Save and inspect a game state.
 python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy \
   --save /tmp/aos4-state.json
 python -m backend.engine.cli inspect /tmp/aos4-state.json

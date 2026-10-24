@@ -118,8 +118,7 @@ export default function GameScreen({
     const withOrders = playerUnits.filter((unit) => actorIds.has(unit.id));
     if (
       !selectedUnitId ||
-      !actorIds.has(selectedUnitId) ||
-      !playerUnits.some((unit) => unit.id === selectedUnitId)
+      !playerUnits.some((unit) => unit.id === selectedUnitId && unit.alive)
     ) {
       const next =
         withOrders.find((unit) => unit.alive) ||

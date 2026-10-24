@@ -17,6 +17,12 @@ from typing import Optional, Sequence
 from backend.engine.ai.policy import PROFILES, get_profile, run_ai_turn
 from backend.engine.core.models import Side
 from backend.engine.core.session import GameSession
+from backend.engine.systems.aos4.datapack import (
+    load_faction_pack,
+    load_faction_pack_file,
+    load_mission,
+    load_mission_file,
+)
 from backend.engine.systems.demo import DemoSystem
 from backend.engine.systems.registry import create_system, list_systems
 
@@ -41,9 +47,11 @@ def _build_parser() -> argparse.ArgumentParser:
     aos4 = subparsers.add_parser("aos4", help="run an AI-vs-AI Age of Sigmar 4th verification game")
     aos4.add_argument("--seed", type=int, default=7)
     aos4.add_argument("--rounds", type=int, default=5)
-    aos4.add_argument("--mission", default="contested-ground")
-    aos4.add_argument("--player-pack", default="stormcast-starter")
-    aos4.add_argument("--ai-pack", default="skaven-starter")
+    aos4.add_argument("--mission", default="contested-ground", help="curated ID or JSON file path")
+    aos4.add_argument(
+        "--player-pack", default="stormcast-starter", help="curated ID or JSON file path"
+    )
+    aos4.add_argument("--ai-pack", default="skaven-starter", help="curated ID or JSON file path")
     aos4.add_argument("--player-profile", choices=sorted(PROFILES), default="balanced")
     aos4.add_argument("--ai-profile", choices=sorted(PROFILES), default="aggressive")
     aos4.add_argument("--max-actions", type=int, default=300)
@@ -131,13 +139,20 @@ def _run_demo(args: argparse.Namespace) -> int:
 
 def _run_aos4(args: argparse.Namespace) -> int:
     system = create_system("aos4")
+    # Only the CLI accepts file paths; the engine and HTTP API resolve bare IDs.
+    content = {}
+    for key, name, load_id, load_file in (
+        ("mission", args.mission, load_mission, load_mission_file),
+        ("player_pack", args.player_pack, load_faction_pack, load_faction_pack_file),
+        ("ai_pack", args.ai_pack, load_faction_pack, load_faction_pack_file),
+    ):
+        is_path = Path(name).suffix or "/" in name or "\\" in name
+        content[key] = load_file(name) if is_path else load_id(name)
     session = GameSession.new(
         system,
         seed=args.seed,
         max_rounds=args.rounds,
-        mission=args.mission,
-        player_pack=args.player_pack,
-        ai_pack=args.ai_pack,
+        **content,
         skip_deployment=args.auto_deploy,
     )
     profiles = {

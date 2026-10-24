@@ -9,7 +9,9 @@ from backend.engine.systems.aos4.datapack import (
     list_faction_packs,
     list_missions,
     load_faction_pack,
+    load_faction_pack_file,
     load_mission,
+    load_mission_file,
 )
 
 
@@ -91,7 +93,7 @@ def test_pack_with_wrong_system_is_rejected(tmp_path):
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(DataPackError, match="not 'aos4'"):
-        load_faction_pack(path)
+        load_faction_pack_file(path)
 
 
 def test_pack_with_invalid_ward_and_duplicate_unit_is_rejected(tmp_path):
@@ -100,16 +102,67 @@ def test_pack_with_invalid_ward_and_duplicate_unit_is_rejected(tmp_path):
     bad_ward = tmp_path / "bad-ward.json"
     bad_ward.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(DataPackError, match="ward"):
-        load_faction_pack(bad_ward)
+        load_faction_pack_file(bad_ward)
 
     payload = _raw_pack()
     payload["units"][1]["id"] = payload["units"][0]["id"]
     duplicate = tmp_path / "duplicate.json"
     duplicate.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(DataPackError, match="duplicate unit ids"):
-        load_faction_pack(duplicate)
+        load_faction_pack_file(duplicate)
 
 
 def test_missing_pack_has_actionable_error():
     with pytest.raises(DataPackError, match="available packs"):
         load_faction_pack("does-not-exist")
+
+
+@pytest.mark.parametrize(
+    "load_id,load_file,relative_path",
+    [
+        (load_faction_pack, load_faction_pack_file, "factions/stormcast-starter.json"),
+        (load_mission, load_mission_file, "missions/contested-ground.json"),
+    ],
+)
+def test_curated_loaders_reject_paths_and_ignore_working_directory(
+    tmp_path, monkeypatch, load_id, load_file, relative_path
+):
+    source = Path("data/aos4", relative_path).resolve()
+    external = tmp_path / source.name
+    external.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    assert load_file(external) == load_id(source.stem)
+
+    for value in (
+        str(external),
+        external,
+        f"../{source.stem}",
+        f"nested/{source.stem}",
+        f"nested\\{source.stem}",
+        source.name,
+    ):
+        with pytest.raises(DataPackError, match="bare curated data ID"):
+            load_id(value)
+
+    # A valid ID must resolve from curated data even if the CWD has a namesake.
+    external.write_text("{}", encoding="utf-8")
+    expected = load_id(source.stem)
+    monkeypatch.chdir(tmp_path)
+    assert load_id(source.stem) == expected
+
+
+@pytest.mark.parametrize(
+    "load_id,directory", [(load_faction_pack, "factions"), (load_mission, "missions")]
+)
+def test_curated_loaders_reject_symlinks_outside_data_directory(
+    tmp_path, monkeypatch, load_id, directory
+):
+    root = tmp_path / "curated"
+    curated = root / directory
+    curated.mkdir(parents=True)
+    external = tmp_path / "external.json"
+    external.write_text("{}", encoding="utf-8")
+    (curated / "escape.json").symlink_to(external)
+    monkeypatch.setattr("backend.engine.systems.aos4.datapack.data_root", lambda: root)
+
+    with pytest.raises(DataPackError, match="inside its data directory"):
+        load_id("escape")

@@ -9,6 +9,7 @@ import pytest
 
 from backend.aos4_api import _reset_games
 from backend.api_server import app
+from backend.engine.systems.aos4.play import Aos4Match
 
 
 @pytest.fixture(autouse=True)
@@ -214,3 +215,35 @@ def test_import_rejects_invalid_state(client) -> None:
     response = client.post("/api/aos4/games/import", json={"system_id": "aos4"})
     assert response.status_code == 400
     assert "could not import" in response.get_json()["error"]
+
+
+@pytest.mark.parametrize("error,status", [(RuntimeError, 409), (ValueError, 400), (TypeError, 400)])
+def test_failed_import_does_not_store_match_or_evict_existing_game(
+    client, monkeypatch, error, status
+):
+    monkeypatch.setattr("backend.aos4_api._MAX_GAMES", 1)
+    existing = _create_game(client)
+
+    def fail_resume(self):
+        raise error("resume failed")
+
+    monkeypatch.setattr(Aos4Match, "resume", fail_resume)
+    response = client.post("/api/aos4/games/import", json=existing["state"])
+
+    assert response.status_code == status
+    assert response.get_json() == {"error": "could not import the saved game: resume failed"}
+    assert client.get(f"/api/aos4/games/{existing['game_id']}").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "option,path",
+    [
+        ("player_pack", "data/aos4/factions/stormcast-starter.json"),
+        ("ai_pack", "data/aos4/factions/skaven-starter.json"),
+        ("mission", "data/aos4/missions/contested-ground.json"),
+    ],
+)
+def test_create_game_rejects_content_paths(client, option, path):
+    response = client.post("/api/aos4/games", json={option: path})
+    assert response.status_code == 400
+    assert "bare curated data ID" in response.get_json()["error"]

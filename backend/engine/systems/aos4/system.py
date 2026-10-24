@@ -923,6 +923,7 @@ class Aos4System(GameSystem):
             raise IllegalActionError("validated charge action is incomplete")
         distance = unit.position.distance_to(action.destination)
         roll = dice.d6() + dice.d6()
+        unit.flags["charged"] = True
         success = roll + 1e-9 >= distance
         if not success:
             events.append(
@@ -939,7 +940,6 @@ class Aos4System(GameSystem):
         origin = unit.position
         unit.position = action.destination
         unit.flags["moved"] = True
-        unit.flags["charged"] = True
         unit.stats["charge_turn"] = int(state.metadata.get("turn_number", 1))
         events.append(
             make_event(

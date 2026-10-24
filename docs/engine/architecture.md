@@ -41,8 +41,8 @@ It supports multiple editions through a shared core and per-edition modules:
 ```
 
 The legacy Flask endpoints and `SoloSimulator` are not part of this package.
-They remain for reference and for the current UI until a new UI consumes the
-engine.
+They remain for reference in the legacy UI at `/legacy`. The current React
+client consumes the engine through the AoS 4th play API.
 
 ## Core contracts
 
@@ -173,7 +173,7 @@ Implemented in the first vertical slice:
 Deliberately deferred for now: priority rolls, battle-shock and other morale
 mechanics (AoS 4th has no battle-shock step), spells, manifestations, battle
 tactics, faction rules, difficult-ground movement penalties, per-model
-coherency, roster import and the UI. The full matrix is in
+coherency and roster import. The full matrix is in
 [the AoS 4th slice](aos4-slice.md).
 
 ### 40k 11th (`engine.systems.wh40k11`)

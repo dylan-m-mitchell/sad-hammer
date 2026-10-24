@@ -10,6 +10,7 @@ approximations for the vertical slice.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
@@ -369,20 +370,20 @@ def _parse_unit(payload: Any, context: str) -> UnitProfile:
     )
 
 
-def _faction_candidates(name: Union[str, Path]) -> List[Path]:
-    requested = Path(name)
-    candidates: List[Path] = []
-    if requested.suffix.lower() == ".json":
-        candidates.append(requested)
-    else:
-        candidates.append(requested.with_suffix(".json"))
-    candidates.append(data_root() / "factions" / requested.name)
-    if requested.suffix.lower() != ".json":
-        candidates.append(data_root() / "factions" / f"{requested.name}.json")
-    return candidates
+def _curated_candidates(name: str, directory: Path) -> List[Path]:
+    if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name) is None:
+        raise DataPackError("expected a bare curated data ID, not a file path")
+    candidate = (directory / f"{name}.json").resolve()
+    if candidate.parent != directory.resolve():
+        raise DataPackError("curated data must remain inside its data directory")
+    return [candidate]
 
 
-def resolve_faction_path(name: Union[str, Path]) -> Path:
+def _faction_candidates(name: str) -> List[Path]:
+    return _curated_candidates(name, data_root() / "factions")
+
+
+def resolve_faction_path(name: str) -> Path:
     for candidate in _faction_candidates(name):
         if candidate.is_file():
             return candidate
@@ -392,8 +393,16 @@ def resolve_faction_path(name: Union[str, Path]) -> Path:
     )
 
 
-def load_faction_pack(name: Union[str, Path]) -> FactionPack:
-    path = resolve_faction_path(name)
+def load_faction_pack(name: str) -> FactionPack:
+    """Load a pack by its bare ID from the curated faction directory."""
+
+    return load_faction_pack_file(resolve_faction_path(name))
+
+
+def load_faction_pack_file(path: Union[str, Path]) -> FactionPack:
+    """Load an explicit local file for CLI use; never pass HTTP input here."""
+
+    path = Path(path)
     payload = _read_json(path)
     context = str(path)
     pack_id = _string(payload, "pack_id", context)
@@ -506,20 +515,11 @@ def _parse_deployment(
     return result
 
 
-def _mission_candidates(name: Union[str, Path]) -> List[Path]:
-    requested = Path(name)
-    candidates: List[Path] = []
-    if requested.suffix.lower() == ".json":
-        candidates.append(requested)
-    else:
-        candidates.append(requested.with_suffix(".json"))
-    candidates.append(data_root() / "missions" / requested.name)
-    if requested.suffix.lower() != ".json":
-        candidates.append(data_root() / "missions" / f"{requested.name}.json")
-    return candidates
+def _mission_candidates(name: str) -> List[Path]:
+    return _curated_candidates(name, data_root() / "missions")
 
 
-def resolve_mission_path(name: Union[str, Path]) -> Path:
+def resolve_mission_path(name: str) -> Path:
     for candidate in _mission_candidates(name):
         if candidate.is_file():
             return candidate
@@ -529,8 +529,16 @@ def resolve_mission_path(name: Union[str, Path]) -> Path:
     )
 
 
-def load_mission(name: Union[str, Path]) -> Mission:
-    path = resolve_mission_path(name)
+def load_mission(name: str) -> Mission:
+    """Load a mission by its bare ID from the curated mission directory."""
+
+    return load_mission_file(resolve_mission_path(name))
+
+
+def load_mission_file(path: Union[str, Path]) -> Mission:
+    """Load an explicit local file for CLI use; never pass HTTP input here."""
+
+    path = Path(path)
     payload = _read_json(path)
     context = str(path)
     system_id = _string(payload, "system_id", context)
@@ -666,7 +674,9 @@ __all__ = [
     "list_faction_packs",
     "list_missions",
     "load_faction_pack",
+    "load_faction_pack_file",
     "load_mission",
+    "load_mission_file",
     "repo_root",
     "resolve_faction_path",
     "resolve_mission_path",

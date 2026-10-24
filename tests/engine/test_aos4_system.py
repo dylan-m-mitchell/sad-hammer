@@ -267,7 +267,13 @@ def test_charge_succeeds_and_fails_with_the_expected_roll():
     assert prosecutor is not None
 
     assert prosecutor.position == origin
+    assert prosecutor.flags["charged"]
+    assert "charge_turn" not in prosecutor.stats
     assert any(event.kind == "charge_failed" for event in events)
+    assert not any(
+        action.action_type == "charge" and action.actor_id == "player-prosecutors"
+        for action in session.legal_actions()
+    )
 
 
 def test_combat_alternates_between_players():
