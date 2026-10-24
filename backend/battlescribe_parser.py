@@ -10,7 +10,6 @@ This module requires BeautifulSoup (bs4).
 import re
 
 # Optional type not required here; keep imports minimal
-
 from bs4 import BeautifulSoup
 
 

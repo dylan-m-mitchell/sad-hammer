@@ -7,11 +7,10 @@ blog and the General's Handbook 2021 conventions where applicable.
 """
 
 import random
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 # reference_card_decks imported by other modules; avoid unused-import warnings here
 from backend.deck_manager import TacticsDeckManager, create_turn_action_assignments
-
 
 # Aggression execution modifiers - all units always act, but aggression affects HOW they execute
 # These modifiers influence tactical decision-making (charge ranges, movement preferences, target priorities)
@@ -148,11 +147,13 @@ class SoloSimulator:
         tactic_title = tactic_card["title"]
 
         # Log the battle tactic so players know the AI's goal
-        log.append({
-            "event": "battle_tactic_drawn",
-            "tactic": tactic_title,
-            "description": tactic_card.get("description", ""),
-        })
+        log.append(
+            {
+                "event": "battle_tactic_drawn",
+                "tactic": tactic_title,
+                "description": tactic_card.get("description", ""),
+            }
+        )
 
         # Log aggression levels for each unit (informational only)
         # All units act - aggression affects HOW they execute their actions

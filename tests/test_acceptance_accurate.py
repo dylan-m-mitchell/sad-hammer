@@ -1,7 +1,9 @@
-import sys
 import os
+import sys
+
 from backend.full_simulator import SoloSimulator, Unit
-from backend.interactive_simulator import Unit as CombatUnit, resolve_attack
+from backend.interactive_simulator import Unit as CombatUnit
+from backend.interactive_simulator import resolve_attack
 
 # make project root importable for test discovery
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

@@ -5,11 +5,12 @@ Copied into backend package for server ownership.
 
 import random
 from copy import deepcopy
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from backend.reference_card_decks import (
     battle_tactic_deck,
-    tactic_to_actions,
     objective_action_deck,
+    tactic_to_actions,
 )
 
 
@@ -361,12 +362,12 @@ def create_turn_action_assignments(
     # Build ordered list of ALL units (designated first, then others)
     # All units now receive action cards - aggression affects execution, not participation
     ordered_unit_names = []
-    
+
     # Add designated units first (in tactic order)
     for dn in designated:
         if dn not in ordered_unit_names:
             ordered_unit_names.append(dn)
-    
+
     # Then add remaining units (in original units order)
     for u in units:
         unit_name = getattr(u, "name", str(u))
@@ -379,14 +380,15 @@ def create_turn_action_assignments(
         if card:
             # find unit_obj by name
             unit_obj = next((uu for uu in units if getattr(uu, "name", str(uu)) == unit_name), None)
-            
+
             # Import aggression modifiers from full_simulator
             from backend.full_simulator import AGGRESSION_EXECUTION_MODIFIERS
+
             unit_aggression = getattr(unit_obj, "aggression", "Neutral") if unit_obj else "Neutral"
             aggression_modifiers = AGGRESSION_EXECUTION_MODIFIERS.get(
                 unit_aggression, AGGRESSION_EXECUTION_MODIFIERS["Neutral"]
             )
-            
+
             assignments.append(
                 {
                     "unit": unit_name,

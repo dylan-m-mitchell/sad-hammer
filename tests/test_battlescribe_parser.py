@@ -1,7 +1,7 @@
 import os
 import sys
-from backend.battlescribe_parser import parse_battlescribe_html
 
+from backend.battlescribe_parser import parse_battlescribe_html
 
 # Ensure the repository root is on sys.path so local modules can be imported when
 # pytest is run from the project directory.
