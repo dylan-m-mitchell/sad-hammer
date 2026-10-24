@@ -1,12 +1,15 @@
 # Sad Hammer
 
-Sad Hammer is a playable, rules-driven digital tabletop opponent for miniature
-wargames. Open it on a phone or in a desktop browser, choose a force and fight a
-quick game against an explainable AI opponent.
+Sad Hammer is a playable, rules-driven digital tabletop skirmish against a fair
+computer opponent. Open it on a phone or in a desktop browser, press Start
+battle and play a quick game against an explainable AI.
 
 The first playable game is **Warhammer Age of Sigmar 4th edition**, using the
 Skaventide starter forces and one original mission. **Warhammer 40,000 11th
 edition** follows on the same shared engine.
+
+See [docs/product.md](docs/product.md) for the focused product definition and
+the server-owned AI contract.
 
 ## Play Age of Sigmar 4th
 
@@ -14,13 +17,19 @@ edition** follows on the same shared engine.
 docker compose up --build
 ```
 
-Open [http://localhost:8080](http://localhost:8080), pick an AI style and start
-the battle. The app supports the complete game loop:
+Open [http://localhost:8080](http://localhost:8080) and press Start. The default
+game is Stormcast Eternals vs Skaven on Contested Ground, with both armies
+deployed for five rounds. The opponent is fixed and server-owned: the balanced
+AI profile, not a player choice.
 
-- choose a mission, starter force and AI aggression profile;
-- deploy your army and issue movement, shooting, charge, combat and command
-  orders on a responsive board;
-- see the AI's decisions and the reasons behind them;
+Open the optional **Customize battle** controls to change the mission, force or
+seed. The app supports the complete game loop:
+
+- start the default game with one click;
+- optionally customize the mission, force or seed;
+- issue movement, shooting, charge, combat and command orders on a responsive
+  board;
+- see the fixed AI opponent's decisions and the reasons behind them;
 - resolve alternating combat without either side controlling the other's units;
 - track command points, objective control, battle round and victory points;
 - export a versioned save, import it later, or resume the game from the same
@@ -68,11 +77,13 @@ The player-facing game is built on a deterministic engine in
 - geometry for boards, deployment zones, terrain and objectives;
 - a `GameSystem` interface for edition-specific rules;
 - an AoS 4th core-rules slice with two starter forces and one mission;
-- a rules-based utility AI with aggression profiles and explanations;
+- a rules-based utility AI with one fixed server-owned opponent profile and
+  explanations;
 - a Flask play API and a responsive React client.
 
 Read:
 
+- [Product](docs/product.md)
 - [Engine overview](docs/engine/README.md)
 - [Roadmap](docs/engine/roadmap.md)
 - [Architecture](docs/engine/architecture.md)
@@ -89,6 +100,9 @@ This AI-vs-AI mode is a test harness, not the product experience:
 ```bash
 # A five-round AI-vs-AI verification game.
 python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
+
+# A headless balanced AI-vs-AI benchmark for AI tuning and regression.
+python -m backend.engine.cli aos4-bench --games 20
 
 # The small demo system used to prove the shared contracts.
 python -m backend.engine.cli demo --seed 7 --rounds 2

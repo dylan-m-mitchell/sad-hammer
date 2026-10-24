@@ -64,6 +64,22 @@ def _build_parser() -> argparse.ArgumentParser:
     aos4.add_argument("--save", type=Path, help="write the final state to a JSON file")
     aos4.add_argument("--quiet", action="store_true", help="only print the result")
 
+    bench = subparsers.add_parser(
+        "aos4-bench", help="run a headless AI-vs-AI Age of Sigmar 4th benchmark"
+    )
+    bench.add_argument("--games", type=int, default=20)
+    bench.add_argument("--seed-start", type=int, default=1)
+    bench.add_argument("--rounds", type=int, default=5)
+    bench.add_argument("--mission", default="contested-ground", help="curated ID or JSON file path")
+    bench.add_argument(
+        "--player-pack", default="stormcast-starter", help="curated ID or JSON file path"
+    )
+    bench.add_argument("--ai-pack", default="skaven-starter", help="curated ID or JSON file path")
+    bench.add_argument("--player-profile", choices=sorted(PROFILES), default="balanced")
+    bench.add_argument("--ai-profile", choices=sorted(PROFILES), default="balanced")
+    bench.add_argument("--max-actions", type=int, default=300)
+    bench.add_argument("--json", action="store_true", help="print the benchmark result as JSON")
+
     inspect = subparsers.add_parser("inspect", help="load and summarize a saved state")
     inspect.add_argument("path", type=Path)
 
@@ -137,8 +153,9 @@ def _run_demo(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_aos4(args: argparse.Namespace) -> int:
-    system = create_system("aos4")
+def _load_aos4_content(args: argparse.Namespace) -> dict:
+    """Resolve curated IDs or explicit file paths for AoS4 content."""
+
     # Only the CLI accepts file paths; the engine and HTTP API resolve bare IDs.
     content = {}
     for key, name, load_id, load_file in (
@@ -148,6 +165,12 @@ def _run_aos4(args: argparse.Namespace) -> int:
     ):
         is_path = Path(name).suffix or "/" in name or "\\" in name
         content[key] = load_file(name) if is_path else load_id(name)
+    return content
+
+
+def _run_aos4(args: argparse.Namespace) -> int:
+    system = create_system("aos4")
+    content = _load_aos4_content(args)
     session = GameSession.new(
         system,
         seed=args.seed,
@@ -213,6 +236,139 @@ def _run_aos4(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_aos4_bench_game(
+    system,
+    seed: int,
+    args: argparse.Namespace,
+    profiles,
+    content,
+) -> dict:
+    result = {
+        "seed": seed,
+        "winner": "draw",
+        "player_score": 0,
+        "ai_score": 0,
+        "rounds": 0,
+        "action_count": 0,
+        "error": None,
+    }
+    session = None
+    action_count = 0
+    try:
+        session = GameSession.new(
+            system,
+            seed=seed,
+            max_rounds=args.rounds,
+            **content,
+            skip_deployment=True,
+        )
+        safety = 0
+        while not session.is_terminal():
+            safety += 1
+            if safety > args.rounds * 120 + 120:
+                raise RuntimeError("benchmark game did not terminate; possible action loop")
+            side = session.state.active_side
+            decisions = run_ai_turn(
+                session,
+                profiles[side],
+                max_actions=args.max_actions,
+                top_alternatives=0,
+            )
+            action_count += len(decisions)
+            # The benchmark never replays events, so drop them between turns.
+            session.state.events.clear()
+            if not decisions and not session.is_terminal():
+                raise RuntimeError(f"no actions available for {side.value}")
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {exc}"
+    finally:
+        if session is not None:
+            result.update(
+                winner=session.state.metadata.get("winner") or "draw",
+                player_score=session.state.score_for(Side.PLAYER),
+                ai_score=session.state.score_for(Side.AI),
+                rounds=session.state.round - 1,
+                action_count=action_count,
+            )
+    if result["error"]:
+        result["winner"] = "error"
+    return result
+
+
+def _run_aos4_bench(args: argparse.Namespace) -> int:
+    if args.games < 1:
+        print("aos4-bench: --games must be at least 1", file=sys.stderr)
+        return 2
+
+    system = create_system("aos4")
+    content = _load_aos4_content(args)
+    profiles = {
+        Side.PLAYER: get_profile(args.player_profile),
+        Side.AI: get_profile(args.ai_profile),
+    }
+    results = [
+        _run_aos4_bench_game(
+            system,
+            args.seed_start + index,
+            args,
+            profiles,
+            content,
+        )
+        for index in range(args.games)
+    ]
+
+    games = len(results)
+    player_wins = sum(result["winner"] == Side.PLAYER.value for result in results)
+    ai_wins = sum(result["winner"] == Side.AI.value for result in results)
+    draws = sum(result["winner"] == "draw" for result in results)
+    errors = sum(bool(result["error"]) for result in results)
+    completed = [result for result in results if not result["error"]]
+    divisor = len(completed) or 1
+    summary = {
+        "games": games,
+        "completed": len(completed),
+        "player_wins": player_wins,
+        "ai_wins": ai_wins,
+        "draws": draws,
+        "errors": errors,
+        "average_player_score": round(
+            sum(result["player_score"] for result in completed) / divisor, 2
+        ),
+        "average_ai_score": round(sum(result["ai_score"] for result in completed) / divisor, 2),
+        "average_rounds": round(sum(result["rounds"] for result in completed) / divisor, 2),
+        "average_actions": round(sum(result["action_count"] for result in completed) / divisor, 2),
+    }
+    payload = {
+        "config": {
+            "games": args.games,
+            "seed_start": args.seed_start,
+            "rounds": args.rounds,
+            "mission": args.mission,
+            "player_pack": args.player_pack,
+            "ai_pack": args.ai_pack,
+            "player_profile": args.player_profile,
+            "ai_profile": args.ai_profile,
+            "max_actions": args.max_actions,
+        },
+        **summary,
+        "results": results,
+    }
+
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(
+            f"aos4-bench: {games} game(s); player {player_wins}, ai {ai_wins}, "
+            f"draw {draws}, errors {errors}"
+        )
+        print(
+            f"Avg score {summary['average_player_score']:.2f}-"
+            f"{summary['average_ai_score']:.2f}; avg rounds {summary['average_rounds']:.2f}; "
+            f"avg actions {summary['average_actions']:.2f}"
+        )
+    return 1 if errors else 0
+
+
 def _run_inspect(args: argparse.Namespace) -> int:
     from backend.engine.core.serialization import load_state
 
@@ -236,6 +392,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _run_demo(args)
     if args.command == "aos4":
         return _run_aos4(args)
+    if args.command == "aos4-bench":
+        return _run_aos4_bench(args)
     if args.command == "inspect":
         return _run_inspect(args)
     if args.command == "systems":

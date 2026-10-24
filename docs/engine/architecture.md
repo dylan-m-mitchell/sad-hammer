@@ -215,7 +215,8 @@ units/wargear instead of guessing.
 The AI is an external policy over `legal_actions`, not part of the rules module:
 
 1. Enumerate legal actions.
-2. Score each with system heuristics and the active aggression profile.
+2. Score each with system heuristics and the server-owned balanced profile
+   (other internal profiles are available to tests and the CLI harness).
 3. Add deterministic personality noise.
 4. Pick the best action, record alternatives and an explanation.
 5. Validate and apply through `GameSession`.
@@ -226,7 +227,8 @@ See [AI design](ai-design.md).
 
 ### Setup
 
-1. Choose the mission, starter force and AI aggression profile.
+1. Open the one-click default game, or optionally customize the mission,
+   starter forces and seed. The AI opponent is fixed server-side.
 2. The mission supplies the board, terrain, objectives and deployment zones.
 3. The AI army is deployed from the mission defaults.
 4. In the default quick-play mode both armies start deployed. Manual deployment

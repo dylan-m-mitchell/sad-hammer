@@ -1,7 +1,12 @@
 # Sad Hammer Documentation Index
 
 The project is moving from a card-driven AoS 3 prototype to a rules-driven,
-multi-system tabletop opponent. Start with the new engine docs.
+multi-system tabletop opponent. Start with the product definition and the new
+engine docs.
+
+Product
+
+- `docs/product.md` — purpose, default game, principles and non-goals.
 
 New engine
 
@@ -9,7 +14,7 @@ New engine
 - `docs/engine/roadmap.md` — phased plan, exit criteria and risks.
 - `docs/engine/architecture.md` — engine interfaces, state schema and APIs.
 - `docs/engine/rules-references.md` — official free rules links and scope.
-- `docs/engine/ai-design.md` — utility AI, aggression and explainability.
+- `docs/engine/ai-design.md` — fixed opponent, utility AI and explainability.
 
 Legacy reference docs
 

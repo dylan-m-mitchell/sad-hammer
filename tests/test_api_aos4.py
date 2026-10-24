@@ -27,7 +27,6 @@ def client():
 def _create_game(client, **overrides: Any) -> Dict[str, Any]:
     payload = {
         "seed": 7,
-        "ai_profile": "balanced",
         "max_rounds": 2,
     }
     payload.update(overrides)
@@ -78,10 +77,10 @@ def test_options_lists_starter_content(client) -> None:
     data = response.get_json()
     pack_ids = {pack["id"] for pack in data["packs"]}
     mission_ids = {mission["id"] for mission in data["missions"]}
-    profile_ids = {profile["id"] for profile in data["profiles"]}
     assert {"stormcast-starter", "skaven-starter"} <= pack_ids
     assert "contested-ground" in mission_ids
-    assert {"aggressive", "balanced", "cautious"} <= profile_ids
+    assert "profiles" not in data
+    assert "ai_profile" not in data["defaults"]
 
 
 def test_create_game_returns_player_turn_and_actions(client) -> None:
@@ -144,8 +143,14 @@ def test_ai_takes_its_turn_and_explains_decisions(client) -> None:
     assert snapshot["view"]["active_side"] == "player" or snapshot["view"]["status"] == "complete"
 
 
+def test_create_game_ignores_client_ai_profile(client) -> None:
+    data = _create_game(client, ai_profile="cautious")
+    assert data["view"]["ai_profile"]["name"] == "balanced"
+    assert data["view"]["setup"]["ai_profile"] == "balanced"
+
+
 def test_full_game_against_ai_completes(client) -> None:
-    data = _create_game(client, seed=11, ai_profile="aggressive", max_rounds=2)
+    data = _create_game(client, seed=11, max_rounds=2)
     game_id = data["game_id"]
     final, responses = _play_to_completion(client, game_id)
     assert final["view"]["status"] == "complete"
@@ -209,6 +214,18 @@ def test_export_and_import_round_trip(client) -> None:
     assert result["view"]["round"] == data["view"]["round"]
     assert result["view"]["phase"] == data["view"]["phase"]
     assert result["view"]["interaction"] == "player_turn"
+
+
+def test_import_ignores_client_ai_profile_and_keeps_saved_profile(client) -> None:
+    saved = Aos4Match.create(seed=7, ai_profile="cautious", max_rounds=2).state_dict()
+    response = client.post(
+        "/api/aos4/games/import",
+        json={"state": saved, "ai_profile": "aggressive"},
+    )
+    assert response.status_code == 200, response.get_json()
+    result = response.get_json()
+    assert result["view"]["ai_profile"]["name"] == "cautious"
+    assert result["view"]["setup"]["ai_profile"] == "cautious"
 
 
 def test_import_rejects_invalid_state(client) -> None:
