@@ -2,17 +2,18 @@
 
 ## Purpose
 
-Sad Hammer is a physical-table companion. The human plays their army on a real
-table and rolls their own dice; the app maintains a digital twin, resolves rules
-and dice for the AI, and updates the twin from the human's reported state. The
-engine is the source of truth for legality, state transitions and scoring.
+Sad Hammer is a playable digital tabletop game. The human commands their army in
+a mobile or desktop browser, while the app maintains the board state, resolves
+rules and dice, and supplies the AI opponent. The engine is the source of truth
+for legality, state transitions and scoring. A physical-table mirror mode may be
+added later, but it is not required for the product flow.
 
 It supports multiple editions through a shared core and per-edition modules:
 
 ```text
                     +---------------------------+
                     |   client / board UI       |
-                    |  digital twin + save/load |
+                    |  board state + save/load |
                     +-------------+-------------+
                                   |
                     +-------------v-------------+
@@ -166,8 +167,8 @@ Implemented in the first vertical slice:
 - the Rally, All-out Attack and All-out Defence commands with command points;
 - deployment territories, cover, blocking line of sight, objective control and
   end-of-turn scoring;
-- one mission, two curated starter-army data packs and a deterministic
-  AI-vs-AI CLI.
+- one mission, two curated starter-army data packs, legal player actions with
+  side ownership, automatic AI turns and an AI-vs-AI CLI regression harness.
 
 Deliberately deferred for now: priority rolls, battle-shock and other morale
 mechanics (AoS 4th has no battle-shock step), spells, manifestations, battle
@@ -221,35 +222,40 @@ The AI is an external policy over `legal_actions`, not part of the rules module:
 
 See [AI design](ai-design.md).
 
-## Physical companion flow
+## Player flow
 
 ### Setup
 
-1. Choose system, mission and board size.
-2. Import/build both rosters.
-3. Suggest a terrain layout; the human edits it.
-4. Suggest AI deployment; the human deploys their army and mirrors both sides.
-5. Validate zones, footprints, coherency and objective clearance with warnings.
-
-### AI turn
-
-1. Engine computes a plan from the digital twin.
-2. UI steps through the plan: move path, targets, attacks, charge, fight.
-3. Engine rolls AI dice and updates the twin.
-4. Human confirms each step and moves the physical models.
-5. Events update objectives, CP and VP.
+1. Choose the mission, starter force and AI aggression profile.
+2. The mission supplies the board, terrain, objectives and deployment zones.
+3. The AI army is deployed from the mission defaults.
+4. In the default quick-play mode both armies start deployed. Manual deployment
+   remains available and uses the same validated `deploy` actions as any client.
 
 ### Human turn
 
-1. Human plays and rolls physically.
-2. At end of turn, a wizard lets them drag units, remove casualties, mark
-   objectives, update CP/VP and add notes.
-3. Validation warns about impossible states; the human remains the table
-   authority.
-4. The next AI turn plans from the updated state.
+1. The player selects one of their units on the board.
+2. Legal orders are listed and visualised by the play API; the player chooses
+   one.
+3. The engine validates and applies it, resolves dice and updates the event log.
+4. The player continues until the phase or turn is ended.
+5. During AI-turn combat, the play API pauses at each human fight pick without
+   allowing the AI to act for the player's units.
 
-The companion does not need to observe every human dice roll. It needs an
-accurate enough state at the start of each AI turn.
+### AI turn
+
+1. The AI considers only legal actions owned by the AI side.
+2. The utility policy scores them and records its reason for each pick.
+3. The engine resolves the AI actions automatically until the human is needed
+   again: the start of their turn or an alternating-combat pick.
+4. Objectives, command points, casualties and victory points update as events
+   resolve.
+
+### Save and resume
+
+1. The server caches active matches because a five-round state is large.
+2. Versioned JSON export/import preserves games across restarts or devices.
+3. Export files contain no rules text or proprietary datasets.
 
 ## Future API shape
 

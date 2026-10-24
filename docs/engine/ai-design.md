@@ -97,7 +97,8 @@ well the AI evaluates the same information a human has.
 
 ## Evaluation and regression
 
-- Run AI-vs-AI batches over many seeds.
+- Use AI-vs-AI batches as an engine regression harness, not as the product
+  experience.
 - Assert zero illegal actions and no action loops.
 - Measure VP spread, game length, unit usage and objective participation.
 - Compare aggression profiles to ensure they produce meaningfully different

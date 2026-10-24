@@ -1,25 +1,75 @@
 # Sad Hammer
 
-Sad Hammer is a physical-table companion and AI opponent for miniature
-wargames. The human plays their army on a real table and rolls their own dice;
-the app maintains a digital twin of the board, resolves rules and dice for the
-AI, and explains what the AI is doing.
+Sad Hammer is a playable, rules-driven digital tabletop opponent for miniature
+wargames. Open it on a phone or in a desktop browser, choose a force and fight a
+quick game against an explainable AI opponent.
 
-The v1 target is **Warhammer Age of Sigmar 4th edition** and **Warhammer 40,000
-11th edition**, starting with one mission and the starter-box forces for each
-system.
+The first playable game is **Warhammer Age of Sigmar 4th edition**, using the
+Skaventide starter forces and one original mission. **Warhammer 40,000 11th
+edition** follows on the same shared engine.
 
-## New engine
+## Play Age of Sigmar 4th
 
-The next generation of Sad Hammer lives in `backend/engine/`:
+```bash
+docker compose up --build
+```
 
-- deterministic dice and replayable state;
+Open [http://localhost:8080](http://localhost:8080), pick an AI style and start
+the battle. The app supports the complete game loop:
+
+- choose a mission, starter force and AI aggression profile;
+- deploy your army and issue movement, shooting, charge, combat and command
+  orders on a responsive board;
+- see the AI's decisions and the reasons behind them;
+- resolve alternating combat without either side controlling the other's units;
+- track command points, objective control, battle round and victory points;
+- export a versioned save, import it later, or resume the game from the same
+  browser.
+
+The old card-driven simulator remains available at `/legacy` for reference.
+
+## Development
+
+Prerequisites: Python 3.10+ and Node.js 18+.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Terminal 1: Flask API on http://localhost:5000
+./scripts/start_backend.sh
+
+# Terminal 2: Vite app on http://localhost:8080
+./scripts/start_frontend.sh
+```
+
+Run the tests:
+
+```bash
+pytest tests/ -q
+cd frontend && npm run build
+```
+
+The engine's focused formatting, lint and test command:
+
+```bash
+black --check backend/engine tests/engine
+ruff check backend/engine tests/engine
+pytest tests/engine -q
+```
+
+## Architecture
+
+The player-facing game is built on a deterministic engine in
+`backend/engine/`:
+
+- deterministic dice and replayable, versioned JSON state;
 - geometry for boards, deployment zones, terrain and objectives;
-- versioned JSON saves with validation;
 - a `GameSystem` interface for edition-specific rules;
-- a playable AoS 4th core-rules slice with two starter forces and one mission;
-- a rules-based, explainable utility AI with aggression profiles;
-- a CLI harness and a focused test suite.
+- an AoS 4th core-rules slice with two starter forces and one mission;
+- a rules-based utility AI with aggression profiles and explanations;
+- a Flask play API and a responsive React client.
 
 Read:
 
@@ -29,70 +79,38 @@ Read:
 - [AoS 4th vertical slice](docs/engine/aos4-slice.md)
 - [Rules references](docs/engine/rules-references.md)
 - [AI design](docs/engine/ai-design.md)
+- [HTTP API](docs/api.md)
 
-Try the engine:
+### Engine verification harness
+
+The CLI can run both sides through the AI for rules and regression testing.
+This AI-vs-AI mode is a test harness, not the product experience:
 
 ```bash
-# A five-round AI-vs-AI Age of Sigmar 4th game.
+# A five-round AI-vs-AI verification game.
 python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
 
 # The small demo system used to prove the shared contracts.
 python -m backend.engine.cli demo --seed 7 --rounds 2
 
-# Save and reload a game.
+# Save, inspect and replay a game state.
 python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy \
   --save /tmp/aos4-state.json
 python -m backend.engine.cli inspect /tmp/aos4-state.json
-
-pytest tests/engine -q
 ```
 
-## Repository status
-
-`backend/engine/` is the new rules engine. The existing Flask API, React
-frontend and card-driven simulator are **legacy reference code** for the
-retired AoS 3/GHB2021 solo-card flow. They remain runnable while the new AoS
-slice is built, but they are not the architecture for the new opponent.
+## Status
 
 | Area | Status |
 | --- | --- |
 | Shared engine core and demo system | Implemented |
-| AoS 4th core-rules vertical slice | Implemented (AI-vs-AI CLI) |
+| AoS 4th core-rules slice | Implemented |
+| Player-vs-AI web game | Implemented for the AoS slice |
+| Alternating combat with side ownership | Implemented |
+| Save/export/import and resume | Implemented |
+| Editable terrain and full deployment editor | Planned |
 | 40k 11th rules module | After the AoS slice |
-| Digital-twin board and deployment UI | Planned |
 | New Recruit `.ros`/`.rosz` import and curated builder | Planned |
-
-## Legacy application
-
-The old app still has its original local setup:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pytest -q
-./scripts/start_backend.sh   # http://localhost:5000
-./scripts/start_frontend.sh  # http://localhost:5173
-```
-
-Or with Docker:
-
-```bash
-docker compose up --build
-# http://localhost:8080
-```
-
-The legacy docs in `docs/` describe that flow. They should be treated as
-historical until the new UI replaces them.
-
-## CI
-
-- `.github/workflows/engine-ci.yml` — fast engine formatting, lint, tests and
-  CLI smoke test.
-- `.github/workflows/main-ci-cd.yml` — full backend/frontend/docker/integration
-  checks on pull requests to `main`.
-
-See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
 ## Contributing
 

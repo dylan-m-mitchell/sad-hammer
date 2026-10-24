@@ -1,8 +1,10 @@
 # Engine roadmap
 
 This roadmap replaces the earlier “finish the card prototype” plan. The target
-is a physical-table companion with a full digital twin, a human-vs-AI loop, and
-edition-specific rules for Age of Sigmar 4th and Warhammer 40,000 11th.
+is a player-facing game that opens on mobile or web, lets a human play a quick
+battle against an explainable AI, and ships edition-specific rules for Age of
+Sigmar 4th and Warhammer 40,000 11th. AI-vs-AI play is an engine test harness,
+not the product goal.
 
 ## Guiding decisions
 
@@ -12,28 +14,30 @@ edition-specific rules for Age of Sigmar 4th and Warhammer 40,000 11th.
 - **No universal card engine.** Each edition owns its phases, combat, morale,
   mission scoring and resources. Battle tactics may be mission data, not a
   turn driver.
-- **Human authority on the table.** The human rolls their own dice and reports
-  the resulting state. The app rolls and resolves for the AI. Validation of
-  human updates should warn, not block.
+- **Player authority, engine resolution.** The player issues orders on a digital
+  board. The engine validates them, resolves dice and updates the shared state;
+  the same action contract drives the AI. Optional physical-table mirroring is a
+  later enhancement, not a prerequisite.
 - **Terrain and deployment are part of v1.** Terrain affects line of sight,
   cover, movement and therefore AI decisions. Both editors must work before the
-  companion can be tested properly.
+  game is considered feature-complete.
 - **AI must be legal, explainable and characterful.** Utility scoring over
   system-enumerated actions; aggression profiles change priorities; no machine
   learning in v1.
-- **Save/export from day one.** The canonical state is versioned JSON in the
-  client. The API stays stateless unless state size forces a cache.
+- **Save/export from day one.** The canonical state is versioned JSON. Active
+  games are cached server-side by game id; export/import keeps them portable and
+  recoverable after a restart.
 - **Rules content stays out of the repository.** Commit links, summaries and
   structured data, not PDFs or copied rulebook text.
 
 ## Current branch
 
 Phase 0 and the Phase 1 walking skeleton are merged to `main`. The
-`feature/aos4-vertical-slice` branch contains the first AoS 4th rules module,
-the two starter data packs, the contested-ground mission, the AoS CLI and the
-rules matrix. No engine work is committed directly to `main`. The legacy card
-simulator stays on `main` as reference material until the new AoS slice replaces
-its UI flow.
+`feature/aos4-vertical-slice` branch now contains the AoS 4th rules module, the
+two starter data packs, the contested-ground mission, the AoS CLI, the play API
+and the player-facing React game. The legacy card simulator remains on `main`
+and stays reachable at `/legacy` while the new game becomes the default
+experience.
 
 ## Phase 0 — Foundation
 
@@ -91,28 +95,32 @@ The implemented rules and the deliberate simplifications are listed in
 [the AoS 4th slice](aos4-slice.md). In particular, AoS 4th has no battle-shock
 step; bravery is retained in the data model for future morale work.
 
-**Exit:** the AoS game can be played end-to-end through the engine and CLI with a
-legal, explainable AI. This is the first real proof that the abstraction works.
+**Exit:** the AoS game can be played end-to-end against the AI through the engine
+and web client with legal, explainable decisions. This is the first real proof
+that the abstraction works.
 
-## Phase 3 — Physical-table companion UI
+## Phase 3 — Player-facing web game
 
-**Goal:** play the AoS slice on a real table while keeping the digital twin in
-sync.
+**Goal:** open the app on a phone or in a browser and play a quick AoS 4th game
+against the AI.
 
-- [ ] Setup wizard: system, mission, board size, rosters and deployment.
-- [ ] Board renderer (SVG or Canvas) with terrain, units and objectives.
-- [ ] Editable terrain layout with suggested layouts and overlap/objective
-      validation.
-- [ ] Editable unit deployment with zone, coherency and footprint checks.
-- [ ] AI turn step-through: plan, movement path, target, dice and results.
-- [ ] Human turn update wizard at end of turn: positions, casualties, CP/VP,
-      objectives and notes.
-- [ ] Warnings instead of hard blocks for human-reported state.
-- [ ] Local autosave, JSON export/import and replayable event log.
-- [ ] Accessibility and mobile/tablet layout.
+- [x] Setup wizard for mission, starter force and AI aggression profile.
+- [x] Responsive SVG board with terrain, objectives, deployment zones and units.
+- [x] Legal order UI for deployment, movement, shooting, charges, combat and
+      commands.
+- [x] Automatic AI turns with an explainable intent log.
+- [x] Alternating combat picks with strict side ownership.
+- [x] Battle log, scores, command points, phase and round status.
+- [x] Result flow with rematch, new battle, export and review.
+- [x] JSON export/import and in-browser save resume.
+- [x] Mobile/tablet layout for the complete game loop.
+- [ ] Editable terrain layout and a richer drag-and-drop deployment editor.
+- [ ] Per-action animation, undo and replay controls.
+- [ ] Accessibility audit and keyboard-first board controls.
 
-**Exit:** a full physical-table AoS game is played with the app as the opponent
-and digital twin, without entering every human dice roll.
+**Exit:** a player can open the app, start a battle and complete a legal,
+enjoyable AoS game against the AI without using the CLI. **Met for the AoS
+slice.**
 
 ## Phase 4 — AI quality
 
@@ -132,7 +140,7 @@ trivially exploitable.
 
 ## Phase 5 — Warhammer 40,000 11th
 
-**Goal:** the same companion flow for 40k 11th.
+**Goal:** the same player-facing game flow for 40k 11th.
 
 - [ ] Rules matrix for 11th edition: battle round, player turns, seven steps,
       Command CP, battle-shock, movement, shooting, charge, fight, end of turn.
@@ -143,7 +151,7 @@ trivially exploitable.
 - [ ] Shared UI with system-specific controls and phase labels.
 - [ ] Cross-system tests proving the core did not become AoS-shaped.
 
-**Exit:** a complete 40k game through the same companion flow with a legal AI.
+**Exit:** a complete 40k game through the same browser flow with a legal AI.
 
 ## Phase 6 — Roster workbench
 
@@ -188,20 +196,23 @@ risk. Phase 6 can start earlier because roster data is largely independent.
 3. Implement deployment, movement, shooting, charge, combat and one mission.
    **Done.**
 4. Play an AI-vs-AI AoS game and fix rules/legality failures. **Done.**
-5. Add the board/deployment UI and the end-of-turn digital-twin wizard.
-6. Tune AI behavior before adding 40k.
+5. Build the player-facing web game and complete a human-vs-AI battle. **Done.**
+6. Add terrain editing, deployment polish and accessibility improvements.
+7. Tune AI behavior before adding 40k.
 
 ## Risks
 
 - **Free data coverage:** current-edition core rules are free, but faction
   datasheets and mission packs are not all free. Start with starter-box data and
   user-supplied/community data, and keep the data-pack boundary strict.
-- **Manual twin updates:** entering board state is the dominant UX risk. The
-  end-of-turn wizard and drag/drop must be tested with real games early.
+- **Manual board editing:** deployment is action-driven, but terrain and
+  fine-grained unit placement still need an editor. Test those controls with
+  real games early.
 - **Rules ambiguity/updates:** AoS 4th has rolling updates and 40k 11th is new.
   Version data packs and record which rules update each game used.
 - **AI quality:** legal actions are easy; a plausible opponent takes iteration.
-  Do not defer AI-vs-AI playtesting until the UI is finished.
+  Use AI-vs-AI batches as a regression harness, but validate the experience with
+  human playtests.
 - **Roster scope:** a full BattleScribe replacement is a separate project. Keep
   the builder curated.
 - **Copyright:** keep PDFs, verbatim rules text and proprietary datasets out of

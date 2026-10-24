@@ -87,8 +87,9 @@ jobs:
           mypy backend/ --ignore-missing-imports
         continue-on-error: true
 
-  # The frontend build is a real gate. Browser tests are not wired up yet;
-  # the old Playwright specs still describe the retired player-roll flow.
+  # The frontend build is a real gate. Browser tests are opt-in locally because
+  # they need the Flask API and a seeded Vite server; the legacy specs now target
+  # /legacy, while the default route is covered by the API integration tests.
   frontend-tests:
     name: Frontend Build
     runs-on: ubuntu-latest

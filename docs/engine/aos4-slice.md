@@ -1,34 +1,43 @@
 # Age of Sigmar 4th vertical slice
 
-This document describes the first playable rules slice: a complete AI-vs-AI
-Age of Sigmar 4th game using the Skaventide starter forces and one original
-mission. It is the reference for what the engine currently implements, and for
-what is deliberately deferred.
+This document describes the first playable rules slice: a complete
+player-vs-AI Age of Sigmar 4th game using the Skaventide starter forces and one
+original mission. The CLI also runs both sides through the AI as a rules and
+regression harness. This is the reference for what the engine currently
+implements, and for what is deliberately deferred.
 
 The slice is **not** a matched-play ruleset. The data packs are curated,
-approximate profiles for testing the engine and AI. They are not a replacement
-for the official datasheets or the current battlepack.
+approximate profiles for the engine and AI. They are not a replacement for the
+official datasheets or the current battlepack.
 
-## Run it
+## Play it
+
+```bash
+docker compose up --build
+# open http://localhost:8080
+```
+
+Choose an AI profile and start a battle. The web client supports setup, the full
+turn loop, automatic AI turns, human picks in alternating combat, scoring,
+resume, and versioned export/import. The legacy card simulator remains at
+`/legacy`.
+
+The CLI stays available as the AI-vs-AI verification harness:
 
 ```bash
 # One complete battle round, with command-point spending and scoring.
 python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy
 
-# A five-round AI-vs-AI game, saving the final state.
+# A five-round AI-vs-AI regression game, saving the final state.
 python -m backend.engine.cli aos4 --seed 11 --rounds 5 \
   --player-profile balanced --ai-profile aggressive \
   --save /tmp/aos4-game.json
 ```
 
 `--auto-deploy` starts at round 1 with both armies at the mission's default
-deployment positions. Without it, the player deploys each unit through a
-`deploy` action and ends deployment explicitly. The AI army is predeployed from
-the mission file.
-
-The CLI runs both sides through the shared utility AI. A future UI will let the
-human take the player turns and report tabletop state; the rules actions are
-already exposed for that use.
+deployment positions. Without it, deployment uses explicit `deploy` actions and
+an `end_deployment` action. The web client offers the same manual deployment
+path, but defaults to quick play with both armies deployed.
 
 ## Data and mission
 
@@ -63,7 +72,9 @@ terrain, scoring and default deployments.
 | Scoring | Active player scores 1 VP per objective controlled at the end of their turn | `contested-ground` mission rule |
 | End of Turn | Score, reset CP at the end of the round, advance the round or finish | Equal scores produce a draw |
 | AI | Legal-action utility scoring, aggression profiles, explanations and deterministic tie-breaking | No machine learning |
-| Save/replay | Versioned JSON save, action log and deterministic replay | The CLI can save the final state |
+| Player UI | Responsive board, unit orders, AI intent log, battle log and result flow | Default app route on mobile and web |
+| Side ownership | Human and AI can only select actions owned by their side, including combat | Enforced by the play API and engine |
+| Save/replay | Versioned JSON save, action log and deterministic replay | Export/import in the UI and CLI save files |
 
 ### Combat sequence details
 
@@ -111,6 +122,12 @@ The policy only selects actions returned by `legal_actions`. Every selected
 action is validated again before it is applied. Runs with the same seed and
 profile produce the same result, and the event log explains each choice.
 
+The player-facing loop uses the same policy through `run_ai_until_human`. It
+filters candidates to AI-owned actions, resolves the AI turn automatically, and
+stops when the human's turn begins or alternating combat reaches a human unit.
+That keeps control honest in both directions: the AI cannot move or fight with a
+player unit, and the player cannot act for the AI.
+
 The AI enumerates a deliberately small set of candidate destinations around
 objectives, terrain and enemies. A human-facing client may submit any legal
 destination; the candidate set is an AI search limit, not a rules limit.
@@ -128,7 +145,8 @@ The following are intentionally outside this slice:
 - per-model placement, unit coherency, model counts in weapon ranges and
   casualty removal;
 - roster import (`.ros`/`.rosz`) and the curated in-app builder;
-- a human-turn digital-twin editor and board UI;
+- an editable terrain layout and a richer drag-and-drop deployment editor;
+- per-action animation, undo, and game replay controls;
 - a second mission or a matched-play battlepack.
 
 Bravery is stored in the data packs for future morale work but is not used by
@@ -143,6 +161,8 @@ The slice is covered by:
 - `tests/engine/test_aos4_combat.py` - attack sequence, wards, probabilities and
   charge odds;
 - `tests/engine/test_aos4_system.py` - deployment, phases, movement, shooting,
-  charges, combat order, commands, scoring, AI behaviour, save/load and replay.
+  charges, combat order, commands, scoring, AI behaviour, save/load and replay;
+- `tests/test_api_aos4.py` - the player-facing HTTP loop, full human-vs-AI game
+  completion, AI explanations, side ownership, and export/import.
 
 The Engine CI workflow also runs a short `aos4` CLI game as a smoke test.

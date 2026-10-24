@@ -1,20 +1,21 @@
 # Sad Hammer engine
 
-The engine is a deterministic, rules-driven tabletop opponent for **Age of
-Sigmar 4th edition** and **Warhammer 40,000 11th edition**. It is a separate
-package from the legacy card-driven solo simulator:
+The engine is a deterministic, rules-driven opponent for a playable digital
+tabletop game. The player commands their army in the React client; the engine
+owns legality, state transitions, rules resolution, dice, scoring and the AI
+opponent. Edition-specific rules live behind the shared `GameSystem` contract:
 
 ```text
 backend/engine/
   core/       geometry, dice, state, events, validation, serialization, session
-  systems/    GameSystem interface + per-edition rules modules
+  systems/    GameSystem interface + per-edition rules modules + match orchestration
   ai/         legal-action utility AI and aggression profiles
-  cli.py      local walking-skeleton harness
+  cli.py      local AI-vs-AI verification harness
 ```
 
 The first real implementation is the AoS 4th core-rules vertical slice. A
 small two-phase demo system remains in place to prove the shared contracts in
-isolation. The 40k module and the companion UI are still ahead.
+isolation. The 40k module is the next rules implementation.
 
 ## Status
 
@@ -25,15 +26,31 @@ isolation. The 40k module and the companion UI are still ahead.
 | Deterministic dice, geometry, state, events, validation | Implemented |
 | `GameSystem` interface and demo system | Implemented |
 | Explainable legal-action AI | Implemented |
-| AoS 4th core-rules vertical slice | Implemented (AI-vs-AI CLI) |
+| AoS 4th core-rules vertical slice | Implemented |
+| Player-vs-AI web match and play API | Implemented for AoS 4th |
 | CLI harness and tests | Implemented |
 | 40k 11th rules module | After the AoS vertical slice |
-| Digital-twin board UI | After the AoS engine slice |
+| Editable terrain and expanded deployment UI | Planned |
 
-## Try it
+## Play
+
+The product flow is browser-first:
 
 ```bash
-# A complete AI-vs-AI Age of Sigmar 4th game.
+docker compose up --build
+# open http://localhost:8080
+```
+
+The app supports setup, deployment, orders, automatic AI turns, human combat
+picks in alternating combat, battle scoring, and versioned save/export/import.
+The old card simulator is still reachable at `/legacy`.
+
+The CLI is the engine verification harness. It runs both sides through the
+shared utility AI to check rules, legality and replay behaviour; it is not the
+primary way to play:
+
+```bash
+# A complete AI-vs-AI Age of Sigmar 4th verification game.
 python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
 
 # The smaller contract-proving demo.
@@ -49,21 +66,25 @@ Run the focused test suite:
 
 ```bash
 pytest tests/engine -q
+pytest tests/test_api_aos4.py -q
 ```
 
 ## Reading order
 
 1. [Roadmap](roadmap.md) — phases, exit criteria and current work.
 2. [Architecture](architecture.md) — interfaces, state, determinism and APIs.
-3. [AoS 4th slice](aos4-slice.md) — implemented rules, data and simplifications.
+3. [AoS 4th slice](aos4-slice.md) — implemented rules, data, UI and simplifications.
 4. [Rules references](rules-references.md) — official free rules links and scope.
 5. [AI design](ai-design.md) — how the opponent chooses and explains actions.
 
 ## Design constraints
 
-- The human plays and rolls physically. The app rolls only for the AI and
-  updates the digital twin from the human's reported state.
-- The board is a full digital twin: terrain and both armies are editable.
+- The player issues orders through a digital board. The engine validates and
+  resolves those orders, and the same action contract drives the AI.
+- The human and the AI may only select actions owned by their own side, including
+  during alternating combat.
+- The board is a full digital twin: terrain and both armies are tracked in state.
+  Editable terrain controls are planned; deployment already uses legal actions.
 - Rules live in edition modules. A universal action-card deck is not the turn
   engine.
 - Aggression is an AI policy input, not a game rule.
