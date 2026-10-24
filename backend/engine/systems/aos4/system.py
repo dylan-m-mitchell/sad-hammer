@@ -24,6 +24,7 @@ from backend.engine.core.models import (
     Army,
     Board,
     GameState,
+    Objective,
     Side,
     Unit,
     Weapon,
@@ -1792,6 +1793,7 @@ class Aos4System(GameSystem):
                 target,
                 objective_focus=objective_focus,
                 damage_focus=damage_focus,
+                risk_tolerance=risk_tolerance,
                 ranged=True,
             )
 
@@ -1811,6 +1813,8 @@ class Aos4System(GameSystem):
             value += self._target_objective_bonus(state, target, objective_focus)
             if expected * chance >= int(target.wounds or 0):
                 value += 2.0 * damage_focus
+            retaliation = self._retaliation_damage(state, unit, target, melee=True)
+            value -= retaliation * 2.4 * (1.0 - risk_tolerance) * chance
             risk = (1.0 - self._health_ratio(unit)) * (1.0 - risk_tolerance)
             value -= risk * 1.5
             return value
@@ -1825,6 +1829,7 @@ class Aos4System(GameSystem):
                 target,
                 objective_focus=objective_focus,
                 damage_focus=damage_focus,
+                risk_tolerance=risk_tolerance,
                 ranged=False,
             )
 
@@ -1851,16 +1856,12 @@ class Aos4System(GameSystem):
         *,
         deployment: bool,
     ) -> float:
-        current_objective = min(
-            (unit.position.distance_to(objective.position) for objective in state.objectives),
-            default=0.0,
-        )
-        destination_objective = min(
-            (destination.distance_to(objective.position) for objective in state.objectives),
-            default=0.0,
-        )
-        objective_gain = max(0.0, current_objective - destination_objective)
-        enemies = state.alive_units_for(unit.side.other)
+        side = unit.side
+        approach_gain = self._objective_approach_gain(state, unit.position, destination, side)
+        hold_delta = self._objective_hold_value(
+            state, destination, side
+        ) - self._objective_hold_value(state, unit.position, side)
+        enemies = state.alive_units_for(side.other)
         current_enemy = min(
             (unit.position.distance_to(enemy.position) for enemy in enemies),
             default=0.0,
@@ -1869,16 +1870,65 @@ class Aos4System(GameSystem):
             (destination.distance_to(enemy.position) for enemy in enemies),
             default=0.0,
         )
-        approach_gain = max(0.0, current_enemy - destination_enemy)
-        score = objective_gain * 2.4 * objective_focus * mobility
-        score += approach_gain * 1.1 * damage_focus * mobility
-        if any(objective.contains(destination) for objective in state.objectives):
-            score += 2.5 * objective_focus
-        if any(feature.cover and feature.contains(destination) for feature in state.terrain):
-            score += (0.5 if deployment else 1.2) * cover_focus
+        threat_gain = max(0.0, current_enemy - destination_enemy)
+        score = approach_gain * 2.4 * objective_focus * mobility
+        score += hold_delta * 3.2 * objective_focus * mobility
+        score += threat_gain * 1.1 * damage_focus * mobility
+        cover_delta = float(self._position_in_cover(state, destination)) - float(
+            self._position_in_cover(state, unit.position)
+        )
+        score += cover_delta * (0.5 if deployment else 1.2) * cover_focus
         if deployment:
             score -= 0.05
+        else:
+            score -= 0.1 * unit.position.distance_to(destination)
         return score
+
+    def _objective_priority(self, objective: Objective, side: Side) -> float:
+        """How much a side wants an objective, weighted by its value and owner."""
+
+        value = float(objective.value)
+        if value <= 0:
+            return 0.0
+        if objective.controller is None:
+            return value
+        if objective.controller is side:
+            return value * 1.25
+        return value * 1.75
+
+    def _objective_hold_value(self, state: GameState, position: Vec2, side: Side) -> float:
+        """Value of actually standing on an objective, including abandoning it later."""
+
+        return max(
+            (
+                self._objective_priority(objective, side)
+                for objective in state.objectives
+                if objective.contains(position)
+            ),
+            default=0.0,
+        )
+
+    def _objective_approach_gain(
+        self,
+        state: GameState,
+        origin: Vec2,
+        destination: Vec2,
+        side: Side,
+    ) -> float:
+        """Distance closed on the most attractive objective, weighted by its value."""
+
+        gain = 0.0
+        for objective in state.objectives:
+            priority = self._objective_priority(objective, side)
+            if priority <= 0:
+                continue
+            before = max(0.0, origin.distance_to(objective.position) - objective.radius)
+            after = max(0.0, destination.distance_to(objective.position) - objective.radius)
+            gain = max(gain, priority * max(0.0, before - after))
+        return gain
+
+    def _position_in_cover(self, state: GameState, position: Vec2) -> bool:
+        return any(feature.cover and feature.contains(position) for feature in state.terrain)
 
     def _attack_value(
         self,
@@ -1888,6 +1938,7 @@ class Aos4System(GameSystem):
         *,
         objective_focus: float,
         damage_focus: float,
+        risk_tolerance: float,
         ranged: bool,
     ) -> float:
         weapons = [
@@ -1915,19 +1966,61 @@ class Aos4System(GameSystem):
         value += self._target_objective_bonus(state, target, objective_focus)
         if "Hero" in target.keywords or "hero" in target.keywords:
             value += 0.8 * damage_focus
+        retaliation = self._retaliation_damage(state, attacker, target, melee=not ranged)
+        value -= retaliation * 2.4 * (1.0 - risk_tolerance)
         return value
+
+    def _retaliation_damage(
+        self,
+        state: GameState,
+        attacker: Unit,
+        target: Unit,
+        *,
+        melee: bool,
+    ) -> float:
+        """Expected damage the target can return, used as a risk penalty."""
+
+        if melee:
+            weapons = [weapon for weapon in target.weapons if weapon.is_melee]
+            if not weapons:
+                return 0.0
+            return expected_weapon_damage(
+                weapons,
+                attacker.save,
+                self._ward(attacker),
+                melee=True,
+            )
+        weapons = [
+            weapon
+            for weapon in target.weapons
+            if not weapon.is_melee and self._weapon_in_range(target, attacker, weapon)
+        ]
+        if not weapons:
+            return 0.0
+        hit_modifier = -1 if self._target_in_cover(state, attacker) else 0
+        return expected_weapon_damage(
+            weapons,
+            attacker.save,
+            self._ward(attacker),
+            hit_modifier=hit_modifier,
+            ranged=True,
+        )
 
     def _target_objective_bonus(
         self, state: GameState, target: Unit, objective_focus: float
     ) -> float:
-        if any(
-            objective.contains(target.position) and objective.controller is not target.side
-            for objective in state.objectives
-        ):
-            return 1.6 * objective_focus
-        if any(objective.contains(target.position) for objective in state.objectives):
-            return 1.0 * objective_focus
-        return 0.0
+        bonus = 0.0
+        for objective in state.objectives:
+            if not objective.contains(target.position):
+                continue
+            if objective.controller is target.side:
+                weight = 0.8
+            elif objective.controller is None:
+                weight = 1.2
+            else:
+                weight = 1.7
+            bonus = max(bonus, float(objective.value) * weight)
+        return bonus * objective_focus
 
     def _health_ratio(self, unit: Unit) -> float:
         maximum = max(1, unit.max_wounds)

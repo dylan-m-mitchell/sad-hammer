@@ -499,3 +499,112 @@ def test_action_keys_distinguish_commands_and_phase_payloads():
 
     end_phase = _find(session, "end_phase", actor_id="player")
     assert end_phase.payload["phase"] == "shooting"
+
+
+def test_objective_value_and_controller_shape_position_value():
+    session = _session(seed=1)
+    _set_phase(session, "movement")
+    north = next(obj for obj in session.state.objectives if obj.id == "north-cache")
+    south = next(obj for obj in session.state.objectives if obj.id == "south-cache")
+    west = next(obj for obj in session.state.objectives if obj.id == "west-crossing")
+    north.value = 3
+    west.controller = Side.AI
+
+    prosecutor = session.state.unit_by_id("player-prosecutors")
+    assert prosecutor is not None
+    prosecutor.position = Vec2(22, 15)
+    moves = [
+        action
+        for action in session.legal_actions()
+        if action.action_type == "move" and action.actor_id == prosecutor.id
+    ]
+
+    def move_onto(objective) -> GameAction:
+        return next(
+            action
+            for action in moves
+            if action.destination is not None
+            and action.destination.distance_to(objective.position) < 1e-9
+        )
+
+    weights = PROFILES["balanced"].weights()
+    north_score = session.system.evaluate_action(
+        session.state, move_onto(north), Side.PLAYER, weights
+    )
+    south_score = session.system.evaluate_action(
+        session.state, move_onto(south), Side.PLAYER, weights
+    )
+    assert north_score > south_score
+
+    west_move = move_onto(west)
+    contested_score = session.system.evaluate_action(session.state, west_move, Side.PLAYER, weights)
+    west.controller = None
+    neutral_score = session.system.evaluate_action(session.state, west_move, Side.PLAYER, weights)
+    assert contested_score > neutral_score
+
+
+def test_leaving_a_controlled_objective_carries_a_real_cost():
+    session = _session(seed=1)
+    _set_phase(session, "movement")
+    west = next(obj for obj in session.state.objectives if obj.id == "west-crossing")
+    liberators = session.state.unit_by_id("player-liberators")
+    assert liberators is not None
+    liberators.position = west.position
+    leave = GameAction(
+        action_type="move",
+        actor_id=liberators.id,
+        destination=Vec2(11, 16),
+    )
+    assert session.validate(leave).ok
+
+    weights = PROFILES["balanced"].weights()
+    west.controller = Side.PLAYER
+    holding_cost = session.system.evaluate_action(session.state, leave, Side.PLAYER, weights)
+    west.controller = None
+    neutral_cost = session.system.evaluate_action(session.state, leave, Side.PLAYER, weights)
+
+    assert holding_cost < neutral_cost
+    assert holding_cost < 0.05  # Worse than simply ending the movement phase.
+
+
+def test_cautious_profile_discounts_retaliation_risk():
+    session = _session(seed=1)
+    _set_phase(session, "combat")
+    liberators = session.state.unit_by_id("player-liberators")
+    clanrats = session.state.unit_by_id("ai-clanrats")
+    assert liberators is not None and clanrats is not None
+    liberators.position = Vec2(20, 15)
+    clanrats.position = Vec2(22, 15)
+    fight = _find(session, "fight", actor_id=liberators.id, target_id=clanrats.id)
+
+    aggressive = session.system.evaluate_action(
+        session.state, fight, Side.PLAYER, PROFILES["aggressive"].weights()
+    )
+    cautious = session.system.evaluate_action(
+        session.state, fight, Side.PLAYER, PROFILES["cautious"].weights()
+    )
+    assert cautious < aggressive
+
+    base = dict(PROFILES["balanced"].weights())
+    bold = dict(base, risk_tolerance=0.9)
+    wary = dict(base, risk_tolerance=0.1)
+    assert session.system.evaluate_action(
+        session.state, fight, Side.PLAYER, wary
+    ) < session.system.evaluate_action(session.state, fight, Side.PLAYER, bold)
+
+    session = _session(seed=1)
+    _set_phase(session, "shooting")
+    prosecutor = session.state.unit_by_id("player-prosecutors")
+    seer = session.state.unit_by_id("ai-grey-seer")
+    assert prosecutor is not None and seer is not None
+    prosecutor.position = Vec2(20, 15)
+    seer.position = Vec2(28, 15)
+    shoot = _find(session, "shoot", actor_id=prosecutor.id, target_id=seer.id)
+
+    aggressive = session.system.evaluate_action(
+        session.state, shoot, Side.PLAYER, PROFILES["aggressive"].weights()
+    )
+    cautious = session.system.evaluate_action(
+        session.state, shoot, Side.PLAYER, PROFILES["cautious"].weights()
+    )
+    assert cautious < aggressive
