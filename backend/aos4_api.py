@@ -18,7 +18,6 @@ from uuid import uuid4
 
 from flask import Blueprint, Response, jsonify, request
 
-from backend.engine.ai.policy import PROFILES
 from backend.engine.systems.aos4.datapack import (
     DataPackError,
     list_faction_packs,
@@ -109,7 +108,7 @@ def _integer(value: Any, name: str, *, minimum: int, maximum: int) -> int:
 def _options_payload() -> Dict[str, Any]:
     packs = [load_faction_pack(pack_id) for pack_id in list_faction_packs()]
     missions = [load_mission(mission_id) for mission_id in list_missions()]
-    return build_options(packs, missions, PROFILES)
+    return build_options(packs, missions)
 
 
 def _snapshot_response(
@@ -141,7 +140,6 @@ def create_game() -> ResponseReturn:
         mission = str(body.get("mission") or "contested-ground")
         player_pack = str(body.get("player_pack") or "stormcast-starter")
         ai_pack = str(body.get("ai_pack") or "skaven-starter")
-        ai_profile = str(body.get("ai_profile") or "aggressive")
         skip_deployment = _boolean(body.get("skip_deployment"), True)
         max_rounds: Optional[int] = None
         if body.get("max_rounds") not in (None, ""):
@@ -154,7 +152,6 @@ def create_game() -> ResponseReturn:
             ai_pack=ai_pack,
             max_rounds=max_rounds,
             skip_deployment=skip_deployment,
-            ai_profile=ai_profile,
             game_id=game_id,
         )
         _put_game(match)
@@ -242,12 +239,10 @@ def import_game() -> ResponseReturn:
     raw_state = body.get("state") if isinstance(body.get("state"), Mapping) else body
     if not isinstance(raw_state, Mapping):
         return _json_error("the request body must contain a saved game state")
-    requested_profile = body.get("ai_profile")
     try:
         game_id = f"aos4-import-{uuid4().hex[:12]}"
         match = Aos4Match.from_state(
             raw_state,
-            ai_profile=str(requested_profile) if requested_profile else None,
             game_id=game_id,
         )
         events, decisions = match.resume()

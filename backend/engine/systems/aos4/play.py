@@ -111,7 +111,7 @@ class Aos4Match:
         ai_pack: str = "skaven-starter",
         max_rounds: Optional[int] = None,
         skip_deployment: bool = True,
-        ai_profile: str = "aggressive",
+        ai_profile: str = "balanced",
         game_id: str = "",
     ) -> "Aos4Match":
         profile = get_profile(ai_profile)
@@ -145,7 +145,7 @@ class Aos4Match:
             session.state.game_id = str(game_id)
         session.ensure_valid()
         stored_profile = session.state.metadata.get("ai_profile")
-        profile_name = ai_profile or stored_profile or "aggressive"
+        profile_name = ai_profile or stored_profile or "balanced"
         profile = get_profile(str(profile_name))
         session.state.metadata["ai_profile"] = profile.name
         return cls(session, profile)
@@ -591,9 +591,12 @@ class Aos4Match:
 def build_options(
     packs: Sequence[FactionPack],
     missions: Sequence[Mission],
-    profiles: Mapping[str, AggressionProfile],
 ) -> Dict[str, Any]:
-    """Build the payload used by the web setup screen."""
+    """Build the setup payload used by the web client.
+
+    AI behaviour is owned by the server, so aggression profiles are not
+    exposed as a player choice.
+    """
 
     return {
         "system": {
@@ -622,15 +625,10 @@ def build_options(
             }
             for mission in missions
         ],
-        "profiles": [
-            {"id": profile.name, **profile.to_dict()}
-            for profile in sorted(profiles.values(), key=lambda item: item.name)
-        ],
         "defaults": {
             "player_pack": "stormcast-starter",
             "ai_pack": "skaven-starter",
             "mission": "contested-ground",
-            "ai_profile": "aggressive",
             "skip_deployment": True,
         },
     }
