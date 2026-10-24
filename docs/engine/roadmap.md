@@ -133,7 +133,8 @@ slice.**
 - [ ] Threat map based on damage range, melee threat, objective pressure and
       remaining durability.
 - [ ] Target priority and risk assessment.
-- [ ] Per-unit aggression and personality with global difficulty presets.
+- [ ] Per-unit aggression and personality as internal AI tuning, not as a
+      player-selected difficulty control.
 - [ ] Seeded variation so two games with the same opening are not identical.
 - [ ] Decision explanations in the UI and a replayable “why” log.
 - [ ] AI-vs-AI batch runs, illegal-action assertions and balance dashboards.

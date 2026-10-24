@@ -45,3 +45,16 @@ def test_aos4_bench_json_is_reproducible(capsys):
     assert main(args) == 0
     second = json.loads(capsys.readouterr().out)
     assert first["results"] == second["results"]
+
+
+def test_aos4_bench_marks_errors_and_returns_failure(capsys):
+    assert (
+        main(["aos4-bench", "--games", "1", "--rounds", "1", "--max-actions", "0", "--json"]) == 1
+    )
+    data = json.loads(capsys.readouterr().out)
+
+    assert data["errors"] == 1
+    assert data["completed"] == 0
+    assert data["draws"] == 0
+    assert data["results"][0]["winner"] == "error"
+    assert data["results"][0]["error"]

@@ -290,6 +290,8 @@ def _run_aos4_bench_game(
                 rounds=session.state.round - 1,
                 action_count=action_count,
             )
+    if result["error"]:
+        result["winner"] = "error"
     return result
 
 
@@ -320,16 +322,21 @@ def _run_aos4_bench(args: argparse.Namespace) -> int:
     ai_wins = sum(result["winner"] == Side.AI.value for result in results)
     draws = sum(result["winner"] == "draw" for result in results)
     errors = sum(bool(result["error"]) for result in results)
+    completed = [result for result in results if not result["error"]]
+    divisor = len(completed) or 1
     summary = {
         "games": games,
+        "completed": len(completed),
         "player_wins": player_wins,
         "ai_wins": ai_wins,
         "draws": draws,
         "errors": errors,
-        "average_player_score": round(sum(result["player_score"] for result in results) / games, 2),
-        "average_ai_score": round(sum(result["ai_score"] for result in results) / games, 2),
-        "average_rounds": round(sum(result["rounds"] for result in results) / games, 2),
-        "average_actions": round(sum(result["action_count"] for result in results) / games, 2),
+        "average_player_score": round(
+            sum(result["player_score"] for result in completed) / divisor, 2
+        ),
+        "average_ai_score": round(sum(result["ai_score"] for result in completed) / divisor, 2),
+        "average_rounds": round(sum(result["rounds"] for result in completed) / divisor, 2),
+        "average_actions": round(sum(result["action_count"] for result in completed) / divisor, 2),
     }
     payload = {
         "config": {
@@ -359,7 +366,7 @@ def _run_aos4_bench(args: argparse.Namespace) -> int:
             f"{summary['average_ai_score']:.2f}; avg rounds {summary['average_rounds']:.2f}; "
             f"avg actions {summary['average_actions']:.2f}"
         )
-    return 0
+    return 1 if errors else 0
 
 
 def _run_inspect(args: argparse.Namespace) -> int:
