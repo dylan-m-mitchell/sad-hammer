@@ -52,7 +52,6 @@ function settingsFromSnapshot(snapshot) {
     mission: setup.mission,
     player_pack: setup.player_pack,
     ai_pack: setup.ai_pack,
-    ai_profile: setup.ai_profile,
     skip_deployment: setup.skip_deployment,
   };
 }
@@ -284,7 +283,7 @@ export default function GameApp() {
 
   function handleRematch() {
     const settings = lastSettings || settingsFromSnapshot(game);
-    if (!settings?.ai_profile) {
+    if (!settings?.mission) {
       handleNewGame();
       return;
     }
@@ -292,7 +291,6 @@ export default function GameApp() {
       mission: settings.mission,
       player_pack: settings.player_pack,
       ai_pack: settings.ai_pack,
-      ai_profile: settings.ai_profile,
       skip_deployment: settings.skip_deployment,
     });
   }
