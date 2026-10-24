@@ -326,6 +326,7 @@ export default function SetupScreen({
               <input
                 type="file"
                 accept="application/json,.json"
+                disabled={busy}
                 className="hidden"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
