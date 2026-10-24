@@ -13,7 +13,13 @@ from backend.engine.systems.registry import (
 def test_demo_system_is_registered():
     assert get_system_class("demo") is DemoSystem
     assert create_system("DEMO").system_id == "demo"
-    assert list_systems()[0]["id"] == "demo"
+    assert "demo" in {system["id"] for system in list_systems()}
+
+
+def test_aos4_system_is_registered():
+    system = create_system("AOS4")
+    assert system.system_id == "aos4"
+    assert system.edition == "4th"
 
 
 def test_unknown_system_has_actionable_error():

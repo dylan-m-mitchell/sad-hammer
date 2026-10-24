@@ -1,0 +1,196 @@
+{
+  "pack_id": "skaven-starter",
+  "system_id": "aos4",
+  "edition": "4th",
+  "faction": "Skaven",
+  "source": "Curated starter profiles for the Skaventide launch box, simplified for the Sad Hammer vertical slice. Points are approximate and are not a matched-play dataset.",
+  "updated": "2026-10-24",
+  "units": [
+    {
+      "id": "grey-seer",
+      "name": "Grey Seer",
+      "points": 160,
+      "move": 6,
+      "save": 5,
+      "health": 5,
+      "models": 1,
+      "control": 2,
+      "bravery": 6,
+      "ward": 5,
+      "base_radius": 1.0,
+      "keywords": ["Hero", "Wizard", "Infantry", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "warpstone-staff",
+          "name": "Warpstone staff",
+          "range": 18,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        },
+        {
+          "id": "seer-blade",
+          "name": "Seer blade",
+          "range": 0,
+          "attacks": 3,
+          "hit": 4,
+          "wound": 4,
+          "rend": 0,
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "id": "clawlord",
+      "name": "Clawlord",
+      "points": 110,
+      "move": 5,
+      "save": 4,
+      "health": 6,
+      "models": 1,
+      "control": 2,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 0.7,
+      "keywords": ["Hero", "Infantry", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "warpforged-blade",
+          "name": "Warpforged blade",
+          "range": 0,
+          "attacks": 4,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        },
+        {
+          "id": "ratling-pistol",
+          "name": "Ratling pistol",
+          "range": 12,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 4,
+          "rend": 0,
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "id": "clanrats",
+      "name": "Clanrats",
+      "points": 200,
+      "move": 6,
+      "save": 5,
+      "health": 1,
+      "models": 20,
+      "control": 1,
+      "bravery": 5,
+      "ward": null,
+      "base_radius": 0.6,
+      "keywords": ["Infantry", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "rusty-blade",
+          "name": "Rusty blade",
+          "range": 0,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 4,
+          "rend": 0,
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "id": "rat-ogors",
+      "name": "Rat Ogors",
+      "points": 160,
+      "move": 6,
+      "save": 5,
+      "health": 4,
+      "models": 3,
+      "control": 1,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 1.0,
+      "keywords": ["Infantry", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "ogor-claws",
+          "name": "Ogor claws",
+          "range": 0,
+          "attacks": 4,
+          "hit": 4,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        }
+      ]
+    },
+    {
+      "id": "warp-lightning-cannon",
+      "name": "Warp Lightning Cannon",
+      "points": 180,
+      "move": 3,
+      "save": 4,
+      "health": 6,
+      "models": 1,
+      "control": 1,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 1.2,
+      "keywords": ["War Machine", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "warp-lightning",
+          "name": "Warp lightning",
+          "range": 24,
+          "attacks": 3,
+          "hit": 4,
+          "wound": 2,
+          "rend": 1,
+          "damage": 3
+        }
+      ]
+    },
+    {
+      "id": "warlock-engineer",
+      "name": "Warlock Engineer",
+      "points": 110,
+      "move": 5,
+      "save": 4,
+      "health": 5,
+      "models": 1,
+      "control": 1,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 0.7,
+      "keywords": ["Hero", "Infantry", "Skaven", "Chaos"],
+      "weapons": [
+        {
+          "id": "warp-pistol",
+          "name": "Warp pistol",
+          "range": 18,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        },
+        {
+          "id": "engineer-claw",
+          "name": "Engineer claw",
+          "range": 0,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 4,
+          "rend": 0,
+          "damage": 1
+        }
+      ]
+    }
+  ]
+}

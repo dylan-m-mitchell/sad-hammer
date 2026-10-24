@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Type
 
+from backend.engine.systems.aos4 import Aos4System
 from backend.engine.systems.base import GameSystem
 from backend.engine.systems.demo import DemoSystem
 
@@ -18,6 +19,7 @@ class UnknownSystemError(KeyError):
 
 
 _SYSTEMS: Dict[str, Type[GameSystem]] = {
+    Aos4System.system_id: Aos4System,
     DemoSystem.system_id: DemoSystem,
 }
 

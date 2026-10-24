@@ -69,8 +69,10 @@ class GameSession:
         stamped: List[Event] = []
         for event in result.events:
             event.seq = next_seq
-            event.round = before.round
-            event.phase = before.phase
+            if not event.round:
+                event.round = before.round
+            if not event.phase:
+                event.phase = before.phase
             if event.side is None:
                 event.side = before.active_side.value
             next_state.events.append(event)
