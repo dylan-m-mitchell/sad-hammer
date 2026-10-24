@@ -1,0 +1,180 @@
+{
+  "mission_id": "contested-ground",
+  "name": "Contested Ground",
+  "system_id": "aos4",
+  "edition": "4th",
+  "source": "Original Sad Hammer training mission for the AoS 4th vertical slice. It uses the core-rules turn structure and objective control, not a reproduced matched-play battleplan.",
+  "updated": "2026-10-24",
+  "board": {
+    "width": 44,
+    "height": 30,
+    "name": "Contested Ground"
+  },
+  "rounds": 5,
+  "deployment_zones": {
+    "player": [
+      {
+        "points": [
+          {"x": 0, "y": 0},
+          {"x": 12, "y": 0},
+          {"x": 12, "y": 30},
+          {"x": 0, "y": 30}
+        ]
+      }
+    ],
+    "ai": [
+      {
+        "points": [
+          {"x": 32, "y": 0},
+          {"x": 44, "y": 0},
+          {"x": 44, "y": 30},
+          {"x": 32, "y": 30}
+        ]
+      }
+    ]
+  },
+  "objectives": [
+    {
+      "id": "west-crossing",
+      "name": "West Crossing",
+      "position": {"x": 14, "y": 15},
+      "radius": 3,
+      "value": 1
+    },
+    {
+      "id": "north-cache",
+      "name": "North Cache",
+      "position": {"x": 22, "y": 7.5},
+      "radius": 3,
+      "value": 1
+    },
+    {
+      "id": "south-cache",
+      "name": "South Cache",
+      "position": {"x": 22, "y": 22.5},
+      "radius": 3,
+      "value": 1
+    },
+    {
+      "id": "east-crossing",
+      "name": "East Crossing",
+      "position": {"x": 30, "y": 15},
+      "radius": 3,
+      "value": 1
+    }
+  ],
+  "terrain": [
+    {
+      "id": "ruined-chapel",
+      "name": "Ruined Chapel",
+      "footprint": {
+        "points": [
+          {"x": 7, "y": 7},
+          {"x": 12, "y": 7},
+          {"x": 12, "y": 11},
+          {"x": 7, "y": 11}
+        ]
+      },
+      "height": 4,
+      "cover": true,
+      "blocks_line_of_sight": true,
+      "difficult": true,
+      "tags": ["ruin", "obscuring"]
+    },
+    {
+      "id": "northern-shrine",
+      "name": "Northern Shrine",
+      "footprint": {
+        "points": [
+          {"x": 20, "y": 2},
+          {"x": 25, "y": 2},
+          {"x": 25, "y": 5},
+          {"x": 20, "y": 5}
+        ]
+      },
+      "height": 4,
+      "cover": true,
+      "blocks_line_of_sight": true,
+      "difficult": false,
+      "tags": ["ruin", "obscuring"]
+    },
+    {
+      "id": "southern-woods",
+      "name": "Southern Woods",
+      "footprint": {
+        "points": [
+          {"x": 20, "y": 24},
+          {"x": 27, "y": 24},
+          {"x": 27, "y": 28},
+          {"x": 20, "y": 28}
+        ]
+      },
+      "height": 3,
+      "cover": true,
+      "blocks_line_of_sight": true,
+      "difficult": true,
+      "tags": ["woods", "obscuring"]
+    },
+    {
+      "id": "eastern-wall",
+      "name": "Eastern Wall",
+      "footprint": {
+        "points": [
+          {"x": 30, "y": 8},
+          {"x": 34, "y": 8},
+          {"x": 34, "y": 9.5},
+          {"x": 30, "y": 9.5}
+        ]
+      },
+      "height": 2,
+      "cover": true,
+      "blocks_line_of_sight": false,
+      "difficult": false,
+      "tags": ["barricade"]
+    },
+    {
+      "id": "western-obelisk",
+      "name": "Western Obelisk",
+      "footprint": {
+        "points": [
+          {"x": 13, "y": 25},
+          {"x": 15, "y": 25},
+          {"x": 15, "y": 27},
+          {"x": 13, "y": 27}
+        ]
+      },
+      "height": 6,
+      "cover": false,
+      "blocks_line_of_sight": true,
+      "difficult": false,
+      "tags": ["obstacle", "obscuring"]
+    }
+  ],
+  "scoring": {
+    "timing": "end_of_turn",
+    "points_per_objective": 1,
+    "control_persists": true,
+    "description": "At the end of each turn the active player scores 1 victory point for each objective they control."
+  },
+  "deployment": {
+    "player": {
+      "stormcast-starter": [
+        {"unit_id": "lord-vigilant", "position": {"x": 9, "y": 15}},
+        {"unit_id": "knight-vexillor", "position": {"x": 7, "y": 19}},
+        {"unit_id": "liberators", "position": {"x": 8, "y": 11}},
+        {"unit_id": "reclusians", "position": {"x": 6, "y": 7}},
+        {"unit_id": "prosecutors", "position": {"x": 10, "y": 23}}
+      ]
+    },
+    "ai": {
+      "skaven-starter": [
+        {"unit_id": "grey-seer", "position": {"x": 37, "y": 15}},
+        {"unit_id": "clawlord", "position": {"x": 35, "y": 18}},
+        {"unit_id": "clanrats", "position": {"x": 35, "y": 11}},
+        {"unit_id": "rat-ogors", "position": {"x": 38, "y": 8}},
+        {"unit_id": "warp-lightning-cannon", "position": {"x": 41, "y": 23}},
+        {"unit_id": "warlock-engineer", "position": {"x": 39, "y": 14}}
+      ]
+    }
+  }
+}

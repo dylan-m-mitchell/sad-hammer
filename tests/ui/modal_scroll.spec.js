@@ -5,7 +5,7 @@ test.describe("AI Deployment modal should be scrollable and accessible", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1100, height: 600 });
-    await page.goto("/");
+    await page.goto("/legacy");
 
     // Open upload modal and provide a dummy roster to trigger placement modal
     await page.click("#upload-roster");

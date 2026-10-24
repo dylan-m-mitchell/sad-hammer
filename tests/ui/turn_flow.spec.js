@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 
 test.describe("AI turn -> player-roll -> resolve flow", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/legacy");
   });
 
   test("shows turn header immediately and resolves after player rolls", async ({

@@ -1,0 +1,160 @@
+{
+  "pack_id": "stormcast-starter",
+  "system_id": "aos4",
+  "edition": "4th",
+  "faction": "Stormcast Eternals",
+  "source": "Curated starter profiles for the Skaventide launch box, simplified for the Sad Hammer vertical slice. Points are approximate and are not a matched-play dataset.",
+  "updated": "2026-10-24",
+  "units": [
+    {
+      "id": "lord-vigilant",
+      "name": "Lord-Vigilant on Gryph-stalker",
+      "points": 220,
+      "move": 10,
+      "save": 3,
+      "health": 7,
+      "models": 1,
+      "control": 2,
+      "bravery": 6,
+      "ward": 5,
+      "base_radius": 1.2,
+      "keywords": ["Hero", "Monster", "Stormcast Eternals", "Order"],
+      "weapons": [
+        {
+          "id": "gryph-hammer",
+          "name": "Gryph-hammer",
+          "range": 0,
+          "attacks": 4,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        },
+        {
+          "id": "gryph-stalker-talons",
+          "name": "Gryph-stalker talons",
+          "range": 0,
+          "attacks": 3,
+          "hit": 4,
+          "wound": 3,
+          "rend": 1,
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "id": "knight-vexillor",
+      "name": "Knight-Vexillor",
+      "points": 110,
+      "move": 5,
+      "save": 3,
+      "health": 5,
+      "models": 1,
+      "control": 1,
+      "bravery": 6,
+      "ward": 5,
+      "base_radius": 0.7,
+      "keywords": ["Hero", "Infantry", "Stormcast Eternals", "Order"],
+      "weapons": [
+        {
+          "id": "warhammer",
+          "name": "Warhammer",
+          "range": 0,
+          "attacks": 3,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        }
+      ]
+    },
+    {
+      "id": "liberators",
+      "name": "Liberators",
+      "points": 220,
+      "move": 5,
+      "save": 3,
+      "health": 2,
+      "models": 10,
+      "control": 1,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 0.6,
+      "keywords": ["Infantry", "Stormcast Eternals", "Order"],
+      "weapons": [
+        {
+          "id": "liberator-hammer",
+          "name": "Liberator hammer",
+          "range": 0,
+          "attacks": 2,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "id": "reclusians",
+      "name": "Reclusians",
+      "points": 200,
+      "move": 5,
+      "save": 3,
+      "health": 3,
+      "models": 5,
+      "control": 1,
+      "bravery": 6,
+      "ward": 5,
+      "base_radius": 0.7,
+      "keywords": ["Infantry", "Stormcast Eternals", "Order"],
+      "weapons": [
+        {
+          "id": "heavy-hammer",
+          "name": "Heavy hammer",
+          "range": 0,
+          "attacks": 3,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 2
+        }
+      ]
+    },
+    {
+      "id": "prosecutors",
+      "name": "Prosecutors",
+      "points": 150,
+      "move": 12,
+      "save": 3,
+      "health": 3,
+      "models": 3,
+      "control": 1,
+      "bravery": 6,
+      "ward": null,
+      "base_radius": 0.7,
+      "keywords": ["Infantry", "Fly", "Stormcast Eternals", "Order"],
+      "weapons": [
+        {
+          "id": "stormcall-javelin",
+          "name": "Stormcall javelin",
+          "range": 12,
+          "attacks": 2,
+          "hit": 3,
+          "wound": 3,
+          "rend": 1,
+          "damage": 1
+        },
+        {
+          "id": "celestial-hammer",
+          "name": "Celestial hammer",
+          "range": 0,
+          "attacks": 2,
+          "hit": 4,
+          "wound": 3,
+          "rend": 1,
+          "damage": 1
+        }
+      ]
+    }
+  ]
+}

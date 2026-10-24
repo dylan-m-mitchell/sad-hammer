@@ -86,12 +86,16 @@ mission**. It does not attempt tournament completeness.
   - Skaven
 - Core phase sequence and the universal Core abilities needed to play:
   move, run, retreat, shoot, charge and fight.
-- Attack resolution, saves, damage and objective control.
-- Battle-shock and the mission's battle-round scoring.
-- Basic terrain keywords: cover, line of sight, difficult ground.
+- Attack resolution, saves, ward rolls, damage and objective control.
+- The mission's end-of-turn objective scoring.
+- Basic terrain keywords: cover and line of sight.
 
-Deferred: full battle tactics, every faction rule, summoning, advanced terrain,
-all manifestations/spells, full matched-play battlepack.
+There is no AoS 4th battle-shock step. Bravery is stored for future morale work
+but does not affect the current slice. Deferred: priority rolls, full battle
+tactics, every faction rule, summoning, advanced terrain, difficult-ground
+movement penalties, all manifestations/spells and the full matched-play
+battlepack. See [the AoS 4th slice](aos4-slice.md) for the exact implementation
+matrix and simplifications.
 
 ### 40k 11th slice
 
@@ -112,7 +116,8 @@ Use a curated subset at roughly 1,000 points rather than every model in the
 launch boxes.
 
 - **Skaventide:** 24 Stormcast Eternals and 50 Skaven, each side around 1,200
-  points in the box. The first data pack should cover a legal, playable subset.
+  points in the box. The first data packs are curated 900-point Stormcast and
+  920-point Skaven subsets.
 - **Armageddon:** 23 Space Marines and 38 Orks. The first data pack should cover
   a legal, playable subset.
 

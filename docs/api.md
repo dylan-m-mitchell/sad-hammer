@@ -4,7 +4,66 @@ This document lists the HTTP API exposed by the Flask backend (`api_server.py`).
 
 Base URL: `http://<host>:5000` (backend) or proxied behind nginx in docker compose.
 
-Authentication: none (local dev only). The server is stateless for simulation flows; clients are expected to hold the initial `seed`, current `turn`, and `ai_units` when interacting with the stateless endpoints.
+Authentication: none (local dev only).
+
+## Age of Sigmar 4th player game
+
+These endpoints drive the default web game. Active matches are cached in memory
+(capped at 32, least-recently-used evicted). A five-round state is roughly
+150 KB, so use export/import for portable saves and recovery after a restart.
+
+Every game response has the same snapshot shape:
+
+```json
+{
+  "game_id": "aos4-...",
+  "state": { "schema_version": 1, "units": [], "events": [] },
+  "view": { "interaction": "player_turn", "legal_actions": [] },
+  "events": [],
+  "ai_decisions": []
+}
+```
+
+The `view` object is the client model: board, units, objectives, terrain,
+deployment zones, phase, round, scores, command points, setup details, AI intent,
+and only the legal actions owned by the human side.
+
+- `GET /api/aos4/options` — starter packs, missions, AI profiles and defaults
+  for the setup screen.
+- `POST /api/aos4/games` — create a match. JSON body:
+  `{ "seed": 7, "mission": "contested-ground", "player_pack":
+  "stormcast-starter", "ai_pack": "skaven-starter", "ai_profile":
+  "aggressive", "skip_deployment": true, "max_rounds": 5 }`. All fields are
+  optional. A random seed is used when omitted.
+- `GET /api/aos4/games/<id>` — current snapshot without advancing the game.
+- `POST /api/aos4/games/<id>/actions` — submit one human action as
+  `{ "action": { ... } }`. The engine validates it, applies it, and runs AI
+  actions until the human must act again. Only actions owned by the player side
+  are accepted.
+- `POST /api/aos4/games/<id>/resume` — continue any outstanding AI actions; used
+  after a reload or when the client has no local actions left.
+- `DELETE /api/aos4/games/<id>` — remove an active match from the store.
+- `GET /api/aos4/games/<id>/export` — download the versioned state as JSON.
+- `POST /api/aos4/games/import` — import a saved state. Send the exported JSON
+  object directly, or wrap it as `{ "state": {...}, "ai_profile": "balanced" }`.
+  A new game id is assigned and outstanding AI actions are resumed.
+
+The `interaction` field tells the client what to show:
+
+- `player_turn` — the human may choose from `view.legal_actions`;
+- `ai` — the AI still has actions; call resume or submit a human action that
+  triggers AI resolution, depending on the client state;
+- `player_combat_response` — the AI is mid-turn and alternating combat has
+  reached a human unit; only that unit's fight picks are legal;
+- `game_over` — no further actions are legal.
+
+Validation failures return `400` with `{ "error": "...", "issues": [...] }`.
+Missing games return `404`. AI or state-processing conflicts return `409`.
+
+## Legacy simulation endpoints
+
+These endpoints support the retired card-driven simulator at `/legacy`. New
+work should use the AoS player game API above.
 
 Endpoints
 

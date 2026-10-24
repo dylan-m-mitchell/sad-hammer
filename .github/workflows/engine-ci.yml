@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m pytest tests/engine -q
 
-      - name: Run CLI smoke test
+      - name: Run CLI smoke tests
         run: |
           python -m backend.engine.cli demo --seed 7 --rounds 1 --quiet
+          python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy --quiet

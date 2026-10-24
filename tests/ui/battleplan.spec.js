@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 
 test.describe("Battleplan and Placement Flow", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/legacy");
   });
 
   test("should allow creating a session and show placement UI", async ({
