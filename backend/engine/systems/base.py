@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -64,12 +65,14 @@ class GameAction:
             if self.destination is not None
             else ""
         )
+        payload = json.dumps(self.payload, sort_keys=True, separators=(",", ":"), default=str)
         return "|".join(
             [
                 self.action_type,
                 self.actor_id,
                 self.target_id or "",
                 destination,
+                payload,
                 ",".join(sorted(self.tags)),
             ]
         )
@@ -142,6 +145,49 @@ class GameSystem(ABC):
             if phase.id == state.phase:
                 return phase
         return None
+
+    def acting_side(self, state: GameState) -> Side:
+        """Return the side that must choose the next action.
+
+        Most phases belong to the active side.  Alternating combat is the
+        exception: the active side can still be waiting while the other side
+        picks a unit to fight, so clients and the AI must ask the system who is
+        actually acting rather than assuming ``state.active_side``.
+        """
+
+        return state.active_side
+
+    def action_side(self, state: GameState, action: GameAction) -> Side:
+        """Return which side owns an action.
+
+        Phase-level actions use a side name as their actor; unit actions use a
+        unit id.  Falling back to the active side keeps custom systems working
+        even when their phase actions use another convention.
+        """
+
+        unit = state.unit_by_id(action.actor_id)
+        if unit is not None:
+            return unit.side
+        try:
+            return Side.parse(action.actor_id)
+        except ValueError:
+            return state.active_side
+
+    def legal_actions_for(self, state: GameState, side: Side) -> List[GameAction]:
+        """Return only the legal actions owned by ``side``.
+
+        This is the safe primitive for a human-vs-AI loop.  During alternating
+        combat a system can enumerate fights for both sides in the same phase;
+        an AI or a human client must never be allowed to choose the other
+        side's units.
+        """
+
+        side = Side.parse(side)
+        return [
+            action
+            for action in self.legal_actions(state)
+            if self.action_side(state, action) is side
+        ]
 
     def evaluate_action(
         self,

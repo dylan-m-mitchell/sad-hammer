@@ -84,6 +84,15 @@ class Aos4System(GameSystem):
             PhaseDefinition("end_of_turn", "End of Turn", "Control objectives and score."),
         )
 
+    def acting_side(self, state: GameState) -> Side:
+        """Return the side picking the next combat unit, otherwise the active side."""
+
+        if state.phase == "combat":
+            next_side = self._next_combat_side(state)
+            if next_side is not None:
+                return next_side
+        return state.active_side
+
     # ------------------------------------------------------------------
     # Setup
 
@@ -156,6 +165,7 @@ class Aos4System(GameSystem):
                 "scoring": dict(mission.scoring),
                 "turn_number": 0,
                 "deployment_complete": skip_deployment,
+                "skip_deployment": skip_deployment,
                 "command_usage": {},
                 "combat_last_side": None,
                 "pack_ids": {
@@ -242,6 +252,7 @@ class Aos4System(GameSystem):
         return GameAction(
             action_type="end_phase",
             actor_id=state.active_side.value,
+            payload={"phase": state.phase},
             tags=("phase",),
         )
 

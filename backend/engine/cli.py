@@ -28,7 +28,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    demo = subparsers.add_parser("demo", help="play an AI-vs-AI demo game")
+    demo = subparsers.add_parser("demo", help="run an AI-vs-AI demo verification game")
     demo.add_argument("--seed", type=int, default=7)
     demo.add_argument("--rounds", type=int, default=2)
     demo.add_argument("--player-profile", choices=sorted(PROFILES), default="balanced")
@@ -38,7 +38,7 @@ def _build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--save", type=Path, help="write the final state to a JSON file")
     demo.add_argument("--quiet", action="store_true", help="only print the result")
 
-    aos4 = subparsers.add_parser("aos4", help="play an AI-vs-AI Age of Sigmar 4th game")
+    aos4 = subparsers.add_parser("aos4", help="run an AI-vs-AI Age of Sigmar 4th verification game")
     aos4.add_argument("--seed", type=int, default=7)
     aos4.add_argument("--rounds", type=int, default=5)
     aos4.add_argument("--mission", default="contested-ground")

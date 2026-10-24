@@ -9,7 +9,7 @@ select it in the first place.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from backend.engine.core.dice import stable_fraction
 from backend.engine.core.models import GameState, Side
@@ -146,11 +146,17 @@ class UtilityAI:
         self.profile = profile
         self.top_alternatives = max(0, int(top_alternatives))
 
-    def score_actions(self, state: GameState, side: Optional[Side] = None) -> List[ScoredAction]:
+    def score_actions(
+        self,
+        state: GameState,
+        side: Optional[Side] = None,
+        actions: Optional[Sequence[GameAction]] = None,
+    ) -> List[ScoredAction]:
         side = Side.parse(side or state.active_side)
         weights = self.profile.weights()
         scored: List[ScoredAction] = []
-        for action in self.system.legal_actions(state):
+        candidates = list(actions) if actions is not None else self.system.legal_actions(state)
+        for action in candidates:
             base = float(self.system.evaluate_action(state, action, side, weights))
             noise = (
                 stable_fraction(state.dice.seed, action.key()) * self.profile.noise
@@ -169,9 +175,14 @@ class UtilityAI:
         scored.sort(key=lambda item: (-item.score, item.action.key()))
         return scored
 
-    def choose(self, state: GameState, side: Optional[Side] = None) -> Optional[Decision]:
+    def choose(
+        self,
+        state: GameState,
+        side: Optional[Side] = None,
+        actions: Optional[Sequence[GameAction]] = None,
+    ) -> Optional[Decision]:
         side = Side.parse(side or state.active_side)
-        scored = self.score_actions(state, side)
+        scored = self.score_actions(state, side, actions)
         if not scored:
             return None
         best = scored[0]
@@ -219,4 +230,41 @@ def run_ai_turn(
             # than corrupting a saved game.  Tests assert this never happens.
             raise
         decisions.append(decision)
+    return decisions
+
+
+def run_ai_until_human(
+    session: GameSession,
+    profile: AggressionProfile,
+    *,
+    max_actions: int = 500,
+    top_alternatives: int = 0,
+) -> List[Decision]:
+    """Advance the AI until the human must make the next decision.
+
+    This is the player-facing counterpart to :func:`run_ai_turn`.  It only
+    considers actions owned by the AI side, so the computer can never choose a
+    human unit's fight during alternating combat.  It stops at the start of the
+    human's turn and also pauses when the human has a combat pick during an AI
+    turn.
+    """
+
+    if max_actions < 1:
+        raise ValueError("max_actions must be at least 1")
+    decisions: List[Decision] = []
+    policy = UtilityAI(session.system, profile, top_alternatives=top_alternatives)
+    while not session.is_terminal():
+        acting = session.system.acting_side(session.state)
+        if acting is not Side.AI:
+            break
+        candidates = session.system.legal_actions_for(session.state, Side.AI)
+        if not candidates:
+            break
+        decision = policy.choose(session.state, Side.AI, actions=candidates)
+        if decision is None:
+            break
+        session.apply(decision.action)
+        decisions.append(decision)
+        if len(decisions) > max_actions:
+            raise RuntimeError(f"AI exceeded {max_actions} actions without yielding to the human")
     return decisions

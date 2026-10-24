@@ -16,6 +16,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from backend import placement as placement_module
+from backend.aos4_api import aos4_api
 from backend.battlescribe_parser import parse_battlescribe_html
 from backend.full_simulator import SoloSimulator
 from backend.full_simulator import Unit as AIUnit
@@ -23,6 +24,7 @@ from backend.reference_card_decks import battleplan_deck
 
 app = Flask(__name__)
 CORS(app)
+app.register_blueprint(aos4_api)
 
 # Compute repository root (one level up from this file)
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

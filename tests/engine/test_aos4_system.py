@@ -479,3 +479,17 @@ def test_full_ai_game_completes_and_replays_from_the_action_log():
     for raw_action in game.state.actions:
         replayed.apply(GameAction.from_dict(raw_action))
     assert replayed.to_dict() == game.to_dict()
+
+
+def test_action_keys_distinguish_commands_and_phase_payloads():
+    session = _session(seed=1)
+    _set_phase(session, "shooting")
+
+    command_actions = [
+        action for action in session.legal_actions() if action.action_type == "command"
+    ]
+    keys = [action.key() for action in command_actions]
+    assert len(keys) == len(set(keys))
+
+    end_phase = _find(session, "end_phase", actor_id="player")
+    assert end_phase.payload["phase"] == "shooting"
