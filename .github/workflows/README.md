@@ -1,118 +1,59 @@
-# GitHub Actions Workflows
+# GitHub Actions workflows
 
-This directory contains GitHub Actions workflows for CI/CD on the `main` branch.
+## `engine-ci.yml`
 
-## main-ci-cd.yml
+Focused gate for the new rules engine. Runs on every push and pull request for
+Python 3.10 and 3.12:
 
-Comprehensive CI/CD pipeline that runs on:
+- Black formatting check for `backend/engine` and `tests/engine`
+- Ruff lint
+- Engine test suite (`tests/engine`)
+- CLI smoke test
 
-- **Push to main**: Full CI + deployment
-- **Pull requests to main**: Full CI only (no deployment)
+This is the fast feedback loop while the engine is being built. It does not
+depend on Flask, the frontend or any legacy card simulator.
 
-### Jobs
+## `main-ci-cd.yml`
 
-1. **backend-tests** (Matrix: Python 3.9, 3.10, 3.11)
+Full repository pipeline on pushes to `main` and pull requests targeting
+`main`:
 
-   - Runs pytest with coverage
-   - Uploads coverage to Codecov
-   - Uses pip cache for faster builds
+1. **backend-tests** — full pytest suite, including engine tests, on Python
+   3.10–3.12, with optional Codecov upload.
+2. **backend-quality** — Black and Ruff across `backend/` and `tests/`; MyPy is
+   non-blocking while the legacy tree is being retired.
+3. **frontend-tests** — `npm ci` and `npm run build`. Browser tests are not yet
+   wired up because the existing Playwright specs still describe the retired
+   player-roll UI.
+4. **docker-build** — builds both images from the repository root (the
+   Dockerfiles copy `requirements.txt`, `frontend/` and `nginx/`).
+5. **integration-check** — starts the Flask app on port 5000 and runs the opt-in
+   live-server test.
+6. **deploy** — placeholder on `main` only.
+7. **ci-success** — single required status check for branch protection.
 
-2. **backend-quality**
-
-   - Black formatting check
-   - Ruff linting
-   - MyPy type checking (non-blocking)
-
-3. **frontend-tests**
-
-   - npm build
-   - Playwright UI tests (non-blocking)
-   - Uploads Playwright reports as artifacts
-
-4. **docker-build**
-
-   - Tests backend Docker image build
-   - Tests frontend Docker image build
-   - Uses buildx with layer caching
-
-5. **integration-check**
-
-   - Runs integration tests after all other tests pass
-
-6. **deploy** (main branch only)
-
-   - Builds and pushes Docker images
-   - Currently configured as placeholder
-   - Uncomment Docker Hub steps when ready
-
-7. **ci-success**
-   - Final status check
-   - Ensures all required jobs passed
-
-### Configuration
-
-The workflow uses these environment variables:
-
-- `PYTHON_VERSION`: "3.9" (primary Python version)
-- `NODE_VERSION`: "18" (Node.js version for frontend)
-
-### Secrets Required for Deployment
-
-When ready to enable deployment, add these secrets to your repository:
-
-- `DOCKERHUB_USERNAME`: Your Docker Hub username
-- `DOCKERHUB_TOKEN`: Docker Hub access token
-
-### Caching
-
-The workflow uses several caching mechanisms:
-
-- **pip cache**: Caches Python dependencies
-- **npm cache**: Caches Node.js dependencies
-- **Docker layer cache**: Caches Docker build layers via GitHub Actions cache
-
-### Codecov Integration
-
-Backend test coverage is automatically uploaded to Codecov. Add the `CODECOV_TOKEN` secret if you want private repository support.
-
-### Making Changes
-
-When modifying the workflow:
-
-1. Test changes on a feature branch first
-2. Verify all jobs pass before merging to main
-3. Update this README if adding/removing jobs
-
-### Local Testing
-
-You can test the workflow locally using [act](https://github.com/nektos/act):
+## Local equivalents
 
 ```bash
-# Install act
-brew install act  # macOS
-# or
-curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash  # Linux
+# Fast engine loop
+pytest tests/engine -q
+black --check backend/engine tests/engine
+ruff check backend/engine tests/engine
 
-# Run the workflow
-act -j backend-tests
-act -j frontend-tests
+# Full suite
+pytest tests/ -q
+black --check backend/ tests/
+ruff check backend/ tests/
+
+# Live server test
+python -c "from backend.api_server import app; app.run(port=5000, debug=False)" &
+RUN_LIVE_TESTS=1 LIVE_BASE=http://127.0.0.1:5000 pytest tests/test_integration_live_server.py -q
 ```
 
-### Troubleshooting
+## Conventions
 
-**Failing tests on CI but passing locally?**
-
-- Check Python/Node versions match
-- Verify dependencies are in requirements.txt/package.json
-- Look for environment-specific issues
-
-**Slow builds?**
-
-- Caching should speed up subsequent runs
-- First run will be slower as caches are populated
-
-**Docker build failures?**
-
-- Ensure Dockerfile paths are correct
-- Check that all required files are in context
-- Review build logs in Actions tab
+- Create a feature branch before changing the engine.
+- Keep commits logical and run the engine gate before pushing.
+- The engine's `GameState` schema is versioned. Add a migration when it
+  changes; do not rely on CI to catch a stale save format.
+- Do not commit rules PDFs, extracted rulebooks or proprietary datasets.

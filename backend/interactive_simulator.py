@@ -8,11 +8,11 @@ and backend.battlescribe_parser.parse_battlescribe_html when needed.
 import argparse
 import math
 import random
+from typing import Callable, List, Optional
 
-from typing import List, Optional, Callable
-
-from backend.full_simulator import SoloSimulator, Unit as AIUnit
 from backend.battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator
+from backend.full_simulator import Unit as AIUnit
 
 
 class Unit:

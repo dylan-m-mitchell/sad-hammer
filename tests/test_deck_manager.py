@@ -4,11 +4,13 @@ Tests the Battle Tactics Deck and Action Deck management systems to ensure
 they follow the Peter Holland Solo Wargaming rules correctly.
 """
 
-import pytest
 import random
+
+import pytest
+
 from backend.deck_manager import (
-    TacticsDeckManager,
     ActionDeckManager,
+    TacticsDeckManager,
     create_turn_action_assignments,
 )
 from backend.reference_card_decks import objective_action_deck

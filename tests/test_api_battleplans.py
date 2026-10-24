@@ -1,5 +1,6 @@
 import os
 import sys
+
 from api_server import app
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

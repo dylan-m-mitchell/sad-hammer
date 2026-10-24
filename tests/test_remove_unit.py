@@ -1,6 +1,7 @@
 """Tests for removing AI units (when killed by player)."""
 
 import pytest
+
 from backend.full_simulator import SoloSimulator, Unit
 
 

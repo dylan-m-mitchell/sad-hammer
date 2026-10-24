@@ -6,18 +6,20 @@ paths are computed relative to the repository root so the module can live
 inside the `backend/` package.
 """
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-import tempfile
-import os
-
-from backend.battlescribe_parser import parse_battlescribe_html
-from backend.full_simulator import SoloSimulator, Unit as AIUnit
-from backend.reference_card_decks import battleplan_deck
-from backend import placement as placement_module
-import json
 import hashlib
+import json
+import os
 import random as _random
+import tempfile
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+
+from backend import placement as placement_module
+from backend.battlescribe_parser import parse_battlescribe_html
+from backend.full_simulator import SoloSimulator
+from backend.full_simulator import Unit as AIUnit
+from backend.reference_card_decks import battleplan_deck
 
 app = Flask(__name__)
 CORS(app)

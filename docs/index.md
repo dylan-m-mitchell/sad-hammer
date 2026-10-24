@@ -1,24 +1,31 @@
 # Sad Hammer Documentation Index
 
-Welcome — this index links the key documentation pages for the Sad Hammer project.
+The project is moving from a card-driven AoS 3 prototype to a rules-driven,
+multi-system tabletop opponent. Start with the new engine docs.
 
-Core docs
+New engine
 
-- `README.md` — Quick start, overview, and pointers to documentation.
-- `docs/api.md` — API reference, examples, event schemas, and the `resolve_rolls` draft contract.
-- `docs/architecture.md` — Architecture overview: SoloSimulator, session model, event shapes.
-- `docs/usage.md` — Usage guide, playtesting tips, and developer notes.
-- `docs/rule_mapping.md` — Mapping of app behavior to GH2021 rules and fidelity levels.
+- `docs/engine/README.md` — overview, status and local commands.
+- `docs/engine/roadmap.md` — phased plan, exit criteria and risks.
+- `docs/engine/architecture.md` — engine interfaces, state schema and APIs.
+- `docs/engine/rules-references.md` — official free rules links and scope.
+- `docs/engine/ai-design.md` — utility AI, aggression and explainability.
 
-Recent changes
+Legacy reference docs
 
-- Removed player roll mode in favor of simplified AI-only mode for better user experience.
-- Implemented stateless AI turn endpoint (`/api/ai_turn_stateless`) where the server automatically resolves all dice rolls and actions.
-- All units now act every turn - aggression levels modify how units execute their actions rather than whether they act.
+These describe the existing Flask/React card prototype. They remain useful for
+understanding the code that has not yet been replaced, but they are not the
+target architecture.
 
-How to contribute
+- `docs/api.md` — legacy API reference.
+- `docs/architecture.md` — legacy `SoloSimulator` and session model.
+- `docs/usage.md` — legacy usage guide.
+- `docs/rule_mapping.md` — legacy GHB2021 mapping.
+- `docs/architecture-decisions.md` — historical file-layout decisions.
 
-- Edit docs in `docs/` and open a PR on the feature branch `feature/rule-mapping-accurate`.
-- Run `pytest -q` to ensure tests pass before committing.
+Contributing
 
-\*\*\* End of file
+- Branch before changing the engine.
+- Run `pytest tests/engine -q` for the fast engine loop.
+- Run `pytest tests/ -q`, Black and Ruff before opening a pull request.
+- Do not commit rules PDFs, extracted rulebooks or proprietary datasets.

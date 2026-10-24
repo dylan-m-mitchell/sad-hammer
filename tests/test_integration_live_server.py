@@ -1,8 +1,15 @@
 import os
+
+import pytest
 import requests
 
-
 BASE = os.environ.get("LIVE_BASE", "http://localhost:8080")
+RUN_LIVE = os.environ.get("RUN_LIVE_TESTS", "").lower() in {"1", "true", "yes"}
+
+pytestmark = pytest.mark.skipif(
+    not RUN_LIVE,
+    reason="live server tests are opt-in; set RUN_LIVE_TESTS=1 and start the backend",
+)
 
 
 def test_session_and_ai_turn_live_server():

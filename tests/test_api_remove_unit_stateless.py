@@ -1,7 +1,9 @@
 """Tests for the stateless API endpoint to remove AI units."""
 
 import json
+
 import pytest
+
 from api_server import app
 
 

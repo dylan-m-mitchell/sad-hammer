@@ -8,6 +8,7 @@ Run with:
 
 This assumes your virtualenv is activated.
 """
+
 import os
 import sys
 
@@ -16,7 +17,7 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from backend.api_server import app
+from backend.api_server import app  # noqa: E402
 
 if __name__ == "__main__":
     # bind to 0.0.0.0 so the container is reachable from other containers (nginx)

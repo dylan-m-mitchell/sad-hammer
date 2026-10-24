@@ -2,6 +2,7 @@ pytest
 beautifulsoup4
 flask
 flask-cors
+requests
 
 # Development tools
 ruff>=0.1.0

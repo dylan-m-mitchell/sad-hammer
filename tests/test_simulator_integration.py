@@ -1,7 +1,9 @@
 import os
 import sys
+
 from backend.battlescribe_parser import parse_battlescribe_html
-from backend.full_simulator import SoloSimulator, Unit as AIUnit
+from backend.full_simulator import SoloSimulator
+from backend.full_simulator import Unit as AIUnit
 
 # Ensure repo root is importable so tests can import the project's modules
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -29,26 +31,27 @@ def test_ai_simulator_runs_with_roster():
     # Expect a list of events; at minimum aggression levels should be present
     assert isinstance(events, list)
     assert any(
-        ("event" in e and e["event"] == "aggression_level") or ("action_resolved" in e) for e in events
+        ("event" in e and e["event"] == "aggression_level") or ("action_resolved" in e)
+        for e in events
     )
 
 
 def test_all_units_always_act():
     """All units should receive action cards regardless of aggression level."""
     from backend.full_simulator import SoloSimulator, Unit
-    
+
     units = [
         Unit("Aggressive Unit", aggression="Aggressive"),
         Unit("Neutral Unit", aggression="Neutral"),
         Unit("Cautious Unit", aggression="Cautious"),
     ]
-    
+
     sim = SoloSimulator(units, seed=42)
     events = sim.simulate_turn()
-    
+
     # Extract action assignments
     actions = [e for e in events if "action_resolved" in e]
-    
+
     # All 3 units should have actions
     assert len(actions) == 3
     unit_names = {a["action_resolved"]["unit"] for a in actions}
@@ -57,25 +60,25 @@ def test_all_units_always_act():
 
 def test_aggression_modifiers_included():
     """Verify aggression modifiers are included in action assignments."""
-    from backend.full_simulator import SoloSimulator, Unit, AGGRESSION_EXECUTION_MODIFIERS
-    
+    from backend.full_simulator import AGGRESSION_EXECUTION_MODIFIERS, SoloSimulator, Unit
+
     units = [
         Unit("Test Aggressive", aggression="Aggressive"),
         Unit("Test Neutral", aggression="Neutral"),
     ]
-    
+
     sim = SoloSimulator(units, seed=42)
     events = sim.simulate_turn()
-    
+
     # Check aggression level events
     aggression_events = [e for e in events if e.get("event") == "aggression_level"]
     assert len(aggression_events) == 2
-    
+
     # Verify modifiers are correct
     aggressive_event = next(e for e in aggression_events if e["unit"] == "Test Aggressive")
     assert aggressive_event["aggression"] == "Aggressive"
     assert aggressive_event["modifiers"] == AGGRESSION_EXECUTION_MODIFIERS["Aggressive"]
-    
+
     neutral_event = next(e for e in aggression_events if e["unit"] == "Test Neutral")
     assert neutral_event["aggression"] == "Neutral"
     assert neutral_event["modifiers"] == AGGRESSION_EXECUTION_MODIFIERS["Neutral"]
@@ -84,19 +87,19 @@ def test_aggression_modifiers_included():
 def test_battle_tactic_displayed():
     """Verify battle tactic is logged so players can see the AI's goal."""
     from backend.full_simulator import SoloSimulator, Unit
-    
+
     units = [
         Unit("Test Unit 1", aggression="Neutral"),
         Unit("Test Unit 2", aggression="Neutral"),
     ]
-    
+
     sim = SoloSimulator(units, seed=42)
     events = sim.simulate_turn()
-    
+
     # Check that battle_tactic_drawn event exists
     tactic_events = [e for e in events if e.get("event") == "battle_tactic_drawn"]
     assert len(tactic_events) == 1
-    
+
     tactic_event = tactic_events[0]
     assert "tactic" in tactic_event
     assert "description" in tactic_event
