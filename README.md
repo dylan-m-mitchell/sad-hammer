@@ -17,23 +17,33 @@ The next generation of Sad Hammer lives in `backend/engine/`:
 - geometry for boards, deployment zones, terrain and objectives;
 - versioned JSON saves with validation;
 - a `GameSystem` interface for edition-specific rules;
+- a playable AoS 4th core-rules slice with two starter forces and one mission;
 - a rules-based, explainable utility AI with aggression profiles;
-- a CLI walking skeleton and a focused test suite.
+- a CLI harness and a focused test suite.
 
 Read:
 
 - [Engine overview](docs/engine/README.md)
 - [Roadmap](docs/engine/roadmap.md)
 - [Architecture](docs/engine/architecture.md)
+- [AoS 4th vertical slice](docs/engine/aos4-slice.md)
 - [Rules references](docs/engine/rules-references.md)
 - [AI design](docs/engine/ai-design.md)
 
-Try the walking skeleton:
+Try the engine:
 
 ```bash
+# A five-round AI-vs-AI Age of Sigmar 4th game.
+python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
+
+# The small demo system used to prove the shared contracts.
 python -m backend.engine.cli demo --seed 7 --rounds 2
-python -m backend.engine.cli demo --seed 7 --rounds 1 --save /tmp/demo-state.json
-python -m backend.engine.cli inspect /tmp/demo-state.json
+
+# Save and reload a game.
+python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy \
+  --save /tmp/aos4-state.json
+python -m backend.engine.cli inspect /tmp/aos4-state.json
+
 pytest tests/engine -q
 ```
 
@@ -47,7 +57,7 @@ slice is built, but they are not the architecture for the new opponent.
 | Area | Status |
 | --- | --- |
 | Shared engine core and demo system | Implemented |
-| AoS 4th rules module | Next |
+| AoS 4th core-rules vertical slice | Implemented (AI-vs-AI CLI) |
 | 40k 11th rules module | After the AoS slice |
 | Digital-twin board and deployment UI | Planned |
 | New Recruit `.ros`/`.rosz` import and curated builder | Planned |

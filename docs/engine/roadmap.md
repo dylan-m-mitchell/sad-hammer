@@ -28,9 +28,12 @@ edition-specific rules for Age of Sigmar 4th and Warhammer 40,000 11th.
 
 ## Current branch
 
-`feature/engine-foundation` contains Phase 0 and the Phase 1 walking skeleton.
-No engine work is committed directly to `main`. The legacy card simulator stays
-on `main` as reference material until the new AoS slice replaces its UI flow.
+Phase 0 and the Phase 1 walking skeleton are merged to `main`. The
+`feature/aos4-vertical-slice` branch contains the first AoS 4th rules module,
+the two starter data packs, the contested-ground mission, the AoS CLI and the
+rules matrix. No engine work is committed directly to `main`. The legacy card
+simulator stays on `main` as reference material until the new AoS slice replaces
+its UI flow.
 
 ## Phase 0 — Foundation
 
@@ -70,20 +73,23 @@ legal moves and attacks, AI turns, deterministic replay and JSON round-trip.
 **Goal:** one complete, played-through AoS 4th game with the Skaventide starter
 forces, one mission and the core rules.
 
-- [ ] Rules matrix: phases, core abilities, combat sequence, battle-shock,
-      terrain, objective control and battle-round scoring.
-- [ ] Data packs for a curated Stormcast Eternals force and a curated Skaven
+- [x] Rules matrix: phases, core abilities, combat sequence, wards, terrain,
+      objective control and battle-round scoring.
+- [x] Data packs for a curated Stormcast Eternals force and a curated Skaven
       force from the starter set.
-- [ ] Deployment phase: territories, objectives, units, faction terrain and
-      validation.
-- [ ] Start of Turn, Hero, Movement, Shooting, Charge, Combat and End of Turn.
-- [ ] Normal Move, Run, Retreat, Shoot, Charge, Fight and core reactions.
-- [ ] Weapon attacks, hit/wound/save/damage, mortal damage, wards and
-      destructible units.
-- [ ] One mission with battle-round scoring and a battle-round limit.
-- [ ] AI v1 using the generic policy and AoS-specific evaluation.
-- [ ] Rules tests for every implemented core interaction plus an AI-vs-AI
-      regression game.
+- [x] Deployment phase: territories, objectives, units, terrain and validation.
+- [x] Start of Turn, Hero, Movement, Shooting, Charge, Combat and End of Turn.
+- [x] Normal Move, Run, Retreat, Shoot, Charge and Fight.
+- [x] Weapon attacks, hit/wound/save/damage, mortal damage, wards and
+      destroyed units.
+- [x] One mission with end-of-turn objective scoring and a battle-round limit.
+- [x] AI v1 using the generic policy and AoS-specific evaluation.
+- [x] Rules tests for every implemented core interaction plus an AI-vs-AI
+      regression game and CLI smoke test.
+
+The implemented rules and the deliberate simplifications are listed in
+[the AoS 4th slice](aos4-slice.md). In particular, AoS 4th has no battle-shock
+step; bravery is retained in the data model for future morale work.
 
 **Exit:** the AoS game can be played end-to-end through the engine and CLI with a
 legal, explainable AI. This is the first real proof that the abstraction works.
@@ -177,10 +183,11 @@ risk. Phase 6 can start earlier because roster data is largely independent.
 
 ## Near-term sequence
 
-1. Merge the engine foundation and get the focused CI green.
-2. Build the AoS 4th rules matrix and the two starter data packs.
+1. Merge the engine foundation and get the focused CI green. **Done.**
+2. Build the AoS 4th rules matrix and the two starter data packs. **Done.**
 3. Implement deployment, movement, shooting, charge, combat and one mission.
-4. Play an AI-vs-AI AoS game and fix rules/legality failures.
+   **Done.**
+4. Play an AI-vs-AI AoS game and fix rules/legality failures. **Done.**
 5. Add the board/deployment UI and the end-of-turn digital-twin wizard.
 6. Tune AI behavior before adding 40k.
 

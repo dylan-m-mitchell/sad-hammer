@@ -101,8 +101,10 @@ goes in `payload`. Tags are AI hints only; they must not be treated as rules.
 ### Events
 
 Events contain `kind`, `message`, `data`, `seq`, `round`, `phase` and `side`.
-`GameSession` stamps the metadata and appends them to `state.events`. The event
-log is the replayable narrative and the UI's display feed.
+`GameSession` fills missing metadata from the state before the action and
+appends the event to `state.events`. Systems can stamp a transition event with
+the destination phase, round or side when those differ from the previous state.
+The event log is the replayable narrative and the UI's display feed.
 
 ## State model
 
@@ -154,15 +156,24 @@ command will be added once a real system exists.
 
 ### AoS 4th (`engine.systems.aos4`)
 
-Planned responsibilities:
+Implemented in the first vertical slice:
 
 - seven turn phases: Start of Turn, Hero, Movement, Shooting, Charge, Combat,
-  End of Turn, with active-player-then-opponent ability windows;
-- normal move, run, retreat, shoot, charge, fight and combat-range rules;
-- hit/wound/save/damage resolution, mortal damage, wards and ward saves;
-- battle-shock and objective control;
-- deployment territories, faction terrain and battle-round scoring;
-- mission data for one mission and starter-army data packs.
+  End of Turn;
+- normal move, run, retreat, shoot, charge and fight;
+- hit/wound/save/damage resolution, critical-mortal damage, ward rolls and
+  destroyed units;
+- the Rally, All-out Attack and All-out Defence commands with command points;
+- deployment territories, cover, blocking line of sight, objective control and
+  end-of-turn scoring;
+- one mission, two curated starter-army data packs and a deterministic
+  AI-vs-AI CLI.
+
+Deliberately deferred for now: priority rolls, battle-shock and other morale
+mechanics (AoS 4th has no battle-shock step), spells, manifestations, battle
+tactics, faction rules, difficult-ground movement penalties, per-model
+coherency, roster import and the UI. The full matrix is in
+[the AoS 4th slice](aos4-slice.md).
 
 ### 40k 11th (`engine.systems.wh40k11`)
 
@@ -185,12 +196,11 @@ Data packs are versioned JSON/YAML, separate from rules code:
 ```text
 data/
   aos4/
-    factions/stormcast.json
-    factions/skaven.json
-    missions/...
+    factions/stormcast-starter.json
+    factions/skaven-starter.json
+    missions/contested-ground.json
   wh40k11/
-    factions/space-marines.json
-    factions/orks.json
+    factions/...
     missions/...
 ```
 

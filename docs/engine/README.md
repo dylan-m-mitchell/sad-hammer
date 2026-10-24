@@ -12,9 +12,9 @@ backend/engine/
   cli.py      local walking-skeleton harness
 ```
 
-The first implementation is a small two-phase demo system. It exists to prove
-the shared contracts, not to represent either commercial game. The real rules
-modules are described in the roadmap.
+The first real implementation is the AoS 4th core-rules vertical slice. A
+small two-phase demo system remains in place to prove the shared contracts in
+isolation. The 40k module and the companion UI are still ahead.
 
 ## Status
 
@@ -25,17 +25,24 @@ modules are described in the roadmap.
 | Deterministic dice, geometry, state, events, validation | Implemented |
 | `GameSystem` interface and demo system | Implemented |
 | Explainable legal-action AI | Implemented |
-| CLI walking skeleton and tests | Implemented |
-| AoS 4th rules module | Next phase |
+| AoS 4th core-rules vertical slice | Implemented (AI-vs-AI CLI) |
+| CLI harness and tests | Implemented |
 | 40k 11th rules module | After the AoS vertical slice |
 | Digital-twin board UI | After the AoS engine slice |
 
 ## Try it
 
 ```bash
+# A complete AI-vs-AI Age of Sigmar 4th game.
+python -m backend.engine.cli aos4 --seed 11 --rounds 5 --auto-deploy
+
+# The smaller contract-proving demo.
 python -m backend.engine.cli demo --seed 7 --rounds 2
-python -m backend.engine.cli demo --seed 7 --rounds 1 --json --save /tmp/demo-state.json
-python -m backend.engine.cli inspect /tmp/demo-state.json
+
+# Save and inspect the final state.
+python -m backend.engine.cli aos4 --seed 7 --rounds 1 --auto-deploy \
+  --json --save /tmp/aos4-state.json
+python -m backend.engine.cli inspect /tmp/aos4-state.json
 ```
 
 Run the focused test suite:
@@ -48,8 +55,9 @@ pytest tests/engine -q
 
 1. [Roadmap](roadmap.md) — phases, exit criteria and current work.
 2. [Architecture](architecture.md) — interfaces, state, determinism and APIs.
-3. [Rules references](rules-references.md) — official free rules links and scope.
-4. [AI design](ai-design.md) — how the opponent chooses and explains actions.
+3. [AoS 4th slice](aos4-slice.md) — implemented rules, data and simplifications.
+4. [Rules references](rules-references.md) — official free rules links and scope.
+5. [AI design](ai-design.md) — how the opponent chooses and explains actions.
 
 ## Design constraints
 
