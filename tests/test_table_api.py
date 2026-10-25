@@ -229,8 +229,12 @@ def test_plan_rejects_invalid_roster(client) -> None:
     [
         ({"round": 0}, "round must be between 1 and 20"),
         ({"round": "one"}, "round must be an integer"),
+        ({"round": 1.9}, "round must be an integer"),
+        ({"round": True}, "round must be an integer"),
         ({"seed": -1}, "seed must be between 0 and 2147483647"),
         ({"seed": "many"}, "seed must be an integer"),
+        ({"seed": 1.5}, "seed must be an integer"),
+        ({"seed": False}, "seed must be an integer"),
         ({"destroyed": "clanrats"}, "destroyed must be an array of unit IDs"),
         ({"destroyed": [7]}, "destroyed[0] must be a non-empty unit ID"),
     ],
@@ -241,6 +245,17 @@ def test_plan_rejects_invalid_round_seed_and_destroyed(
     response = client.post("/api/table/plan", json=plan_payload(client, **overrides))
     assert response.status_code == 400
     assert response.get_json()["error"] == message
+
+
+def test_plan_accepts_integer_valued_floats_and_numeric_strings(client) -> None:
+    response = client.post(
+        "/api/table/plan",
+        json=plan_payload(client, round="2", seed=9.0),
+    )
+    assert response.status_code == 200, response.get_json()
+    plan = response.get_json()
+    assert plan["round"] == 2
+    assert plan["seed"] == 9
 
 
 def test_plan_ignores_unknown_destroyed_units(client) -> None:

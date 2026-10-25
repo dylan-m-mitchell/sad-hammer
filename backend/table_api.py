@@ -47,9 +47,14 @@ def _body() -> Dict[str, Any]:
 
 
 def _integer(body: Mapping[str, Any], key: str, *, minimum: int, maximum: int) -> int:
+    raw = body.get(key)
+    if isinstance(raw, bool) or raw is None:
+        raise ValueError(f"{key} must be an integer")
+    if isinstance(raw, float) and not raw.is_integer():
+        raise ValueError(f"{key} must be an integer")
     try:
-        value = int(body[key])
-    except (KeyError, TypeError, ValueError) as exc:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"{key} must be an integer") from exc
     if not minimum <= value <= maximum:
         raise ValueError(f"{key} must be between {minimum} and {maximum}")

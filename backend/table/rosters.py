@@ -8,6 +8,7 @@ their own table without fighting a list builder.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
@@ -176,8 +177,15 @@ def _number(
         return None
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         _issue(issues, f"{context}.{key}", f"{context}.{key} must be a number")
+        return None
+    if not math.isfinite(number):
+        _issue(
+            issues,
+            f"{context}.{key}",
+            f"{context}.{key} must be a finite number",
+        )
         return None
     if number < minimum:
         _issue(

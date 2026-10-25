@@ -149,6 +149,13 @@ def test_invalid_profiles_report_their_field(broken: Dict[str, Any], field: str)
     assert any(issue["field"] == field for issue in error.value.issues)
 
 
+@pytest.mark.parametrize("value", ["nan", "inf", 10**400])
+def test_non_finite_numbers_report_their_field(value: Any) -> None:
+    with pytest.raises(RosterParseError) as error:
+        parse_roster(roster(units=[unit(move=value)]))
+    assert any(issue["field"] == "roster.units[0].move" for issue in error.value.issues)
+
+
 def test_keywords_must_be_strings() -> None:
     with pytest.raises(RosterParseError) as error:
         parse_roster(roster(units=[unit(keywords=["Hero", 7])]))

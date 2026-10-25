@@ -6,6 +6,12 @@ async function request(path, options = {}) {
   try {
     payload = await response.json();
   } catch (error) {
+    if (response.ok) {
+      const formatError = new Error("Response returned invalid JSON");
+      formatError.status = response.status;
+      formatError.payload = null;
+      throw formatError;
+    }
     payload = null;
   }
   if (!response.ok) {
