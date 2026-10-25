@@ -1,91 +1,146 @@
 # Product
 
-_A quick pick-up-and-play tabletop skirmish against a fair computer opponent:
-open, press Start, play._
+_A table companion that calls the AI's moves while you measure, move and roll on
+a real tabletop._
 
-Sad Hammer is not a toolkit or a tournament platform. The product is one
-focused game that a new player can understand and finish without reading a
-manual or making setup decisions first.
+Sad Hammer is not a digital twin of the battlefield and it is not a list
+builder. It is one focused app that tells you what the opposing army is trying
+to do this round, in plain table language, so you can play a solo or
+co-operative game with the miniatures you already own.
 
-## Default game
+The old digital board game is preserved at `/digital` and the card prototype at
+`/legacy`. They are not the primary experience.
 
-The app opens with a complete battle ready to play:
+## Routes
 
-| Setting | Default |
+| Route | Experience |
 | --- | --- |
-| Forces | Stormcast Eternals vs Skaven starter forces |
-| Mission | Contested Ground |
-| Length | Five battle rounds |
-| Deployment | Both armies already deployed |
-| Opponent | Server-owned balanced AI |
+| `/` | Table Companion — the primary experience |
+| `/digital` | The board-tracking digital game, preserved on the back burner |
+| `/legacy` | The original card-driven prototype, unchanged |
 
-Pressing **Start battle** launches that game. There is no required choice of army,
-mission, profile, difficulty or seed before the first turn.
+## Default experience
 
-**Customize battle** is an optional secondary path for players who want it. It
-changes only the mission, the force and the seed. The default game remains one
-click away, and opening the customization controls is never required.
+The app is playable before the player builds anything:
+
+- The first screen is the enemy army: take the Skaven starter or import a
+  roster as JSON.
+- Your Stormcast starter is preloaded for the planner's hero targets, and
+  either roster can be swapped, edited by hand or replaced with JSON in the
+  roster editor.
+- After deployment the player rolls off at the table and tells the app who has
+  the first turn.
+- The battle screen is one button: start the AI turn and follow it one phase at
+  a time.
+
+There is no required army, mission, points limit or difficulty choice.
 
 ## Core loop
 
-1. Open Sad Hammer. The default game is ready.
-2. Press Start battle.
-3. Play the battle: move, shoot, charge, fight and spend command points while
-   the AI takes its own turns.
-4. Score objectives at the end of each turn over five battle rounds.
-5. Finish the game, resume a saved battle, or export it for later.
+1. Open Sad Hammer on a phone propped beside the table.
+2. Confirm the enemy army, place objectives and terrain, then deploy both
+   armies. The enemy guide is Press forward, Support in cover, Hold near
+   objectives.
+3. Roll off and tell the app who has the first turn.
+4. Play your turn physically: measure, move, shoot, charge, fight and roll
+   dice.
+5. Press **Start the AI turn** and follow one phase at a time. Each card names
+   the unit, the maneuver, the instruction and a short reason.
+6. Mark any AI units you destroyed in the End phase, finish the AI turn, then
+   start the next round.
+7. Repeat for five battle rounds.
 
-The AI explains its important decisions in the battle log so the player can
-understand why it acted. The same rules and legal-action contract apply to both
-sides.
+The app never asks for positions, distances, terrain layout, wounds or your
+army's state. Every instruction is relative: "closest enemy", "within 12
+inches", "if you can end in cover".
+
+## Rosters
+
+There are two roster slots: yours and the AI's. Either can be swapped.
+
+- **Manual builder.** Add units and weapons, edit every field, remove what you
+  do not need.
+- **JSON import/export.** Copy a roster out, edit it elsewhere, paste it back.
+- **Browser storage.** Both rosters and the current round state are saved in
+  localStorage.
+- **Starters.** Stormcast and Skaven starter profiles are available
+  immediately.
+
+A unit has: name, move, save, health, models, control, keywords and weapons
+with range, attacks, hit, wound, rend and damage.
+
+There are no points, enhancements, battleline rules or matched-play validation.
+A roster only has to be structurally usable.
+
+## AI turn planner
+
+The planner is one stateless request: both rosters, the round, a seed and the
+AI units that have been destroyed. The response is a deterministic set of phase
+cards. The same round and seed always produce the same plan.
+
+Doctrine is derived only from the unit profile:
+
+| Type | Classification | Behaviour |
+| --- | --- | --- |
+| Press | Melee, non-hero units | Advance, take cover near the enemy, push an objective, charge if in range |
+| Support | Ranged, non-hero units | Hold and shoot from cover, reposition for line of sight, fall back and shoot, focus the closest enemy Hero; never default to charging |
+| Hold | Heroes and defensive units | Support the nearest friendly unit, hold an objective, move to cover near an objective |
+
+Maneuvers are seeded and rotate each round using the seed and the unit ID. The
+player never chooses aggression, difficulty or an AI style.
+
+Support units have one conditional escape hatch into melee: charge only if
+there is no shooting target and an enemy is already within 6 inches.
+
+## Table UI
+
+- Enemy army setup with the Skaven starter and JSON import.
+- First-turn roll with a doctrine-based deployment hint.
+- Battle screen with the round, the AI roster and one primary button: start
+  the AI turn.
+- The AI turn is stepped one phase at a time: Hero, Movement, Shooting, Charge,
+  Combat and End. Only the current phase is shown.
+- AI destroyed-unit toggles in the end phase, feeding the next round's plan.
+- Each card shows the unit, maneuver, instruction, short reason and weapon
+  profile where relevant.
+
+There is no board, no coordinates, no legal-action engine and no dice roller.
+The physical table is the board.
+
+## Digital board (secondary)
+
+`/digital` keeps the rules-driven digital match: a deterministic AoS 4th
+engine, the fixed server-owned balanced opponent, legal-action validation,
+scoring and save/import. It remains available but is not where product work is
+focused.
 
 ## Principles
 
-- **No required setup.** Opening the app and pressing Start is enough. Any
-  customization is optional and secondary.
-- **One server-owned opponent style.** The player never chooses an AI style,
-  aggression level or difficulty. The server fixes the opponent to its balanced
-  heuristic profile.
-- **Explainable AI.** Important AI decisions carry a human-readable reason in
-  the UI and the saved log.
-- **Save and resume.** Games can be exported as versioned JSON, imported later,
-  or resumed from the same browser.
-- **No required decision before the first turn.** New features must not add a
-  mandatory setup step, dialog or choice between opening the app and playing.
-
-## AI approach
-
-- The opponent is a heuristic utility AI. It scores only the actions the rules
-  engine says are legal, using weights for damage, objectives, risk, cover,
-  mobility and tempo, then explains its choice.
-- The server chooses one fixed `balanced` profile. Profiles are internal tuning
-  and testing tools, not player-facing options. The setup response does not
-  expose profiles, new games ignore a client-supplied profile, and an imported
-  game keeps the profile stored in its save.
-- The AI is tuned with a headless AI-vs-AI benchmark:
-
-  ```bash
-  python -m backend.engine.cli aos4-bench --games 20
-  ```
-
-  This is a development and regression tool, not a product mode.
-- The opponent is deliberately beatable. It should be fair, predictable in
-  intent, and capable of losing to good play rather than optimized for
-  tournament-level tactics.
-- There is no LLM, machine-learning or human-gameplay-data dependency. The AI
-  is deterministic heuristic code driven by the game seed and the fixed
-  profile; the same seed and state replay the same decisions.
+- **The table stays physical.** The app calls the play; the player measures,
+  moves and rolls.
+- **No board state.** Nothing about positions, distances, terrain layout or
+  wounds is stored or inferred.
+- **Explainable plans.** Every instruction has a short reason grounded in the
+  unit's doctrine.
+- **Deterministic variation.** The same round and seed replay the same plan,
+  and maneuvers rotate so a unit does not repeat the same move every round.
+- **No mandatory setup.** Starter rosters and a ready plan mean the app is
+  usable before the builder is ever opened.
+- **Portable rosters.** JSON import/export and browser-local storage; no
+  account.
 
 ## Explicit non-goals
 
-- **List builder.** The product uses curated starter forces. It is not a roster
-  construction or list-optimization tool.
-- **Accounts.** There is no sign-in, cloud profile or account system. The game
-  runs locally for the player.
-- **Matchmaking.** The opponent is the server-owned AI. There is no player
-  queue, lobby or PvP matchmaking.
-- **Player-selected difficulty or aggression.** There is one fixed balanced
-  opponent. Difficulty and aggression are not settings.
-- **Content buffet.** The product is not a broad library of factions, missions
-  and modes. The default game is the product; optional customization stays
-  narrow and must not turn into a content browser.
+- **Points and matched play.** No list-building rules, points caps, battleline
+  requirements or tournament validation.
+- **A digital board in table mode.** No grid, coordinates, templates, range
+  finder or legal-action engine.
+- **A dice roller.** The player rolls and resolves at the table.
+- **Player-selected aggression or difficulty.** Doctrine comes from the unit
+  profile; the player does not pick an AI style.
+- **Accounts, cloud sync and matchmaking.** Rosters and the current round live
+  in the browser; the stateless planner runs on the local server.
+- **A content buffet.** Two starter rosters and a small builder, not a library
+  of factions and missions.
+- **An LLM or machine-learning opponent.** The planner is deterministic
+  heuristic code driven by the seed.

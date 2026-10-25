@@ -17,10 +17,10 @@ docker compose up --build
 # open http://localhost:8080
 ```
 
-Press Start to play the fixed, server-owned balanced opponent. The web client
-supports the full turn loop, automatic AI turns, human picks in alternating
-combat, scoring, resume, and versioned export/import. The legacy card simulator
-remains at `/legacy`.
+Open `/digital` and press Start to play the fixed, server-owned balanced
+opponent. The web client supports the full turn loop, automatic AI turns, human
+picks in alternating combat, scoring, resume, and versioned export/import. The
+legacy card simulator remains at `/legacy`.
 
 The CLI stays available as the AI-vs-AI verification harness:
 

@@ -1,20 +1,24 @@
 # Sad Hammer Documentation Index
 
-The project is moving from a card-driven AoS 3 prototype to a rules-driven,
-multi-system tabletop opponent. Start with the product definition and the new
-engine docs.
+Start with the product definition. Sad Hammer is now a table companion: it
+directs the AI army from unit profiles and doctrine while the player measures,
+moves and rolls on a real tabletop. The digital board game is preserved at
+`/digital` and the card prototype at `/legacy`.
 
 Product
 
-- `docs/product.md` — purpose, default game, principles and non-goals.
+- `docs/product.md` — purpose, routes, core loop, planner and non-goals.
+- `docs/table-mode.md` — table flow, roster format, doctrine table and
+  `/api/table` contract.
 
-New engine
+Digital engine (secondary)
 
 - `docs/engine/README.md` — overview, status and local commands.
 - `docs/engine/roadmap.md` — phased plan, exit criteria and risks.
 - `docs/engine/architecture.md` — engine interfaces, state schema and APIs.
 - `docs/engine/rules-references.md` — official free rules links and scope.
 - `docs/engine/ai-design.md` — fixed opponent, utility AI and explainability.
+- `docs/engine/aos4-slice.md` — implemented rules, data, UI and simplifications.
 
 Legacy reference docs
 
@@ -31,6 +35,7 @@ target architecture.
 Contributing
 
 - Branch before changing the engine.
-- Run `pytest tests/engine -q` for the fast engine loop.
+- Keep table mode stateless; never add board state to the table planner.
+- Run `pytest tests/test_table_*.py -q` for the table loop.
 - Run `pytest tests/ -q`, Black and Ruff before opening a pull request.
 - Do not commit rules PDFs, extracted rulebooks or proprietary datasets.

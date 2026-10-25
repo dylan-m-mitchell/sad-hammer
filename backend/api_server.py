@@ -21,10 +21,12 @@ from backend.battlescribe_parser import parse_battlescribe_html
 from backend.full_simulator import SoloSimulator
 from backend.full_simulator import Unit as AIUnit
 from backend.reference_card_decks import battleplan_deck
+from backend.table_api import table_api
 
 app = Flask(__name__)
 CORS(app)
 app.register_blueprint(aos4_api)
+app.register_blueprint(table_api)
 
 # Compute repository root (one level up from this file)
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

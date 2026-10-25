@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 
 test.describe("Player-vs-AI AoS game", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/digital");
     await page.evaluate(() => localStorage.clear());
     await page.reload();
   });
