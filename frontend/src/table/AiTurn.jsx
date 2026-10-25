@@ -27,7 +27,19 @@ export default function AiTurn({
 }) {
   const ready = plan && plan.round === round;
   const phases = ready ? plan.phases : [];
+  const destroyedSet = new Set(destroyed);
   const phase = phases[phaseIndex];
+  // The plan is refetched when a loss is marked, so the previous same-round
+  // plan can stay on screen for a moment. Hide destroyed units from it rather
+  // than unmounting the end-phase loss list on every toggle.
+  const visiblePhase = phase
+    ? {
+        ...phase,
+        instructions: phase.instructions.filter(
+          (entry) => !entry.unit_id || !destroyedSet.has(entry.unit_id)
+        ),
+      }
+    : null;
   const isLast = phaseIndex >= PHASE_COUNT - 1;
   const nextPhase = phases[phaseIndex + 1];
   const wiped = ready && (plan.units || []).length === 0;
@@ -109,7 +121,7 @@ export default function AiTurn({
         </StateCard>
       ) : (
         <>
-          <PhaseCard phase={phase} />
+          <PhaseCard phase={visiblePhase} />
 
           {phase.id === "end" && (
             <div className="space-y-2">

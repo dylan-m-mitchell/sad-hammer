@@ -153,19 +153,19 @@ HOLD_MOVEMENT = (
         "support_friendly",
         "Support the line",
         "Stay within 12 inches of the nearest friendly unit and move with it.",
-        "Hero — the army is stronger near its support piece.",
+        "Hold unit — the army is stronger near its support piece.",
     ),
     Maneuver(
         "hold_objective",
         "Hold an objective",
         "Move onto the closest objective and stay there.",
-        "Hero — a held objective wins rounds.",
+        "Hold unit — a held objective wins rounds.",
     ),
     Maneuver(
         "cover_objective",
         "Cover the objective",
         "Move into cover within 3 inches of an objective.",
-        "Defensive unit — survive while scoring.",
+        "Hold unit — survive while scoring.",
     ),
 )
 
@@ -192,7 +192,7 @@ HOLD_CHARGE = Maneuver(
     "hold_charge",
     "Hold position",
     "Do not charge. Stay on your objective or next to the unit you are supporting.",
-    "Hero — the job is support, not a charge.",
+    "Hold unit — the job is support, not a charge.",
 )
 
 PRESS_COMBAT = Maneuver(
@@ -217,13 +217,13 @@ HOLD_COMBAT = Maneuver(
     "fight_if_engaged",
     "Fight only if engaged",
     "If an enemy unit is in combat with you, fight it with your melee weapons; otherwise keep holding your position.",
-    "Hero — hold the line rather than chase.",
+    "Hold unit — hold the line rather than chase.",
 )
 HOLD_COMBAT_UNARMED = Maneuver(
     "stay_alive",
     "Stay alive",
     "If an enemy unit is in combat with you, stay alive; this unit has no melee weapons to fight with.",
-    "Defensive unit — it should never have been charged.",
+    "Hold unit — it should never have been charged.",
 )
 
 END_INSTRUCTIONS = (
