@@ -36,8 +36,8 @@ Phase 0 and the Phase 1 walking skeleton are merged to `main`. The
 `feature/aos4-vertical-slice` branch now contains the AoS 4th rules module, the
 two starter data packs, the contested-ground mission, the AoS CLI, the play API
 and the player-facing React game. The legacy card simulator remains on `main`
-and stays reachable at `/legacy` while the new game becomes the default
-experience.
+and stays reachable at `/legacy`; the digital game itself now lives at
+`/digital`, behind the table companion at `/`.
 
 ## Phase 0 — Foundation
 

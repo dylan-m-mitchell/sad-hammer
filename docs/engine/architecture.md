@@ -227,8 +227,8 @@ See [AI design](ai-design.md).
 
 ### Setup
 
-1. Open the one-click default game, or optionally customize the mission,
-   starter forces and seed. The AI opponent is fixed server-side.
+1. Open `/digital` for the one-click default game, or optionally customize the
+   mission, starter forces and seed. The AI opponent is fixed server-side.
 2. The mission supplies the board, terrain, objectives and deployment zones.
 3. The AI army is deployed from the mission defaults.
 4. In the default quick-play mode both armies start deployed. Manual deployment

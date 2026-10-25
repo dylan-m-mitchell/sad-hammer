@@ -41,10 +41,11 @@ docker compose up --build
 # open http://localhost:8080
 ```
 
-The app opens on a one-click default game against the fixed, server-owned
-balanced opponent, with optional mission/force/seed customization. It supports
-deployment, orders, automatic AI turns, human combat picks in alternating
-combat, battle scoring, and versioned save/export/import. The old card simulator
+The digital game is at `/digital` and opens on a one-click default game against
+the fixed, server-owned balanced opponent, with optional mission/force/seed
+customization. It supports deployment, orders, automatic AI turns, human combat
+picks in alternating combat, battle scoring, and versioned save/export/import.
+The table companion at `/` is the primary experience, and the old card simulator
 is still reachable at `/legacy`.
 
 The CLI is the engine verification harness. It runs both sides through the
