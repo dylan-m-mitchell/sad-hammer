@@ -1,24 +1,20 @@
 import React, { useEffect, useState } from "react";
-import SetupChecklist from "./SetupChecklist";
-import AiRosterPanel from "./AiRosterPanel";
-import TurnView from "./TurnView";
+import EnemySetup from "./EnemySetup";
+import PriorityRoll from "./PriorityRoll";
+import BattlePanel from "./BattlePanel";
+import AiTurn from "./AiTurn";
 import RosterBuilder from "./RosterBuilder";
 import { fetchTablePlan, fetchTableRosters } from "./api";
 import {
+  PHASE_COUNT,
   TOTAL_ROUNDS,
   createSeed,
+  createSession,
   loadRosters,
   loadSession,
   saveRosters,
   saveSession,
 } from "./storage";
-
-const EMPTY_CHECKLIST = {
-  objectives: false,
-  terrain: false,
-  playerDeploy: false,
-  aiDeploy: false,
-};
 
 function Header() {
   return (
@@ -68,15 +64,8 @@ function ErrorBanner({ children, action, onAction }) {
 
 export default function TableApp() {
   const [rosters, setRosters] = useState(() => loadRosters());
-  const [session, setSession] = useState(
-    () =>
-      loadSession() || {
-        seed: createSeed(),
-        round: 1,
-        destroyed: [],
-        checklist: EMPTY_CHECKLIST,
-      }
-  );
+  const [starters, setStarters] = useState(null);
+  const [session, setSession] = useState(() => loadSession() || createSession());
   const [plan, setPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState(null);
@@ -86,12 +75,17 @@ export default function TableApp() {
   const [startersRetry, setStartersRetry] = useState(0);
   const [planRetry, setPlanRetry] = useState(0);
 
+  const stage = !session.enemyReady
+    ? "setup"
+    : session.firstTurn
+    ? "battle"
+    : "priority";
+
   useEffect(() => {
     saveSession(session);
   }, [session]);
 
   useEffect(() => {
-    if (rosters) return undefined;
     let cancelled = false;
     setStarterLoading(true);
     setStarterError(null);
@@ -99,20 +93,18 @@ export default function TableApp() {
       .then((data) => {
         if (cancelled) return;
         const defaults = data.defaults || {};
-        const player =
-          data.rosters?.[defaults.player || "stormcast-starter"];
+        const player = data.rosters?.[defaults.player || "stormcast-starter"];
         const ai = data.rosters?.[defaults.ai || "skaven-starter"];
         if (!player || !ai) {
           throw new Error("the starter rosters were missing from the response.");
         }
         const next = { player, ai };
-        setRosters(next);
-        saveRosters(next);
-        const aiIds = new Set(ai.units.map((unit) => unit.id));
-        setSession((previous) => ({
-          ...previous,
-          destroyed: previous.destroyed.filter((id) => aiIds.has(id)),
-        }));
+        setStarters(next);
+        setRosters((previous) => {
+          if (previous) return previous;
+          saveRosters(next);
+          return next;
+        });
       })
       .catch((error) => {
         if (!cancelled) setStarterError(error.message);
@@ -126,7 +118,7 @@ export default function TableApp() {
   }, [startersRetry]);
 
   useEffect(() => {
-    if (!rosters) return undefined;
+    if (stage !== "battle" || !rosters) return undefined;
     const controller = new AbortController();
     setPlanLoading(true);
     setPlanError(null);
@@ -153,6 +145,7 @@ export default function TableApp() {
       });
     return () => controller.abort();
   }, [
+    stage,
     rosters,
     session.round,
     session.seed,
@@ -160,32 +153,20 @@ export default function TableApp() {
     planRetry,
   ]);
 
-  function changeRound(delta) {
+  function chooseEnemyArmy(aiRoster) {
+    const next = { player: rosters.player, ai: aiRoster };
+    setRosters(next);
+    saveRosters(next);
+    setPlan(null);
+    setPlanError(null);
     setSession((previous) => ({
       ...previous,
-      round: Math.min(
-        TOTAL_ROUNDS,
-        Math.max(1, previous.round + delta)
-      ),
-    }));
-  }
-
-  function toggleDestroyed(unitId) {
-    setSession((previous) => ({
-      ...previous,
-      destroyed: previous.destroyed.includes(unitId)
-        ? previous.destroyed.filter((id) => id !== unitId)
-        : [...previous.destroyed, unitId],
-    }));
-  }
-
-  function toggleChecklist(key) {
-    setSession((previous) => ({
-      ...previous,
-      checklist: {
-        ...previous.checklist,
-        [key]: !previous.checklist[key],
-      },
+      enemyReady: true,
+      firstTurn: null,
+      aiTurnDone: false,
+      phaseIndex: null,
+      round: 1,
+      destroyed: [],
     }));
   }
 
@@ -196,8 +177,75 @@ export default function TableApp() {
     setSession((previous) => ({
       ...previous,
       destroyed: previous.destroyed.filter((id) => aiIds.has(id)),
+      enemyReady: true,
+      phaseIndex: null,
     }));
     setBuilderOpen(false);
+  }
+
+  function chooseFirstTurn(firstTurn) {
+    setSession((previous) => ({ ...previous, firstTurn }));
+  }
+
+  function startAiTurn() {
+    setSession((previous) => ({ ...previous, phaseIndex: 0 }));
+  }
+
+  function changePhase(delta) {
+    setSession((previous) => {
+      if (previous.phaseIndex === null) return previous;
+      return {
+        ...previous,
+        phaseIndex: Math.min(
+          PHASE_COUNT - 1,
+          Math.max(0, previous.phaseIndex + delta)
+        ),
+      };
+    });
+  }
+
+  function backToBattle() {
+    setSession((previous) => ({ ...previous, phaseIndex: null }));
+  }
+
+  function finishAiTurn() {
+    setSession((previous) => ({
+      ...previous,
+      phaseIndex: null,
+      aiTurnDone: true,
+    }));
+  }
+
+  function startNextRound() {
+    setSession((previous) => ({
+      ...previous,
+      round: Math.min(TOTAL_ROUNDS, previous.round + 1),
+      aiTurnDone: false,
+      phaseIndex: null,
+    }));
+  }
+
+  function startNewBattle() {
+    setPlan(null);
+    setPlanError(null);
+    setSession((previous) => ({
+      ...previous,
+      seed: createSeed(),
+      round: 1,
+      destroyed: [],
+      firstTurn: null,
+      aiTurnDone: false,
+      phaseIndex: null,
+    }));
+  }
+
+  function toggleDestroyed(unitId) {
+    setSession((previous) => ({
+      ...previous,
+      destroyed: previous.destroyed.includes(unitId)
+        ? previous.destroyed.filter((id) => id !== unitId)
+        : [...previous.destroyed, unitId],
+    }));
   }
 
   return (
@@ -214,7 +262,7 @@ export default function TableApp() {
           </ErrorBanner>
         )}
 
-        {planError && (
+        {planError && session.phaseIndex === null && (
           <ErrorBanner
             action="Retry"
             onAction={() => setPlanRetry((value) => value + 1)}
@@ -227,36 +275,55 @@ export default function TableApp() {
           <section className="rounded-2xl border border-stone-800 bg-stone-900/70 px-4 py-8 text-center">
             <p className="text-sm text-stone-400">
               {starterLoading
-                ? "Loading the starter rosters…"
+                ? "Loading the table companion…"
                 : "The table companion needs its starter rosters to begin."}
             </p>
           </section>
         ) : builderOpen ? (
           <RosterBuilder
             rosters={rosters}
+            initialSlot="ai"
             onSave={handleSaveRosters}
             onClose={() => setBuilderOpen(false)}
           />
+        ) : stage === "setup" ? (
+          <EnemySetup
+            defaultRoster={starters?.ai}
+            loading={starterLoading}
+            onUseDefault={chooseEnemyArmy}
+            onImport={chooseEnemyArmy}
+            onOpenBuilder={() => setBuilderOpen(true)}
+          />
+        ) : stage === "priority" ? (
+          <PriorityRoll aiRoster={rosters.ai} onChoose={chooseFirstTurn} />
+        ) : session.phaseIndex !== null ? (
+          <AiTurn
+            plan={plan}
+            loading={planLoading}
+            error={planError}
+            phaseIndex={session.phaseIndex}
+            round={session.round}
+            aiRoster={rosters.ai}
+            destroyed={session.destroyed}
+            onPhaseChange={changePhase}
+            onFinish={finishAiTurn}
+            onToggleDestroyed={toggleDestroyed}
+            onBackToBattle={backToBattle}
+            onRetry={() => setPlanRetry((value) => value + 1)}
+          />
         ) : (
           <>
-            <SetupChecklist
-              checklist={session.checklist}
+            <BattlePanel
+              round={session.round}
+              totalRounds={TOTAL_ROUNDS}
               aiRoster={rosters.ai}
-              onToggle={toggleChecklist}
-            />
-            <AiRosterPanel
-              roster={rosters.ai}
-              round={session.round}
               destroyed={session.destroyed}
-              onRoundChange={changeRound}
+              firstTurn={session.firstTurn}
+              aiTurnDone={session.aiTurnDone}
+              onStartAiTurn={startAiTurn}
+              onStartNextRound={startNextRound}
+              onNewBattle={startNewBattle}
               onToggleDestroyed={toggleDestroyed}
-              onOpenBuilder={() => setBuilderOpen(true)}
-            />
-            <TurnView
-              plan={plan}
-              loading={planLoading}
-              error={planError}
-              round={session.round}
             />
             <footer className="space-y-1 px-1 pt-1 text-center text-[11px] leading-5 text-stone-600">
               <p>

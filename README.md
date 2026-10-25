@@ -18,9 +18,11 @@ docker compose up --build
 
 Open [http://localhost:8080](http://localhost:8080).
 
-The app opens with two starter rosters already loaded — your Stormcast Eternals
-and the AI's Skaven — plus a setup checklist and the AI plan for round one. No
-army, mission, points or difficulty choice is required.
+The app opens on the enemy army: use the Skaven starter or import a roster of
+your own. Once that is set, roll off at the table and tell the app who has the
+first turn. The battle screen then gives you one button — start the AI turn —
+which calls the AI's actions one phase at a time so you can follow along on your
+own board. No army, mission, points or difficulty choice is required.
 
 | Route | Experience |
 | --- | --- |
@@ -30,11 +32,15 @@ army, mission, points or difficulty choice is required.
 
 ## Table companion
 
-- **Setup checklist.** Place objectives and terrain, deploy your army, then
-  deploy the AI army with its doctrine guide: Press forward, Support in cover,
-  Hold near objectives.
-- **AI roster and round counter.** Mark destroyed AI units with a simple toggle
-  and advance the battle round.
+- **Enemy army first.** The app opens on the enemy army: take the Skaven
+  starter or import a roster as JSON.
+- **Roll for the first turn.** Roll off at the table and tell the app who won;
+  the deployment hint covers Press, Support and Hold.
+- **One button for the AI.** Start the AI turn and follow it one phase at a
+  time — Hero, Movement, Shooting, Charge, Combat, End — resolving each phase on
+  the real board before continuing.
+- **AI losses and round counter.** Mark destroyed AI units in the end phase and
+  move to the next battle round.
 - **Phase cards.** Hero, Movement, Shooting, Charge, Combat and End. Each entry
   names the unit, maneuver, instruction and short reason, with the relevant
   weapon profile attached.
@@ -113,11 +119,14 @@ backend/
     planner.py   doctrine classification and seeded maneuver cards
   table_api.py   /api/table/rosters, /rosters/validate and /plan
 frontend/src/table/
-  TableApp.jsx      setup, roster, round and plan flow
+  TableApp.jsx      enemy setup, first turn, round and phase flow
+  EnemySetup.jsx    starter army or JSON import
+  PriorityRoll.jsx  first-turn roll and deployment hint
+  BattlePanel.jsx   round status and the Start AI turn button
+  AiTurn.jsx        one phase at a time, with end-phase loss marking
+  AiLossList.jsx    destroyed-unit toggles
+  PhaseCard.jsx     maneuvers, instructions and weapon profiles
   RosterBuilder.jsx manual builder and JSON import/export
-  SetupChecklist.jsx
-  AiRosterPanel.jsx
-  PhaseCard.jsx / TurnView.jsx
 ```
 
 It reads starter profiles from the curated faction packs in `data/aos4/` and
@@ -165,7 +174,7 @@ python -m backend.engine.cli inspect /tmp/aos4-state.json
 
 | Area | Status |
 | --- | --- |
-| Table companion planner, setup checklist and phase cards | Implemented |
+| Table companion planner, enemy setup and phase-by-phase AI turn | Implemented |
 | Starter Stormcast and Skaven rosters | Implemented |
 | Custom roster builder, JSON import/export and localStorage | Implemented |
 | Seeded maneuver variation and destroyed-unit filtering | Implemented |

@@ -23,25 +23,31 @@ The old digital board game is preserved at `/digital` and the card prototype at
 
 The app is playable before the player builds anything:
 
-- Two starter rosters are preloaded: your Stormcast Eternals and the AI's
-  Skaven.
-- Either roster can be swapped, edited by hand or replaced with JSON.
-- A setup checklist walks through objectives, terrain, your deployment and the
-  AI deployment by doctrine.
-- The AI plan for the round is ready as soon as the app opens.
+- The first screen is the enemy army: take the Skaven starter or import a
+  roster as JSON.
+- Your Stormcast starter is preloaded for the planner's hero targets, and
+  either roster can be swapped, edited by hand or replaced with JSON in the
+  roster editor.
+- After deployment the player rolls off at the table and tells the app who has
+  the first turn.
+- The battle screen is one button: start the AI turn and follow it one phase at
+  a time.
 
 There is no required army, mission, points limit or difficulty choice.
 
 ## Core loop
 
 1. Open Sad Hammer on a phone propped beside the table.
-2. Place objectives and terrain, then deploy your army.
-3. Deploy the AI army using its type-based guide: Press forward, Support in
-   cover, Hold near objectives.
-4. Read the AI's phase cards for the round. Each card names the unit, the
-   maneuver, the instruction and a short reason.
-5. Measure, move, shoot, charge, fight and roll dice physically.
-6. Mark any AI units you destroyed, then advance the round counter.
+2. Confirm the enemy army, place objectives and terrain, then deploy both
+   armies. The enemy guide is Press forward, Support in cover, Hold near
+   objectives.
+3. Roll off and tell the app who has the first turn.
+4. Play your turn physically: measure, move, shoot, charge, fight and roll
+   dice.
+5. Press **Start the AI turn** and follow one phase at a time. Each card names
+   the unit, the maneuver, the instruction and a short reason.
+6. Mark any AI units you destroyed in the End phase, finish the AI turn, then
+   start the next round.
 7. Repeat for five battle rounds.
 
 The app never asks for positions, distances, terrain layout, wounds or your
@@ -88,10 +94,13 @@ there is no shooting target and an enemy is already within 6 inches.
 
 ## Table UI
 
-- Setup checklist with a doctrine-based deployment guide.
-- AI roster with simple destroyed toggles.
-- Battle round counter.
-- Phase cards for Hero, Movement, Shooting, Charge, Combat and End.
+- Enemy army setup with the Skaven starter and JSON import.
+- First-turn roll with a doctrine-based deployment hint.
+- Battle screen with the round, the AI roster and one primary button: start
+  the AI turn.
+- The AI turn is stepped one phase at a time: Hero, Movement, Shooting, Charge,
+  Combat and End. Only the current phase is shown.
+- AI destroyed-unit toggles in the end phase, feeding the next round's plan.
 - Each card shows the unit, maneuver, instruction, short reason and weapon
   profile where relevant.
 

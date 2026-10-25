@@ -12,16 +12,24 @@ on a real tabletop. It knows nothing about the board.
 
 ## Flow
 
-1. The app loads the two starter rosters from the backend and persists them in
-   browser localStorage.
-2. The setup checklist covers objectives, terrain, your deployment and the AI
-   deployment by doctrine.
-3. The app requests one plan for the current round: both rosters, the round,
-   the seed and the destroyed AI unit IDs.
-4. Phase cards show what each AI unit is trying to do. The player resolves it
-   physically.
-5. Destroyed toggles and the round counter request a new plan. Both are stored
-   in localStorage, along with the rosters.
+1. On first open the app asks for the enemy army: use the Skaven starter or
+   import a roster as JSON. Your Stormcast starter loads in the background for
+   the planner's hero targets and can be edited in the roster editor.
+2. Set up the table, then roll off. Tell the app who has the first turn; the
+   deployment hint covers Press, Support and Hold.
+3. The battle screen shows the round and one primary action: **Start the AI
+   turn**. If the AI won the roll, that is the first thing you do.
+4. The AI turn runs one phase at a time — Hero, Movement, Shooting, Charge,
+   Combat, End. Each step shows only that phase's cards, so you can resolve it
+   on the table before continuing.
+5. The end phase also lists the AI units: mark any you destroyed, then finish
+   the AI turn. Next round's plan leaves them out.
+6. Finishing the turn offers the next round. From round two on the screen
+   assumes you take your turn first and start the AI turn when the AI's turn
+   comes around.
+7. The app requests one plan per round: both rosters, the round, the seed and
+   the destroyed AI unit IDs. The rosters, round, destroyed units, first turn
+   and current AI phase are stored in localStorage.
 
 ## Rosters
 
@@ -84,7 +92,10 @@ the local backend; no third-party roster or game service is used.
 | localStorage key | Contents |
 | --- | --- |
 | `sadhammer.table.rosters` | Both rosters, including the current swap |
-| `sadhammer.table.session` | Seed, round, destroyed AI unit IDs and checklist |
+| `sadhammer.table.session` | Seed, round, destroyed AI unit IDs, enemy-ready flag, first turn and the AI turn's current phase |
+
+A reload mid-turn resumes at the same phase. A session from an earlier version
+of the app keeps its saved rosters and resumes at the first-turn step.
 
 Clearing site data restores the starters on the next load.
 

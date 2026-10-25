@@ -1,6 +1,9 @@
 const ROSTERS_KEY = "sadhammer.table.rosters";
 const SESSION_KEY = "sadhammer.table.session";
 export const TOTAL_ROUNDS = 5;
+export const PHASE_COUNT = 6;
+
+const FIRST_TURNS = new Set(["player", "ai"]);
 
 function isRoster(value) {
   return (
@@ -38,6 +41,20 @@ export function createSeed() {
   return Math.floor(Math.random() * 2_147_483_647);
 }
 
+// A fresh game: the enemy army still has to be chosen, so the first screen is
+// the setup step rather than the battle board.
+export function createSession() {
+  return {
+    seed: createSeed(),
+    round: 1,
+    destroyed: [],
+    enemyReady: false,
+    firstTurn: null,
+    aiTurnDone: false,
+    phaseIndex: null,
+  };
+}
+
 export function loadSession() {
   if (typeof window === "undefined") return null;
   try {
@@ -50,16 +67,26 @@ export function loadSession() {
     const destroyed = Array.isArray(parsed.destroyed)
       ? parsed.destroyed.filter((item) => typeof item === "string")
       : [];
+    const firstTurn = FIRST_TURNS.has(parsed.firstTurn) ? parsed.firstTurn : null;
+    const phaseIndex =
+      Number.isInteger(parsed.phaseIndex) &&
+      parsed.phaseIndex >= 0 &&
+      parsed.phaseIndex < PHASE_COUNT
+        ? parsed.phaseIndex
+        : null;
     return {
       seed,
       round,
       destroyed,
-      checklist: {
-        objectives: Boolean(parsed.checklist?.objectives),
-        terrain: Boolean(parsed.checklist?.terrain),
-        playerDeploy: Boolean(parsed.checklist?.playerDeploy),
-        aiDeploy: Boolean(parsed.checklist?.aiDeploy),
-      },
+      // A session from the previous version already has rosters saved, so it
+      // resumes at the first-turn step instead of asking for the army again.
+      enemyReady:
+        typeof parsed.enemyReady === "boolean"
+          ? parsed.enemyReady
+          : Boolean(loadRosters()),
+      firstTurn,
+      aiTurnDone: Boolean(parsed.aiTurnDone),
+      phaseIndex,
     };
   } catch (error) {
     return null;

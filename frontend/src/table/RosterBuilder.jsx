@@ -86,12 +86,19 @@ function issuesFrom(error, label) {
   }));
 }
 
-export default function RosterBuilder({ rosters, onSave, onClose }) {
+export default function RosterBuilder({
+  rosters,
+  onSave,
+  onClose,
+  initialSlot = "player",
+}) {
   const [drafts, setDrafts] = useState(() => ({
     player: copy(rosters.player),
     ai: copy(rosters.ai),
   }));
-  const [active, setActive] = useState("player");
+  const [active, setActive] = useState(
+    initialSlot === "ai" ? "ai" : "player"
+  );
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [issues, setIssues] = useState([]);
